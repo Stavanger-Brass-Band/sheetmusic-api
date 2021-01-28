@@ -1,0 +1,320 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SheetMusic.Api</name>
+    </assembly>
+    <members>
+        <member name="T:SheetMusic.Api.Configuration.ConfigureSwaggerOptions">
+            <summary>
+            Configures the Swagger generation options.
+            </summary>
+            <remarks>This allows API versioning to define a Swagger document per API version after the
+            <see cref="T:Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider"/> service has been resolved from the service container.</remarks>
+        </member>
+        <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.#ctor(Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider)">
+            <summary>
+            Initializes a new instance of the <see cref="T:SheetMusic.Api.Configuration.ConfigureSwaggerOptions"/> class.
+            </summary>
+            <param name="provider">The <see cref="T:Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider">provider</see> used to generate Swagger documents.</param>
+        </member>
+        <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.Configure(Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions)">
+            <inheritdoc />
+        </member>
+        <member name="T:SheetMusic.Api.Configuration.SwaggerDefaultValues">
+            <summary>
+            Represents the Swagger/Swashbuckle operation filter used to document the implicit API version parameter.
+            </summary>
+            <remarks>This <see cref="T:Swashbuckle.AspNetCore.SwaggerGen.IOperationFilter"/> is only required due to bugs in the <see cref="T:Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenerator"/>.
+            Once they are fixed and published, this class can be removed.</remarks>
+        </member>
+        <member name="M:SheetMusic.Api.Configuration.SwaggerDefaultValues.Apply(Microsoft.OpenApi.Models.OpenApiOperation,Swashbuckle.AspNetCore.SwaggerGen.OperationFilterContext)">
+            <summary>
+            Applies the filter to the specified operation using the given context.
+            </summary>
+            <param name="operation">The operation to apply the filter to.</param>
+            <param name="context">The current operation filter context.</param>
+        </member>
+        <member name="T:SheetMusic.Api.Controllers.PartsController">
+            <summary>
+            This controller contains endpoints for manipulating Parts resources. 
+            Not to be confused with parts that belongs to a set, that is a different resource.
+            
+            PS! Only Administrators can invoke endpoints in this controller.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.BuildPartIndex">
+            <summary>
+            Rebuild the part index manually. 
+            Whenever a change is done that requires rebuild, a rebuild is triggered. 
+            This needn't be invoked unless you did some manual changes in the database.
+            Requires Administrator privileges.
+            </summary>
+            <response code="204">Index was rebuilt successfully</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.GetPartList(SheetMusic.Api.OData.MVC.ODataQueryParams)">
+            <summary>
+            Gets a list of all Parts. OData filtering is supported, e.g. $filter=name eq 'partitur'.
+            Requires Administrator privileges.
+            </summary>
+            <param name="queryParams">The OData query paramateres specified</param>
+            <response code="200">A list of parts matching filter, or all parts. Empty list if no matching results</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.SearchForPartInIndex(System.String)">
+            <summary>
+            Search for a part through the Part index.
+            Requires Administrator privileges.
+            </summary>
+            <param name="searchTerm">The search term to use when searching</param>
+            <response code="200">The best match for the part</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.AddNewPart(SheetMusic.Api.Controllers.RequestModels.PartRequest)">
+            <summary>
+            Add a new part.
+            Requires Administrator privileges.
+            </summary>
+            <param name="request">Details about the new part</param>
+            <response code="200">Details about the newly created part</response>
+            <response code="400">If provided input is invalid. Should include a body with ProplemDetails-formatted errors.</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.GetPart(System.String)">
+            <summary>
+            Gets details about part identified by <paramref name="partIdentifier"/>. 
+            Requires Administrator privileges.
+            </summary>
+            <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
+            <response code="200">Part information including list of aliases</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.UpdatePart(System.String,SheetMusic.Api.Controllers.RequestModels.PartRequest)">
+            <summary>
+            Updates information about part identified by <paramref name="partIdentifier"/> PS! Provide all values, those not provided will be set to null.
+            Requires Administrator privileges.
+            </summary>
+            <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
+            <param name="request">Request body containing all properties</param>
+            <response code="200">Updated part information including list of aliases</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.DeletePart(System.String)">
+            <summary>
+            Deletes part identified by <paramref name="partIdentifier"/> permanently. 
+            Requires Administrator privileges.
+            </summary>
+            <param name="partIdentifier">Identifier (name, alias or Guid) of the part. Case insensitive for part names.</param>
+            <response code="204">Part and connected aliases are deleted</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.AddAlias(System.String,System.String)">
+            <summary>
+            Adds <paramref name="alias"/> to part identified by <paramref name="partIdentifier"/>.
+            Requires Administrator privileges.
+            </summary>
+            <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
+            <param name="alias">An alias the part is also known as</param>
+            <response code="200">Updated part information including list of aliases</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.DeleteAliasFromPart(System.String,System.String)">
+            <summary>
+            Delete <paramref name="alias"/> from part identified by <paramref name="partIdentifier"/>.
+            Requires Administrator privileges.
+            </summary>
+            <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
+            <param name="alias">An alias the part is also known as</param>
+            <response code="200">Updated part information including list of aliases</response>
+            <response code="404">Part not found, make sure part name is correct</response>
+            <response code="401">Authorization header (bearer token) is invalid</response>
+            <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PdfController.SplitPdfIntoSinglePages(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Splits the PDF <paramref name="file"/> into single-page pdf files added to a zip archive
+            </summary>
+            <param name="file">The file to split</param>
+            <returns>Zip file with the split results</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PdfController.SmartSplitPdf(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Attempts to recognize where the page splits are, splits the files and returns the pdf collection in a zip archive
+            </summary>
+            <param name="file">The file to split</param>
+            <returns>Zip archive with results</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(System.String)">
+            <summary>
+            Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="searchTerm"/> if provided
+            Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
+            </summary>
+            <param name="searchTerm">Optional. A search term, can be archive number, title, arranger or composer</param>
+            <returns>Sets matching search term</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetPartsForSet(System.String)">
+            <summary>
+            Lists parts for set with <paramref name="identifier"/> 
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <returns>List of parts for set</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSinglePart(System.String,System.String)">
+            <summary>
+            Get a single part for a set
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
+            <returns>The part that matches, 404 if not found</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSinglePartFile(System.String,System.String,System.String)">
+            <summary>
+            Gets the PDF file for set with <paramref name="identifier"/>, part with <paramref name="partIdentifier"/>
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
+            <param name="downloadToken">A token to prove you are authorized for download</param>
+            <returns>The PDF file, if it exists. 404 otherwise.</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetinformationByIdentifier(System.String)">
+            <summary>
+            Gets information about a single set, either by guid, number or title.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <returns>Set matching <paramref name="identifier"/></returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.UpdateSetInformation(System.String,SheetMusic.Api.Controllers.RequestModels.SetRequest)">
+            <summary>
+            Updates information about a set. PS! All properties will be updated, omitted once are nulled out.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="request">Update set parameters</param>
+            <returns>Updated set metadata</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetDownloadToken(System.String)">
+            <summary>
+            Authorized a set for download, allowing a single download for the one with the token.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <returns></returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetPartsForSetAzZip(System.String,System.String)">
+            <summary>
+            Gets the part collection for a set as a zip file. 
+            Accepts anonymous requests, but they must provide a download token that is validated to be able to download.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="downloadToken">A token for proving that user is allowed to download this set</param>
+            <returns>Zipped collection of parts</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetsThatHasPartsButNoFiles">
+            <summary>
+            Analyzes the assigned parts and compares them with the blob storage content. 
+            If a non-empty file does not exists, the set is listed in results
+            </summary>
+            <returns>The sets with parts that are assigned, but a file is not present</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.UploadPartsForSets(System.String,Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Upload all parts for set with identifier <paramref name="identifier"/> as zip file
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="file">The file that has all parts. Needs to be a zip file.</param>
+            <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.AddPartContent(System.String,System.String,Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partName">Name of the part to add</param>
+            <param name="file">The PDF file for the part</param>
+            <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.AddPartContent(System.String,System.String)">
+            <summary>
+            Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partName">Name of the part to add</param>
+            <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.DeletePart(System.String,System.String)">
+            <summary>
+            Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="identifier"/>.
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partIdentifier">Name of the part to add</param>
+            <returns>204 if successfull, 404 if not found, 500 if something bad happens</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.AddNewSet(SheetMusic.Api.Controllers.RequestModels.SetRequest)">
+            <summary>
+            Adds a new set to the list (without parts). 
+            ID, number and scanned is optional. Number will be next in sequence if not specified.
+            </summary>
+            <param name="request">Information about the new set</param>
+            <returns>200 if ok, 500 if something bad happens</returns>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.DeleteSet(System.String)">
+            <summary>
+            Deletes the set with <paramref name="identifier"/>, including all the parts and files
+            </summary>
+            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <returns>200 if ok, 404 if not found, 500 if something bad happens</returns>
+        </member>
+        <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.Id">
+            <summary>
+            Identifier in DB
+            </summary>
+        </member>
+        <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.ArchiveNumber">
+            <summary>
+            Number in physical archive
+            </summary>
+        </member>
+        <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.ZipDownloadUrl">
+            <summary>
+            Download pdf of parts for set on this URL
+            </summary>
+        </member>
+        <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.PartsUrl">
+            <summary>
+            List parts of set on this URL
+            </summary>
+        </member>
+        <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.Parts">
+            <summary>
+            A list of parts for the set, if included
+            </summary>
+        </member>
+        <member name="T:SheetMusic.Api.Database.Entities.ProjectSheetMusicSet">
+            <summary>
+            Contains the sheet music set to project connection
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.EnsureProperParameterName(SheetMusic.Api.OData.Expression.ODataFieldMapping{`0})">
+            <summary>
+            Update the expressions in the provided field mapping to use the correct root param name.
+            </summary>
+            <param name="fieldMappings"></param>
+        </member>
+        <member name="T:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.RenameParameterVisitor">
+            <summary>
+            Renames the expression root to provided expression.
+            </summary>
+        </member>
+    </members>
+</doc>

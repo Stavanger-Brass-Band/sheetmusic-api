@@ -1,0 +1,99 @@
+# ASP.NET Core
+# Build and test ASP.NET Core projects targeting .NET Core.
+# Add steps that run tests, create a NuGet package, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+- stage: Build
+  jobs:
+  - job: BuildAndPack
+    displayName: 'Build and pack'
+    steps:
+      - task: DotNetCoreCLI@2
+        displayName: 'Restore packages'
+        inputs:
+          command: 'restore'
+          projects: '**/*.csproj'
+          feedsToUse: 'select'
+
+      - task: DotNetCoreCLI@2
+        displayName: Build
+        inputs:
+          command: 'build'
+          projects: '**/*.csproj'
+
+      - task: DotNetCoreCLI@2
+        displayName: 'Create zip'
+        inputs:
+          command: 'publish'
+          arguments: '--output $(Build.ArtifactStagingDirectory)'
+          modifyOutputPath: true
+          publishWebProjects: true
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'drop'
+          publishLocation: 'Container'
+
+- stage: DeployToTest
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DepoyToTest
+    displayName: 'Deploy to test'
+    pool: 'Hosted VS2017'
+    environment: 'API test'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Publish to azure'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'Visual Studio Professional(8ba210c5-c187-44bb-9d0b-858282bb4487)'
+              appType: 'webApp'
+              WebAppName: 'sheet-music-api-test'
+              packageForLinux: '$(Pipeline.Workspace)/**/*.zip'
+
+- stage: DeployToProd
+  dependsOn: DeployToTest
+  condition: succeeded()
+  jobs:
+  - deployment: DeployToProd
+    displayName: 'Deploy to production'
+    pool: 'Hosted VS2017'
+    environment: 'API production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureRmWebAppDeployment@4
+            enabled: false
+            displayName: 'Publish to azure - Windows'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'Visual Studio Professional(8ba210c5-c187-44bb-9d0b-858282bb4487)'
+              appType: 'webApp'
+              WebAppName: 'sheetmusic-api'
+              packageForLinux: '$(Pipeline.Workspace)/**/*.zip'
+
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Publish to azure - Linux'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'Visual Studio Professional(8ba210c5-c187-44bb-9d0b-858282bb4487)'
+              appType: 'webApp'
+              WebAppName: 'sheet-music-api'
+              packageForLinux: '$(Pipeline.Workspace)/**/*.zip'
+
