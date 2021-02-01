@@ -11,6 +11,7 @@ using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.IdentityServer;
 using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
 using System.Reflection;
@@ -55,6 +56,13 @@ namespace SheetMusic
 
             services.AddControllers()
                 .AddFluentValidation(config => config.RegisterValidatorsFromAssemblyContaining<Startup>());
+
+            var builder = services.AddIdentityServer()
+               .AddInMemoryApiScopes(Config.ApiScopes)
+               .AddInMemoryClients(Config.Clients);
+
+            // not recommended for production - you need to store your key material somewhere secure
+            builder.AddDeveloperSigningCredential();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -63,6 +71,7 @@ namespace SheetMusic
             app.UseMiddleware<ErrorHandlerMiddleware>();
 
             app.UseRouting();
+            //app.UseIdentityServer();
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseHttpsRedirection();

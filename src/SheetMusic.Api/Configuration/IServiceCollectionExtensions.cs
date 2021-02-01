@@ -35,61 +35,72 @@ namespace SheetMusic.Api.Configuration
                         .AllowCredentials());
             });
 
-            var secretKey = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
+            //var secretKey = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
 
-            services.AddAuthentication(x =>
-            {
-                x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(x =>
-            {
-                x.Events = new JwtBearerEvents
+            services.AddAuthentication("Bearer")
+                .AddJwtBearer("Bearer", options =>
                 {
-                    OnTokenValidated = async context =>
+                    options.Authority = "https://localhost:5001";
+
+                    options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        if (context is null)
-                            throw new Exception("Unable to process token with no context");
+                        ValidateAudience = false
+                    };
+                });
 
-                        if (!context.Principal?.Identity?.IsAuthenticated ?? false || context.Principal?.Identity?.Name == null)
-                        {
-                            context.Fail("Unauthorized");
-                            return;
-                        }
+            //services.AddAuthentication(x =>
+            //{
+            //    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            //    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            //})
+            //.AddJwtBearer(x =>
+            //{
+            //    x.Events = new JwtBearerEvents
+            //    {
+            //        OnTokenValidated = async context =>
+            //        {
+            //            if (context is null)
+            //                throw new Exception("Unable to process token with no context");
 
-                        var userRepo = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
-                        if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
-                        {
-                            var user = await userRepo.GetByIdAsync(userId);
+            //            if (!context.Principal?.Identity?.IsAuthenticated ?? false || context.Principal?.Identity?.Name == null)
+            //            {
+            //                context.Fail("Unauthorized");
+            //                return;
+            //            }
 
-                            if (user == null)
-                            {
-                                // return unauthorized if user no longer exists
-                                context.Fail("Unauthorized");
-                            }
-                        }
-                        else
-                        {
-                            context.Fail("Unauthorized");
-                        }
-                    }
-                };
-                x.RequireHttpsMetadata = false;
-                x.SaveToken = true;
-                x.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-                    ValidateIssuer = false,
-                    ValidateAudience = false
-                };
-            });
+            //            var userRepo = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+            //            if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
+            //            {
+            //                var user = await userRepo.GetByIdAsync(userId);
 
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
-            });
-            services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
+            //                if (user == null)
+            //                {
+            //                    // return unauthorized if user no longer exists
+            //                    context.Fail("Unauthorized");
+            //                }
+            //            }
+            //            else
+            //            {
+            //                context.Fail("Unauthorized");
+            //            }
+            //        }
+            //    };
+            //    x.RequireHttpsMetadata = false;
+            //    x.SaveToken = true;
+            //    x.TokenValidationParameters = new TokenValidationParameters
+            //    {
+            //        ValidateIssuerSigningKey = true,
+            //        IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+            //        ValidateIssuer = false,
+            //        ValidateAudience = false
+            //    };
+            //});
+
+            //services.AddAuthorization(options =>
+            //{
+            //    options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
+            //});
+            //services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
 
             return services;
         }
