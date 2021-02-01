@@ -6,7 +6,7 @@ using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Models;
 using SheetMusic.Api.Test.Utility;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 using Xunit;
@@ -81,6 +81,27 @@ namespace SheetMusic.Api.Test.Tests
             {
                 items.Should().Contain(s => s.ArchiveNumber == testSet.ArchiveNumber && s.Title == testSet.Title);
             }
+        }
+
+        [Fact]
+        public async Task GetPartsForSet_ShouldBeSuccessfull()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var testParts = await new PartDataBuilder(adminClient)
+                .WithParts(30)
+                .ProvisionAsync();
+
+            foreach (var part in testParts)
+            {
+                var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+                await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
+                await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content");
+            }
+
+            var set = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
         }
     }
 }
