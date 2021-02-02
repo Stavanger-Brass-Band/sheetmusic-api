@@ -37,15 +37,14 @@ stages:
         displayName: 'Run integration tests'
         inputs:
           command: 'test'
-          arguments: '--configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=$(Build.SourcesDirectory)/TestResults/Coverage/'
-          publishTestResults: true
+          arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
           projects: '**/SheetMusic.Api.Test.csproj'
         
       - task: PublishCodeCoverageResults@1
         displayName: 'Publish code coverage report'
         inputs:
           codeCoverageTool: 'Cobertura'
-          summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+          summaryFileLocation: '$(Build.SourcesDirectory)/**/TestResults/coverage.cobertura.xml'
 
       - task: DotNetCoreCLI@2
         displayName: 'Create zip'
