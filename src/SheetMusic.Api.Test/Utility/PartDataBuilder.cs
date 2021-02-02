@@ -12,7 +12,7 @@ namespace SheetMusic.Api.Test.Utility
     public class PartDataBuilder
     {
         private readonly HttpClient httpClient;
-        private List<PutPartModel> partRequests = new List<PutPartModel>();
+        private readonly List<PutPartModel> partRequests = new List<PutPartModel>();
 
         public PartDataBuilder(HttpClient httpClient)
         {
@@ -48,6 +48,11 @@ namespace SheetMusic.Api.Test.Utility
             }
 
             return createdItems;
+        }
+
+        public PutPartModel? GetPartInput(string partName)
+        {
+            return partRequests.FirstOrDefault(p => p.Name == partName);
         }
 
         private static void AssertPropsAreEqual(PutPartModel item, ApiPart apiPart)

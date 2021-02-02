@@ -3,7 +3,6 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -17,23 +16,6 @@ namespace SheetMusic.Api.Repositories
         public PartRepository(SheetMusicContext context)
         {
             this.context = context;
-        }
-
-        public async Task<List<SheetMusicPart>> GetMusicPartsForSetAsync(Guid setId)
-        {
-            var query = from set in context.SheetMusicSets
-                        from setPart in set.Parts
-                        where set.Id == setId
-                        select setPart;
-
-            var items = await query
-                .Include(sp => sp.Set)
-                .Include(sp => sp.Part)
-                .OrderBy(sp => sp.Part.SortOrder)
-                .ThenBy(sp => sp.Part.Name)
-                .ToListAsync();
-
-            return items;
         }
 
         public async Task<MusicPart> GetOrCreatePartAsync(string partName)
@@ -68,29 +50,6 @@ namespace SheetMusic.Api.Repositories
             }
 
             return part;
-        }
-
-        public async Task<MusicPart> ResolvePartAsync(string partIdentifier)
-        {
-            MusicPart? result = null;
-
-            if (Guid.TryParse(partIdentifier, out var guid))
-            {
-                result = await context.MusicParts
-                    .Include(p => p.Aliases)
-                    .FirstOrDefaultAsync(p => p.Id == guid);
-            }
-            else
-            {
-                result = await GetPartAsync(partIdentifier);
-            }
-
-            if (result == null)
-            {
-                throw new NotFoundError($"sheetmusic/parts/{partIdentifier}");
-            }
-
-            return result;
         }
     }
 }

@@ -176,7 +176,7 @@
             <summary>
             Get a single part for a set
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
             <returns>The part that matches, 404 if not found</returns>
         </member>
@@ -237,19 +237,19 @@
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.AddPartContent(System.String,System.String,Microsoft.AspNetCore.Http.IFormFile)">
             <summary>
-            Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+            Adds the PDF content for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-            <param name="partName">Name of the part to add</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partIdentifier">Name of the part to add</param>
             <param name="file">The PDF file for the part</param>
             <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.AddPartContent(System.String,System.String)">
             <summary>
-            Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+            Adds the PDF content for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-            <param name="partName">Name of the part to add</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="partIdentifier">Name of the part to add</param>
             <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.DeletePart(System.String,System.String)">

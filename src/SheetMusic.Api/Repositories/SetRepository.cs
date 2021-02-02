@@ -73,7 +73,7 @@ namespace SheetMusic.Api.Repositories
                     context.SheetMusicParts.Add(new SheetMusicPart { Id = Guid.NewGuid(), MusicPartId = part.Id, SetId = set.Id });
                     logger.LogInformation($"Part identified as {part.Name}. Uploading.");
 
-                    var partIdentifier = new MusicPartIdentifier(set.Id, part.Id);
+                    var partIdentifier = new PartRelatedToSet(set.Id, part.Id);
 
                     await blobClient.AddMusicPartContentAsync(partIdentifier, entry.Open());
                     await context.SaveChangesAsync();
@@ -116,7 +116,7 @@ namespace SheetMusic.Api.Repositories
                     var entry = zip.CreateEntry($"{partRelation.Part.Name}.pdf");
                     using (var entryStream = entry.Open())
                     {
-                        var id = new MusicPartIdentifier(set.Id, partRelation.MusicPartId);
+                        var id = new PartRelatedToSet(set.Id, partRelation.MusicPartId);
                         var contents = await blobClient.GetMusicPartContentStreamAsync(id);
                         contents.CopyTo(entryStream);
 

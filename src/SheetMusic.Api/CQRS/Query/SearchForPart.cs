@@ -24,11 +24,11 @@ namespace SheetMusic.Api.CQRS.Queries
 
         public class Handler : IRequestHandler<SearchForPart, MusicPart?>
         {
-            private readonly IndexAdminService indexAdminService;
+            private readonly IIndexAdminService indexAdminService;
             private readonly SheetMusicContext db;
             private readonly ILogger<Handler> logger;
 
-            public Handler(IndexAdminService indexAdminService, SheetMusicContext db, ILogger<Handler> logger)
+            public Handler(IIndexAdminService indexAdminService, SheetMusicContext db, ILogger<Handler> logger)
             {
                 this.indexAdminService = indexAdminService;
                 this.db = db;

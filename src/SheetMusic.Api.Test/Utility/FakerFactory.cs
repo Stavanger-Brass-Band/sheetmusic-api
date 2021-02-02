@@ -24,7 +24,7 @@ namespace SheetMusic.Api.Test.Utility
         internal static Faker<PutPartModel> CreatePartFaker()
         {
             var faker = new Faker<PutPartModel>(Norwegian)
-                .RuleFor(p => p.Name, f => f.Lorem.Word())
+                .RuleFor(p => p.Name, f => $"{f.Lorem.Word()}-{f.UniqueIndex}")
                 .RuleFor(p => p.SortOrder, f => f.Random.Int(1, 99))
                 .RuleFor(p => p.Indexable, f => f.Random.Bool());
 

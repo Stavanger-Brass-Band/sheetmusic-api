@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Search;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
+using SheetMusic.Api.Test.Utility;
 using System;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 
@@ -28,17 +30,16 @@ namespace SheetMusic.Api.Test.Infrastructure
         {
             builder.ConfigureTestServices(services =>
             {
+                var indexAdminMock = new Mock<IIndexAdminService>();
+                services.TryRemoveService<IIndexAdminService>();
+                services.AddSingleton(indexAdminMock.Object);
+
                 services.AddEntityFrameworkInMemoryDatabase();
                 var builder = services.AddAuthentication();
                 builder.AddScheme<IntgTestSchemeOptions, IntgTestAuthenticationHandler>(IntgTestAuthenticationHandler.AuthenticationScheme, opts => { });
                 services.PostConfigureAll<JwtBearerOptions>(o => o.ForwardAuthenticate = IntgTestAuthenticationHandler.AuthenticationScheme);
 
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<SheetMusicContext>));
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
-
+                services.TryRemoveService<DbContextOptions<SheetMusicContext>>();
                 services.AddDbContext<SheetMusicContext>(options => options.UseInMemoryDatabase($"SheetMusicIntegrationTest_{sessionId}"));
                 TestServices = services.BuildServiceProvider();
 

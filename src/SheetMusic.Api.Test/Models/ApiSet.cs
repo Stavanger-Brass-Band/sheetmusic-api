@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SheetMusic.Api.Test.Models
 {
@@ -22,5 +23,6 @@ namespace SheetMusic.Api.Test.Models
         public DateTimeOffset? BorrowedDateTime { get; set; }
         public string ZipDownloadUrl { get; set; } = null!;
         public string PartsUrl { get; set; } = null!;
+        public List<ApiSetPart>? Parts { get; set; }
     }
 }

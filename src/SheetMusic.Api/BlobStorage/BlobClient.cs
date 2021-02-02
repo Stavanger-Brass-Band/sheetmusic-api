@@ -37,7 +37,7 @@ namespace SheetMusic.Api.BlobStorage
             await container.CreateIfNotExistsAsync();
         }
 
-        public async Task<byte[]> GetMusicPartContentAsync(MusicPartIdentifier identifier)
+        public async Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier)
         {
             var blob = GetBlob(identifier);
 
@@ -49,14 +49,14 @@ namespace SheetMusic.Api.BlobStorage
             }
         }
 
-        public async Task<Stream> GetMusicPartContentStreamAsync(MusicPartIdentifier identifier)
+        public async Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier)
         {
             var blob = GetBlob(identifier);
 
             return await blob.OpenReadAsync();
         }
 
-        public async Task AddMusicPartContentAsync(MusicPartIdentifier identifier, Stream contentStream)
+        public async Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream)
         {
             try
             {
@@ -69,7 +69,7 @@ namespace SheetMusic.Api.BlobStorage
             }
         }
 
-        private CloudBlockBlob GetBlob(MusicPartIdentifier identifier)
+        private CloudBlockBlob GetBlob(PartRelatedToSet identifier)
         {
             var container = GetContainer();
             return container.GetBlockBlobReference(identifier.BlobPath);
@@ -87,14 +87,14 @@ namespace SheetMusic.Api.BlobStorage
             }
         }
 
-        public async Task<bool> HasPdfFileAsync(MusicPartIdentifier identifier)
+        public async Task<bool> HasPdfFileAsync(PartRelatedToSet identifier)
         {
             var blob = GetBlob(identifier);
 
             return await blob.ExistsAsync() && blob.Properties.Length > 0;
         }
 
-        public async Task DeletePartContentAsync(MusicPartIdentifier identifier)
+        public async Task DeletePartContentAsync(PartRelatedToSet identifier)
         {
             var blob = GetBlob(identifier);
             await blob.DeleteIfExistsAsync();

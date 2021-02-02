@@ -2,9 +2,9 @@
 
 namespace SheetMusic.Api.BlobStorage
 {
-    public class MusicPartIdentifier
+    public class PartRelatedToSet
     {
-        public MusicPartIdentifier(Guid setId, Guid partId)
+        public PartRelatedToSet(Guid setId, Guid partId)
         {
             SetId = setId;
             PartId = partId;
