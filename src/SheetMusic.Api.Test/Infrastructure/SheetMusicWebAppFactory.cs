@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Search;
@@ -30,6 +31,10 @@ namespace SheetMusic.Api.Test.Infrastructure
         {
             builder.ConfigureTestServices(services =>
             {
+                var blobMock = new Mock<IBlobClient>();
+                services.TryRemoveService<IBlobClient>();
+                services.AddSingleton(blobMock.Object);
+
                 var indexAdminMock = new Mock<IIndexAdminService>();
                 services.TryRemoveService<IIndexAdminService>();
                 services.AddSingleton(indexAdminMock.Object);
