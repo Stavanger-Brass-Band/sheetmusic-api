@@ -12,10 +12,10 @@ namespace SheetMusic.Api.CQRS.Command
     {
         public class Handler : AsyncRequestHandler<BuildPartIndex>
         {
-            private readonly IndexAdminService indexAdminService;
+            private readonly IIndexAdminService indexAdminService;
             private readonly SheetMusicContext db;
 
-            public Handler(IndexAdminService indexAdminService, SheetMusicContext db)
+            public Handler(IIndexAdminService indexAdminService, SheetMusicContext db)
             {
                 this.indexAdminService = indexAdminService;
                 this.db = db;
@@ -26,7 +26,9 @@ namespace SheetMusic.Api.CQRS.Command
                 await indexAdminService.ClearIndexAsync<PartIndex>();
                 await indexAdminService.EnsureIndexAsync<PartIndex>();
 
-                var dbParts = await db.MusicParts.Include(mp => mp.Aliases).ToListAsync();
+                var dbParts = await db.MusicParts
+                    .Include(mp => mp.Aliases)
+                    .ToListAsync(cancellationToken: cancellationToken);
 
                 var indexParts = dbParts
                     .Where(p => p.Indexable)

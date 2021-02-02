@@ -6,12 +6,12 @@ namespace SheetMusic.Api.BlobStorage
 {
     public interface IBlobClient
     {
-        Task AddMusicPartContentAsync(MusicPartIdentifier identifier, Stream contentStream);
+        Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream);
         Task EnsureContainerExistsAsync();
-        Task<byte[]> GetMusicPartContentAsync(MusicPartIdentifier identifier);
-        Task<Stream> GetMusicPartContentStreamAsync(MusicPartIdentifier identifier);
+        Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier);
+        Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier);
         Task DeleteSetContentAsync(Guid id);
-        Task<bool> HasPdfFileAsync(MusicPartIdentifier identifier);
-        Task DeletePartContentAsync(MusicPartIdentifier identifier);
+        Task<bool> HasPdfFileAsync(PartRelatedToSet identifier);
+        Task DeletePartContentAsync(PartRelatedToSet identifier);
     }
 }

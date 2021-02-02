@@ -8,7 +8,6 @@ using SheetMusic.Api.CQRS.Queries;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
-using SheetMusic.Api.Repositories;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,12 +26,10 @@ namespace SheetMusic.Api.Controllers
     public class PartsController : ControllerBase
     {
         private readonly IMediator mediator;
-        private readonly IPartRepository partRepository;
 
-        public PartsController(IMediator mediator, IPartRepository partRepository)
+        public PartsController(IMediator mediator)
         {
             this.mediator = mediator;
-            this.partRepository = partRepository;
         }
 
         /// <summary>
@@ -102,7 +99,7 @@ namespace SheetMusic.Api.Controllers
             var command = new AddPart(request.Name, request.SortOrder, request.Indexable ?? true);
             await mediator.Send(command);
 
-            var part = await partRepository.GetPartAsync(request.Name);
+            var part = await mediator.Send(new GetMusicPart(request.Name));
 
             if (part is null)
                 return StatusCode(500); //newly created part not retrieved and error not detected, not very likely but an internal server error 
@@ -122,7 +119,11 @@ namespace SheetMusic.Api.Controllers
         [HttpGet("parts/{partIdentifier}")]
         public async Task<ActionResult<ApiPart>> GetPart(string partIdentifier)
         {
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
             return new ApiPart(part);
         }
 
@@ -139,11 +140,15 @@ namespace SheetMusic.Api.Controllers
         [HttpPut("parts/{partIdentifier}")]
         public async Task<ActionResult<ApiPart>> UpdatePart(string partIdentifier, PartRequest request)
         {
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' not found" });
+
             var command = new UpdatePart(part.Id, request.Name, request.SortOrder, request.Indexable.GetValueOrDefault(false));
             await mediator.Send(command);
 
-            part = await partRepository.GetPartAsync(partIdentifier);
+            part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
                 return StatusCode(500); //newly created part not retrieved and error not detected, not very likely but an internal server error 
@@ -163,7 +168,11 @@ namespace SheetMusic.Api.Controllers
         [HttpDelete("parts/{partIdentifier}")]
         public async Task<ActionResult> DeletePart(string partIdentifier)
         {
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
             await mediator.Send(new DeletePart(part.Id));
 
             return NoContent();
@@ -182,9 +191,10 @@ namespace SheetMusic.Api.Controllers
         [HttpPost("parts/{partIdentifier}/aliases")]
         public async Task<ActionResult<ApiPart>> AddAlias(string partIdentifier, string alias)
         {
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
-            if (part == null) return NotFound(new ProblemDetails { Detail = "Part was not found" });
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
 
             try
             {
@@ -195,7 +205,7 @@ namespace SheetMusic.Api.Controllers
                 return Conflict(new ProblemDetails { Detail = error.Message });
             }
 
-            part = await partRepository.GetPartAsync(part.Name);
+            part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
                 return StatusCode(500); //newly created part not retrieved and error not detected, not very likely but an internal server error 
@@ -216,10 +226,14 @@ namespace SheetMusic.Api.Controllers
         [HttpDelete("parts/{partIdentifier}/aliases/{alias}")]
         public async Task<ActionResult<ApiPart>> DeleteAliasFromPart(string partIdentifier, string alias)
         {
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
             await mediator.Send(new RemoveAliasFromPart(part.Id, alias));
 
-            part = await partRepository.GetPartAsync(part.Name);
+            part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
                 return StatusCode(500); //newly created part not retrieved and error not detected, not very likely but an internal server error 

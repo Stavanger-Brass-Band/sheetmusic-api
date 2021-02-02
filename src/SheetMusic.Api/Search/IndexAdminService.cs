@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Search
 {
-    public class IndexAdminService
+    public class IndexAdminService : IIndexAdminService
     {
         private readonly IConfiguration config;
 

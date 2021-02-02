@@ -46,7 +46,7 @@ namespace SheetMusic
             services.AddScoped<ISetRepository, SetRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IProjectRepository, ProjectRepository>();
-            services.AddSingleton<IndexAdminService>();
+            services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
             services.AddMediatR(Assembly.GetAssembly(typeof(Startup)));
 

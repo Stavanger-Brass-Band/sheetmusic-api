@@ -7,6 +7,7 @@ using SheetMusic.Api.Test.Models;
 using SheetMusic.Api.Test.Utility;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Xunit;
@@ -98,10 +99,56 @@ namespace SheetMusic.Api.Test.Tests
             {
                 var path = $"{Path.GetTempPath()}{part.Name}.pdf";
                 await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
-                await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content");
+                await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
             }
 
-            var set = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
+            var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
+            partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await partsResponse.Content.ReadAsStringAsync();
+            var items = JsonConvert.DeserializeObject<ApiSet>(body);
+
+            foreach (var part in testParts)
+            {
+                items.Should().NotBeNull();
+                var item = items?.Parts?.FirstOrDefault(s => s.Name == part.Name);
+                item.Should().NotBeNull();
+                item?.SetId.Should().Be(testSet.Id);
+            }
+        }
+
+        [Fact]
+        public async Task DeletePartOnSet_ShouldBeSuccessfull()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
+            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+
+            var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        }
+
+        [Fact]
+        public async Task GetSinglePartOnSet_ShouldBeSuccessfull()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
+            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+
+            var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
     }
 }

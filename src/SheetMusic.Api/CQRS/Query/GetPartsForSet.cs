@@ -30,12 +30,19 @@ namespace SheetMusic.Api.CQRS.Query
 
             public async Task<List<SheetMusicPart>> Handle(GetPartsForSet request, CancellationToken cancellationToken)
             {
-                var parts = await db.SheetMusicSets
-                    .Where(s => s.Id == request.SetId)
-                    .Select(s => s.Parts)
-                    .FirstOrDefaultAsync(cancellationToken: cancellationToken);
+                var query = from set in db.SheetMusicSets
+                            from setPart in set.Parts
+                            where set.Id == request.SetId
+                            select setPart;
 
-                return parts.ToList();
+                var items = await query
+                    .Include(sp => sp.Set)
+                    .Include(sp => sp.Part)
+                    .OrderBy(sp => sp.Part.SortOrder)
+                    .ThenBy(sp => sp.Part.Name)
+                    .ToListAsync(cancellationToken: cancellationToken);
+
+                return items.ToList();
             }
         }
     }

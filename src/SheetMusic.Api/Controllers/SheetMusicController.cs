@@ -10,6 +10,7 @@ using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.CQRS.Command;
+using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
@@ -85,10 +86,11 @@ namespace SheetMusic.Api.Controllers
         /// <returns>List of parts for set</returns>
         [Produces("application/json", Type = typeof(ApiSet))]
         [HttpGet("sets/{identifier}/parts")]
-        public async Task<IActionResult> GetPartsForSet(string identifier)
+        public async Task<ActionResult<ApiSet>> GetPartsForSet(string identifier)
         {
             var set = await setRepository.ResolveByIdentiferAsync(identifier);
-            var parts = await partRepository.GetMusicPartsForSetAsync(set.Id);
+            var query = new GetPartsForSet(set.Id);
+            var parts = await mediator.Send(query);
 
             var apiSet = new ApiSet(set)
             {
@@ -100,26 +102,31 @@ namespace SheetMusic.Api.Controllers
                 }).ToList()
             };
 
-            return new OkObjectResult(apiSet);
+            return apiSet;
         }
 
         /// <summary>
         /// Get a single part for a set
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
         /// <returns>The part that matches, 404 if not found</returns>
 
         [Produces("application/json", Type = typeof(ApiSheetMusicPart))]
-        [HttpGet("sets/{identifier}/parts/{partIdentifier}")]
-        public async Task<IActionResult> GetSinglePart(string identifier, string partIdentifier)
+        [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}")]
+        public async Task<IActionResult> GetSinglePart(string setIdentifier, string partIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
+            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
             var result = await setRepository.GetMusicPartForSetAsync(set.Id, part.Id);
 
             if (result == null)
-                return NotFound();
+                return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
+
             return new OkObjectResult(new ApiSheetMusicPart(result));
         }
 
@@ -142,8 +149,12 @@ namespace SheetMusic.Api.Controllers
                 return new BadRequestObjectResult("Download token must be provided and valid");
             }
 
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
-            var pdf = await blobClient.GetMusicPartContentAsync(new MusicPartIdentifier(set.Id, part.Id));
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
+            var pdf = await blobClient.GetMusicPartContentAsync(new PartRelatedToSet(set.Id, part.Id));
 
             memoryCache.Remove(DownloadTokenCacheKey(set.Id)); //this is a one-time token
             return File(pdf, "application/pdf", $"{part.Name}.pdf");
@@ -264,7 +275,7 @@ namespace SheetMusic.Api.Controllers
 
                 foreach (var part in setWithParts.Parts)
                 {
-                    if (await blobClient.HasPdfFileAsync(new MusicPartIdentifier(setWithParts.Id, part.MusicPartId)) == false)
+                    if (await blobClient.HasPdfFileAsync(new PartRelatedToSet(setWithParts.Id, part.MusicPartId)) == false)
                     {
                         apiSet.Parts.Add(new ApiSheetMusicPart(part));
                     }
@@ -300,59 +311,59 @@ namespace SheetMusic.Api.Controllers
         }
 
         /// <summary>
-        /// Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+        /// Adds the PDF content for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-        /// <param name="partName">Name of the part to add</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="partIdentifier">Name of the part to add</param>
         /// <param name="file">The PDF file for the part</param>
         /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
         [Authorize(AuthPolicy.Admin)]
-        [HttpPost("sets/{identifier}/parts/{partName}/content")]
+        [HttpPost("sets/{setIdentifier}/parts/{partIdentifier}/content")]
         [MapToApiVersion("1.0")]
-        public async Task<IActionResult> AddPartContent(string identifier, string partName, IFormFile file)
+        public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier, IFormFile file)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
-            var part = await partRepository.GetPartAsync(partName);
+            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
-                return NotFound(new ProblemDetails { Detail = $"Part {partName} was not found" });
+                return NotFound(new ProblemDetails { Detail = $"Part {partIdentifier} was not found" });
 
             if (set.Parts.Any(p => p.MusicPartId == part.Id))
                 throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
 
-            var partIdentifier = new MusicPartIdentifier(set.Id, part.Id);
+            var relationship = new PartRelatedToSet(set.Id, part.Id);
 
-            await blobClient.AddMusicPartContentAsync(partIdentifier, file.OpenReadStream());
+            await blobClient.AddMusicPartContentAsync(relationship, file.OpenReadStream());
             await setRepository.AddMusicPartForSetAsync(set.Id, part.Id);
 
-            return new OkResult();
+            return Ok();
         }
 
         /// <summary>
-        /// Adds the PDF content for <paramref name="partName"/> of set with <paramref name="identifier"/>.
+        /// Adds the PDF content for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-        /// <param name="partName">Name of the part to add</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="partIdentifier">Name of the part to add</param>
         /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
         [Authorize(AuthPolicy.Admin)]
         [DisableFormValueModelBinding]
         [RequestSizeLimit(MaxFileSize)]
         [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
         [Consumes("multipart/form-data")]
-        [HttpPost("sets/{identifier}/parts/{partName}/content")]
+        [HttpPost("sets/{setIdentifier}/parts/{partIdentifier}/content")]
         [MapToApiVersion("2.0")]
-        public async Task<IActionResult> AddPartContent(string identifier, string partName)
+        public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
-            var part = await partRepository.GetPartAsync(partName);
+            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
-                return NotFound(new ProblemDetails { Detail = $"Part {partName} was not found" });
+                return NotFound(new ProblemDetails { Detail = $"Part {partIdentifier} was not found" });
 
             if (set.Parts.Any(p => p.MusicPartId == part.Id))
                 throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
 
-            var partIdentifier = new MusicPartIdentifier(set.Id, part.Id);
+            var relationship = new PartRelatedToSet(set.Id, part.Id);
 
             if (!MultipartRequestHelper.IsMultipartContentType(Request.ContentType))
                 return BadRequest("Not a multipart request");
@@ -380,7 +391,7 @@ namespace SheetMusic.Api.Controllers
 
             using var fileStream = section.Body;
 
-            await blobClient.AddMusicPartContentAsync(partIdentifier, fileStream);
+            await blobClient.AddMusicPartContentAsync(relationship, fileStream);
             await setRepository.AddMusicPartForSetAsync(set.Id, part.Id);
 
             return new OkResult();
@@ -397,8 +408,12 @@ namespace SheetMusic.Api.Controllers
         public async Task<ActionResult> DeletePart(string identifier, string partIdentifier)
         {
             var set = await setRepository.ResolveByIdentiferAsync(identifier);
-            var part = await partRepository.ResolvePartAsync(partIdentifier);
-            var blobIdentifer = new MusicPartIdentifier(set.Id, part.Id);
+            var part = await mediator.Send(new GetMusicPart(partIdentifier));
+
+            if (part is null)
+                return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' was not found" });
+
+            var blobIdentifer = new PartRelatedToSet(set.Id, part.Id);
 
             await blobClient.DeletePartContentAsync(blobIdentifer);
             await setRepository.DeleteMusicPartForSetAsync(set.Id, part.Id);
