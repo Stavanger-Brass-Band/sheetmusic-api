@@ -182,7 +182,7 @@
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSinglePartFile(System.String,System.String,System.String)">
             <summary>
-            Gets the PDF file for set with <paramref name="identifier"/>, part with <paramref name="partIdentifier"/>
+            Gets the PDF file for set with <paramref name="setIdentifier"/>, part with <paramref name="partIdentifier"/>
             </summary>
             <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>

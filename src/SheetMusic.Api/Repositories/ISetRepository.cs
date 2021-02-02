@@ -11,12 +11,9 @@ namespace SheetMusic.Api.Repositories
         Task AddPartContentForSetAsync(string identifier, Stream zipFileStream);
         Task<List<SheetMusicSet>> GetSetsAsync();
         Task<SheetMusicSet> ResolveByIdentiferAsync(string identifier);
-        Task<SheetMusicPart> GetMusicPartForSetAsync(Guid setId, Guid partId);
-        Task DeleteMusicPartForSetAsync(Guid setId, Guid partId);
         Task<Stream> GetPartPdfsAsZipForSetAsync(string identifier);
         Task<int> GetNextAvailableArchiveNumberAsync();
         Task AddNewSetAsync(SheetMusicSet set);
-        Task DeleteSetAsync(SheetMusicSet set);
         Task<List<SheetMusicSet>> SearchAsync(string searchTerm);
         Task<List<SheetMusicSet>> GetSetsWithPartsAsync();
         Task AddMusicPartForSetAsync(Guid setId, Guid partId);

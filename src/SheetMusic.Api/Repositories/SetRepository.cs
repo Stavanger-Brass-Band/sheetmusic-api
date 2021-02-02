@@ -81,20 +81,6 @@ namespace SheetMusic.Api.Repositories
             }
         }
 
-        public async Task DeleteSetAsync(SheetMusicSet set)
-        {
-            await blobClient.DeleteSetContentAsync(set.Id);
-            context.SheetMusicSets.Remove(set);
-            await context.SaveChangesAsync();
-        }
-
-        public async Task<SheetMusicPart> GetMusicPartForSetAsync(Guid setId, Guid partId)
-        {
-            return await context.SheetMusicParts
-                .Include(smp => smp.Part)
-                .FirstOrDefaultAsync(smp => smp.SetId == setId && smp.MusicPartId == partId);
-        }
-
         public async Task<int> GetNextAvailableArchiveNumberAsync()
         {
             if (!await context.SheetMusicSets.AnyAsync()) //no sets in the database, start on 1

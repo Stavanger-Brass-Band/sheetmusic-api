@@ -29,7 +29,7 @@ namespace SheetMusic.Api.CQRS.Command
 
             protected override async Task Handle(DeletePart request, CancellationToken cancellationToken)
             {
-                var part = await db.MusicParts.FirstOrDefaultAsync(p => p.Id == request.PartId);
+                var part = await db.MusicParts.FirstOrDefaultAsync(p => p.Id == request.PartId, cancellationToken: cancellationToken);
 
                 if (part == null) throw new NotFoundError(request.PartId.ToString(), "Part not found");
 
@@ -37,7 +37,7 @@ namespace SheetMusic.Api.CQRS.Command
                     throw new InvalidOperationException("Part is linked to musicians or sets and cannot be deleted");
 
                 db.MusicParts.Remove(part);
-                await db.SaveChangesAsync();
+                await db.SaveChangesAsync(cancellationToken);
             }
         }
     }

@@ -151,5 +151,22 @@ namespace SheetMusic.Api.Test.Tests
             var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
+
+        [Fact]
+        public async Task DeleteSet_ShouldBeSuccessfull()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
+            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+
+            var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
     }
 }
