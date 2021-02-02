@@ -55,19 +55,17 @@ stages:
           reportDirectory: $(Agent.TempDirectory)/CoverageResults
           failIfCoverageEmpty: true
 
-      # - task: DotNetCoreCLI@2
-      #   displayName: 'Create zip'
-      #   inputs:
-      #     command: 'publish'
-      #     arguments: '--output $(Build.ArtifactStagingDirectory)'
-      #     modifyOutputPath: true
-      #     publishWebProjects: true
+      - task: DotNetCoreCLI@2
+        displayName: 'Create zip'
+        inputs:
+          command: publish
+          arguments: '--configuration $(BuildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          publishWebProjects: true
 
-      # - task: PublishBuildArtifacts@1
-      #   inputs:
-      #     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      #     ArtifactName: 'drop'
-      #     publishLocation: 'Container'
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'sheetmusic-api'
 
 - stage: DeployToTest
   dependsOn: Build
