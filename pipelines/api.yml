@@ -55,25 +55,25 @@ stages:
           reportDirectory: $(Agent.TempDirectory)/CoverageResults
           failIfCoverageEmpty: true
 
-      - task: DotNetCoreCLI@2
-        displayName: 'Create zip'
-        inputs:
-          command: 'publish'
-          arguments: '--output $(Build.ArtifactStagingDirectory)'
-          modifyOutputPath: true
-          publishWebProjects: true
+      # - task: DotNetCoreCLI@2
+      #   displayName: 'Create zip'
+      #   inputs:
+      #     command: 'publish'
+      #     arguments: '--output $(Build.ArtifactStagingDirectory)'
+      #     modifyOutputPath: true
+      #     publishWebProjects: true
 
-      - task: PublishBuildArtifacts@1
-        inputs:
-          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-          ArtifactName: 'drop'
-          publishLocation: 'Container'
+      # - task: PublishBuildArtifacts@1
+      #   inputs:
+      #     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      #     ArtifactName: 'drop'
+      #     publishLocation: 'Container'
 
 - stage: DeployToTest
   dependsOn: Build
   condition: succeeded()
   jobs:
-  - deployment: DepoyToTest
+  - deployment: DeployToTest
     displayName: 'Deploy to test'
     pool: 'Hosted VS2017'
     environment: 'API test'
