@@ -59,6 +59,7 @@ namespace SheetMusic.Api.Test.Tests
 
             inputSet.Title = $"{inputSet.Title} (updated)";
             var response = await adminClient.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
+            var body = response.Content.ReadAsStringAsync();
             response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 

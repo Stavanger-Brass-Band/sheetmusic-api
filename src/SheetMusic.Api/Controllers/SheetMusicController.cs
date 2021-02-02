@@ -88,7 +88,11 @@ namespace SheetMusic.Api.Controllers
         [HttpGet("sets/{identifier}/parts")]
         public async Task<ActionResult<ApiSet>> GetPartsForSet(string identifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            var set = await mediator.Send(new GetSet(identifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{identifier}' was not found" });
+
             var query = new GetPartsForSet(set.Id);
             var parts = await mediator.Send(query);
 
@@ -116,7 +120,11 @@ namespace SheetMusic.Api.Controllers
         [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}")]
         public async Task<IActionResult> GetSinglePart(string setIdentifier, string partIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
@@ -133,16 +141,19 @@ namespace SheetMusic.Api.Controllers
         /// <summary>
         /// Gets the PDF file for set with <paramref name="identifier"/>, part with <paramref name="partIdentifier"/>
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
         /// <param name="downloadToken">A token to prove you are authorized for download</param>
         /// <returns>The PDF file, if it exists. 404 otherwise.</returns>
         [AllowAnonymous]
         [Produces("application/pdf")]
-        [HttpGet("sets/{identifier}/parts/{partIdentifier}/pdf")]
-        public async Task<IActionResult> GetSinglePartFile(string identifier, string partIdentifier, string downloadToken)
+        [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}/pdf")]
+        public async Task<IActionResult> GetSinglePartFile(string setIdentifier, string partIdentifier, string downloadToken)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
             if (string.IsNullOrEmpty(downloadToken) || !TokenIsValid(set.Id, downloadToken))
             {
@@ -163,18 +174,16 @@ namespace SheetMusic.Api.Controllers
         /// <summary>
         /// Gets information about a single set, either by guid, number or title.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-        /// <returns>Set matching <paramref name="identifier"/></returns>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <returns>Set matching <paramref name="setIdentifier"/></returns>
         [Produces("application/json", Type = typeof(ApiSet))]
-        [HttpGet("sets/{identifier}")]
-        public async Task<IActionResult> GetSetinformationByIdentifier(string identifier)
+        [HttpGet("sets/{setIdentifier}")]
+        public async Task<IActionResult> GetSetinformationByIdentifier(string setIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                return new BadRequestObjectResult("Identifier must be provided");
-            }
+            var set = await mediator.Send(new GetSet(setIdentifier));
 
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
             return new OkObjectResult(new ApiSet(set)
             {
@@ -186,23 +195,25 @@ namespace SheetMusic.Api.Controllers
         /// <summary>
         /// Updates information about a set. PS! All properties will be updated, omitted once are nulled out.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <param name="request">Update set parameters</param>
         /// <returns>Updated set metadata</returns>
         [Produces("application/json", Type = typeof(ApiSet))]
         [Authorize(AuthPolicy.Admin)]
-        [HttpPut("sets/{identifier}")]
-        public async Task<ActionResult<ApiSet>> UpdateSetInformation(string identifier, SetRequest request)
+        [HttpPut("sets/{setIdentifier}")]
+        public async Task<ActionResult<ApiSet>> UpdateSetInformation(string setIdentifier, SetRequest request)
         {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                return new BadRequestObjectResult("Identifier must be provided");
-            }
+            var set = await mediator.Send(new GetSet(setIdentifier));
 
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             await mediator.Send(new UpdateSetMetadata(set.Id, request));
 
-            set = await setRepository.ResolveByIdentiferAsync(identifier);
+            set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
             return new ApiSet(set);
         }
@@ -210,12 +221,15 @@ namespace SheetMusic.Api.Controllers
         /// <summary>
         /// Authorized a set for download, allowing a single download for the one with the token.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <returns></returns>
-        [HttpGet("sets/{identifier}/zip/token")]
-        public async Task<IActionResult> GetDownloadToken(string identifier)
+        [HttpGet("sets/{setIdentifier}/zip/token")]
+        public async Task<IActionResult> GetDownloadToken(string setIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
             //generated token using cryptographic library, save to memory cache and verify on download
             var token = KeyGenerator.GetUniqueKey(64);
@@ -228,27 +242,25 @@ namespace SheetMusic.Api.Controllers
         /// Gets the part collection for a set as a zip file. 
         /// Accepts anonymous requests, but they must provide a download token that is validated to be able to download.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <param name="downloadToken">A token for proving that user is allowed to download this set</param>
         /// <returns>Zipped collection of parts</returns>
         [AllowAnonymous]
         [Produces("application/zip")]
-        [HttpGet("sets/{identifier}/zip")]
-        public async Task<IActionResult> GetPartsForSetAzZip(string identifier, string downloadToken)
+        [HttpGet("sets/{setIdentifier}/zip")]
+        public async Task<IActionResult> GetPartsForSetAzZip(string setIdentifier, string downloadToken)
         {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                return new BadRequestObjectResult("Identifier must be provided");
-            }
+            var set = await mediator.Send(new GetSet(setIdentifier));
 
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
             if (string.IsNullOrEmpty(downloadToken) || !TokenIsValid(set.Id, downloadToken))
             {
                 return new BadRequestObjectResult("Download token must be provided and valid");
             }
 
-            var zip = await setRepository.GetPartPdfsAsZipForSetAsync(identifier);
+            var zip = await setRepository.GetPartPdfsAsZipForSetAsync(setIdentifier);
             await zip.FlushAsync();
 
             zip.Position = 0;
@@ -322,7 +334,11 @@ namespace SheetMusic.Api.Controllers
         [MapToApiVersion("1.0")]
         public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier, IFormFile file)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
@@ -354,7 +370,11 @@ namespace SheetMusic.Api.Controllers
         [MapToApiVersion("2.0")]
         public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(setIdentifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
@@ -398,16 +418,20 @@ namespace SheetMusic.Api.Controllers
         }
 
         /// <summary>
-        /// Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="identifier"/>.
+        /// Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <param name="partIdentifier">Name of the part to add</param>
         /// <returns>204 if successfull, 404 if not found, 500 if something bad happens</returns>
         [Authorize(AuthPolicy.Admin)]
-        [HttpDelete("sets/{identifier}/parts/{partIdentifier}")]
-        public async Task<ActionResult> DeletePart(string identifier, string partIdentifier)
+        [HttpDelete("sets/{setIdentifier}/parts/{partIdentifier}")]
+        public async Task<ActionResult> DeletePart(string setIdentifier, string partIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             var part = await mediator.Send(new GetMusicPart(partIdentifier));
 
             if (part is null)
@@ -453,15 +477,19 @@ namespace SheetMusic.Api.Controllers
         }
 
         /// <summary>
-        /// Deletes the set with <paramref name="identifier"/>, including all the parts and files
+        /// Deletes the set with <paramref name="setIdentifier"/>, including all the parts and files
         /// </summary>
-        /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+        /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
         /// <returns>200 if ok, 404 if not found, 500 if something bad happens</returns>
         [Authorize(AuthPolicy.Admin)]
-        [HttpDelete("sets/{identifier}")]
-        public async Task<IActionResult> DeleteSet(string identifier)
+        [HttpDelete("sets/{setIdentifier}")]
+        public async Task<IActionResult> DeleteSet(string setIdentifier)
         {
-            var set = await setRepository.ResolveByIdentiferAsync(identifier);
+            var set = await mediator.Send(new GetSet(setIdentifier));
+
+            if (set is null)
+                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
             await setRepository.DeleteSetAsync(set);
 
             return new OkResult();

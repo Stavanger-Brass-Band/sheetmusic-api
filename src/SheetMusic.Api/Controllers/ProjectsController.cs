@@ -80,7 +80,10 @@ namespace SheetMusic.Api.Controllers
 
             foreach (var setId in request.SetIdentifiers)
             {
-                var set = await setRepository.ResolveByIdentiferAsync(setId);
+                var set = await mediator.Send(new GetSet(setId));
+
+                if (set is null) continue;
+
                 await projectRepository.ConnectSetWithProjectAsync(project.Id, set.Id);
             }
 
@@ -97,7 +100,10 @@ namespace SheetMusic.Api.Controllers
 
             foreach (var setId in request.SetIdentifiers)
             {
-                var set = await setRepository.ResolveByIdentiferAsync(setId);
+                var set = await mediator.Send(new GetSet(setId));
+
+                if (set is null) continue;
+
                 await projectRepository.DisconnectSetFromProjectAsync(project.Id, set.Id);
             }
 
