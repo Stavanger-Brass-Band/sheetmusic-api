@@ -39,12 +39,21 @@ stages:
           command: 'test'
           arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
           projects: '**/SheetMusic.Api.Test.csproj'
+
+      - task: Palmmedia.reportgenerator.reportgenerator-build-release-task.reportgenerator@4
+        displayName: 'Generate Code Coverage Report'
+        inputs:
+          reports: $(Agent.TempDirectory)/**/coverage.cobertura.xml
+          targetdir: $(Agent.TempDirectory)/CoverageResults/
+          reporttypes: 'HtmlInline_AzurePipelines;Cobertura;Badges'
         
       - task: PublishCodeCoverageResults@1
         displayName: 'Publish code coverage report'
         inputs:
-          codeCoverageTool: 'Cobertura'
-          summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+          codeCoverageTool: Cobertura
+          summaryFileLocation: $(Agent.TempDirectory)/CoverageResults/Cobertura.xml
+          reportDirectory: $(Agent.TempDirectory)/CoverageResults
+          failIfCoverageEmpty: true
 
       - task: DotNetCoreCLI@2
         displayName: 'Create zip'
