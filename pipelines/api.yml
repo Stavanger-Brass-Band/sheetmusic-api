@@ -14,6 +14,7 @@ stages:
     displayName: 'Build and pack'
     steps:
       - task: UseDotNet@2
+        displayName: 'Use dotnet core 5.0'
         inputs:
           version: '5.0.x'
 
@@ -22,21 +23,23 @@ stages:
         inputs:
           command: 'restore'
           projects: '**/*.csproj'
+          configuration: $(buildConfiguration)
           feedsToUse: 'select'
 
       - task: DotNetCoreCLI@2
         displayName: Build
         inputs:
           command: 'build'
+          configuration: $(buildConfiguration)
           projects: '**/*.csproj'
       
       - task: DotNetCoreCLI@2
-        displayName: 'dotnet test'
+        displayName: 'Run integration tests'
         inputs:
           command: 'test'
           arguments: '--configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=$(Build.SourcesDirectory)/TestResults/Coverage/'
           publishTestResults: true
-          projects: 'SheetMusic.Api.Test'
+          projects: '**/SheetMusic.Api.Test.csproj'
         
       - task: PublishCodeCoverageResults@1
         displayName: 'Publish code coverage report'
