@@ -1,5 +1,7 @@
 ﻿using FluentAssertions;
+using Moq;
 using Newtonsoft.Json;
+using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -126,13 +128,11 @@ namespace SheetMusic.Api.Test.Tests
                 .ProvisionSingleSetAsync();
 
             var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
-
-            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
-            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
-            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+            await AddPartToSetAsync(testSet, part);
 
             var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
             response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            factory.BlobMock.Verify(b => b.DeletePartContentAsync(It.Is<PartRelatedToSet>(r => r.SetId == testSet.Id && r.PartId == part.Id)), Times.Once);
         }
 
         [Fact]
@@ -143,13 +143,11 @@ namespace SheetMusic.Api.Test.Tests
                 .ProvisionSingleSetAsync();
 
             var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+            var setPart = await AddPartToSetAsync(testSet, part);
 
-            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
-            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
-            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+            setPart.SetId.Should().Be(testSet.Id);
+            setPart.MusicPartId.Should().Be(part.Id);
 
-            var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
         [Fact]
@@ -160,13 +158,57 @@ namespace SheetMusic.Api.Test.Tests
                 .ProvisionSingleSetAsync();
 
             var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
-
-            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
-            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
-            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+            await AddPartToSetAsync(testSet, part);
 
             var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+            factory.BlobMock.Verify(b => b.DeleteSetContentAsync(testSet.Id), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetSinglePartFile_ShouldBeSuccessfull()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+            await AddPartToSetAsync(testSet, part);
+
+            var token = await GetDownloadTokenAsync(testSet);
+
+            var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        private async Task<ApiSetPart> AddPartToSetAsync(ApiSet set, ApiPart part)
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+            var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+            await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
+            await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{set.Id}/parts/{part.Name}/content?api-version=2.0");
+
+            factory.BlobMock.Verify(b =>
+                b.AddMusicPartContentAsync(It.Is<PartRelatedToSet>(r => r.SetId == set.Id && r.PartId == part.Id), It.IsAny<Stream>()),
+                Times.Once);
+
+            var response = await adminClient.GetAsync($"sheetmusic/sets/{set.Id}/parts/{part.Id}");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await response.Content.ReadAsStringAsync();
+            var setPart = JsonConvert.DeserializeObject<ApiSetPart>(body);
+
+            return setPart;
+        }
+
+        private async Task<string> GetDownloadTokenAsync(ApiSet set)
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var tokenResponse = await adminClient.GetAsync($"sheetmusic/sets/{set.Id}/zip/token");
+            var body = await tokenResponse.Content.ReadAsStringAsync();
+
+            return body;
         }
     }
 }

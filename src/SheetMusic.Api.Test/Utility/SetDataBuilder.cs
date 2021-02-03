@@ -57,7 +57,7 @@ namespace SheetMusic.Api.Test.Utility
         {
             return sets.Single(s => s.OriginatingId == originatingId);
         }
-
+        
         private static void AssertPropsAreEqual(PutSetModel set, ApiSet apiSet)
         {
             apiSet.Title.Should().Be(set.Title);

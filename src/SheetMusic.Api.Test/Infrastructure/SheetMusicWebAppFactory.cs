@@ -20,6 +20,8 @@ namespace SheetMusic.Api.Test.Infrastructure
     public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
     {
         public ServiceProvider TestServices = null!;
+        public Mock<IBlobClient> BlobMock = null!;
+        public Mock<IIndexAdminService> IndexAdminMock = null!;
         private readonly Guid sessionId;
 
         public SheetMusicWebAppFactory()
@@ -31,13 +33,13 @@ namespace SheetMusic.Api.Test.Infrastructure
         {
             builder.ConfigureTestServices(services =>
             {
-                var blobMock = new Mock<IBlobClient>();
+                BlobMock = new Mock<IBlobClient>();
                 services.TryRemoveService<IBlobClient>();
-                services.AddSingleton(blobMock.Object);
+                services.AddSingleton(BlobMock.Object);
 
-                var indexAdminMock = new Mock<IIndexAdminService>();
+                IndexAdminMock = new Mock<IIndexAdminService>();
                 services.TryRemoveService<IIndexAdminService>();
-                services.AddSingleton(indexAdminMock.Object);
+                services.AddSingleton(IndexAdminMock.Object);
 
                 services.AddEntityFrameworkInMemoryDatabase();
                 var builder = services.AddAuthentication();
