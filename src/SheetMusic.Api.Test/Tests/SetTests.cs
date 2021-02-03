@@ -9,6 +9,7 @@ using SheetMusic.Api.Test.Models;
 using SheetMusic.Api.Test.Utility;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -100,9 +101,7 @@ namespace SheetMusic.Api.Test.Tests
 
             foreach (var part in testParts)
             {
-                var path = $"{Path.GetTempPath()}{part.Name}.pdf";
-                await File.WriteAllTextAsync(path, "alsifaihsdfiuahwepouihagjah");
-                await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+                await AddPartToSetAsync(testSet, part);
             }
 
             var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
@@ -179,6 +178,48 @@ namespace SheetMusic.Api.Test.Tests
 
             var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task UploadPartsForSet_ShouldCreateCorrectPartsOnSet()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var partCount = 30;
+            var parts = await new PartDataBuilder(adminClient)
+                .WithParts(partCount)
+                .ProvisionAsync();
+
+            var sourceDir = $"{Path.GetTempPath()}{testSet.Id}";
+            Directory.CreateDirectory(sourceDir);
+
+            foreach (var part in parts)
+            {
+                var filePath = $"{sourceDir}\\{part.Name}.pdf";
+                await File.WriteAllTextAsync(filePath, "this is just for testing purposes and is not a real PDF content string");
+            }
+
+            var zipPath = $"{Path.GetTempPath()}{testSet.Id}.zip";
+            ZipFile.CreateFromDirectory(sourceDir, zipPath);
+
+            await FileUploader.UploadOneFile(zipPath, adminClient, $"sheetmusic/sets/{testSet.Id}");
+
+            var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
+            partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await partsResponse.Content.ReadAsStringAsync();
+            var set = JsonConvert.DeserializeObject<ApiSet>(body);
+            set.Should().NotBeNull();
+            set.Parts.Should().NotBeEmpty();
+            set?.Parts?.Count.Should().Be(partCount);
+
+            foreach (var setPart in set?.Parts ?? new List<ApiSetPart>())
+            {
+                setPart.SetId.Should().Be(testSet.Id);
+                parts.Should().Contain(p => p.Id == setPart.MusicPartId);
+            }
         }
 
         private async Task<ApiSetPart> AddPartToSetAsync(ApiSet set, ApiPart part)

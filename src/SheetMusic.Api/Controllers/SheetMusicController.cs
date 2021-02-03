@@ -302,7 +302,7 @@ namespace SheetMusic.Api.Controllers
 
             using (var stream = file.OpenReadStream())
             {
-                await setRepository.AddPartContentForSetAsync(identifier, file.OpenReadStream());
+                await setRepository.AddPartContentForSetAsync(identifier, stream);
             }
 
             return new OkResult();

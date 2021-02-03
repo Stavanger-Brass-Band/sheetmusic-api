@@ -12,7 +12,8 @@ namespace SheetMusic.Api.Test.Utility
     public class PartDataBuilder
     {
         private readonly HttpClient httpClient;
-        private readonly List<PutPartModel> partRequests = new List<PutPartModel>();
+
+        public List<PutPartModel> PartRequests { get; private set; } = new List<PutPartModel>();
 
         public PartDataBuilder(HttpClient httpClient)
         {
@@ -29,7 +30,7 @@ namespace SheetMusic.Api.Test.Utility
         public PartDataBuilder WithParts(int numberOfParts)
         {
             var items = FakerFactory.CreatePartFaker().Generate(numberOfParts);
-            partRequests.AddRange(items);
+            PartRequests.AddRange(items);
             return this;
         }
 
@@ -37,7 +38,7 @@ namespace SheetMusic.Api.Test.Utility
         {
             var createdItems = new List<ApiPart>();
 
-            foreach (var item in partRequests)
+            foreach (var item in PartRequests)
             {
                 var response = await httpClient.PostAsJsonAsync($"parts", item);
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -52,7 +53,7 @@ namespace SheetMusic.Api.Test.Utility
 
         public PutPartModel? GetPartInput(string partName)
         {
-            return partRequests.FirstOrDefault(p => p.Name == partName);
+            return PartRequests.FirstOrDefault(p => p.Name == partName);
         }
 
         private static void AssertPropsAreEqual(PutPartModel item, ApiPart apiPart)
