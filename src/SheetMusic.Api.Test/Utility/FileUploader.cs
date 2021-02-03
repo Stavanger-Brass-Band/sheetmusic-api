@@ -35,5 +35,28 @@ namespace SheetMusic.Api.Test.Utility
                 }
             }
         }
+
+        public static async Task UploadFromStream(Stream stream, HttpClient client, string endpoint)
+        {
+            var content = new StreamContent(stream);
+            content.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "file", FileName = Path.GetTempFileName() };
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+            using (var formData = new MultipartFormDataContent())
+            {
+                formData.Add(content);
+                var response = await client.PostAsync(endpoint, formData);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Error during upload: [{response.StatusCode}] {responseContent}");
+                }
+                else
+                {
+                    Console.WriteLine("Completed successfully");
+                }
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -195,17 +196,25 @@ namespace SheetMusic.Api.Test.Tests
 
             var sourceDir = $"{Path.GetTempPath()}{testSet.Id}";
             Directory.CreateDirectory(sourceDir);
+            var content = Encoding.UTF8.GetBytes("this is just for testing purposes and is not a real PDF content string");
 
-            foreach (var part in parts)
+            using (var memoryStream = new MemoryStream())
             {
-                var filePath = $"{sourceDir}\\{part.Name}.pdf";
-                await File.WriteAllTextAsync(filePath, "this is just for testing purposes and is not a real PDF content string");
+                using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                {
+                    foreach (var part in parts)
+                    {
+                        var entry = zip.CreateEntry($"{part.Name}.pdf");
+                        using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(content);
+                        await entryStream.FlushAsync();
+                    }
+                    
+                }
+
+                await memoryStream.FlushAsync();
+                await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{testSet.Id}");
             }
-
-            var zipPath = $"{Path.GetTempPath()}{testSet.Id}.zip";
-            ZipFile.CreateFromDirectory(sourceDir, zipPath);
-
-            await FileUploader.UploadOneFile(zipPath, adminClient, $"sheetmusic/sets/{testSet.Id}");
 
             var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
             partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
