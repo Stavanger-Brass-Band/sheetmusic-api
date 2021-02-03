@@ -8,6 +8,7 @@ using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Models;
 using SheetMusic.Api.Test.Utility;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -210,6 +211,8 @@ namespace SheetMusic.Api.Test.Tests
             partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
             var body = await partsResponse.Content.ReadAsStringAsync();
+            Debug.Write(body);
+
             var set = JsonConvert.DeserializeObject<ApiSet>(body);
             set.Should().NotBeNull();
             set.Parts.Should().NotBeEmpty();
