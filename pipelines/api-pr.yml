@@ -23,7 +23,7 @@ jobs:
     - task: DotNetCoreCLI@2
       displayName: 'Restore packages'
       inputs:
-        command: 'restore'
+        command: restore
         projects: '**/*.csproj'
         configuration: $(buildConfiguration)
         feedsToUse: 'select'
@@ -31,15 +31,15 @@ jobs:
     - task: DotNetCoreCLI@2
       displayName: Build
       inputs:
-        command: 'build'
+        command: build
         configuration: $(buildConfiguration)
         projects: '**/*.csproj'
 
     - task: DotNetCoreCLI@2
       displayName: 'Run integration tests'
       inputs:
-        command: 'test'
-        arguments: '--no-build --configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
+        command: test
+        arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
         projects: '**/SheetMusic.Api.Test.csproj'
 
     - task: Palmmedia.reportgenerator.reportgenerator-build-release-task.reportgenerator@4
