@@ -13,6 +13,7 @@ using SheetMusic.Api.CQRS.Command;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.OData.MVC;
 using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Utilities;
 using System;
@@ -62,7 +63,7 @@ namespace SheetMusic.Api.Controllers
             }
             else
             {
-                matchingSets = await setRepository.GetSetsAsync();
+                matchingSets = await mediator.Send(new GetSets(new ODataQueryParams()));
             }
 
             var transformed = matchingSets.Select(s => new ApiSet(s)
@@ -262,7 +263,10 @@ namespace SheetMusic.Api.Controllers
         [HttpGet("sets/withoutFiles")]
         public async Task<IActionResult> GetSetsThatHasPartsButNoFiles()
         {
-            var setsWithParts = await setRepository.GetSetsWithPartsAsync();
+            var queryParams = new ODataQueryParams();
+            queryParams.Expand.Add("parts");
+
+            var setsWithParts = await mediator.Send(new GetSets(queryParams));
             var results = new List<ApiSet>();
 
             foreach (var setWithParts in setsWithParts)
@@ -431,19 +435,12 @@ namespace SheetMusic.Api.Controllers
             if (request == null)
                 return new BadRequestObjectResult("Please provide set information when creating a new set");
 
-            var archiveNumber = request.ArchiveNumber ?? await setRepository.GetNextAvailableArchiveNumberAsync();
+            await mediator.Send(new AddSet(request));
 
-            var set = new SheetMusicSet(archiveNumber, request.Title)
-            {
-                Composer = request.Composer,
-                Arranger = request.Arranger,
-                SoleSellingAgent = request.SoleSellingAgent,
-                MissingParts = request.MissingParts,
-                BorrowedFrom = request.BorrowedFrom,
-                BorrowedDateTime = string.IsNullOrEmpty(request.BorrowedFrom) ? null : (DateTimeOffset?)DateTimeOffset.Now
-            };
+            var set = await mediator.Send(new GetSet(request.Title));
 
-            await setRepository.AddNewSetAsync(set);
+            if (set is null)
+                throw new Exception("Newly added set was not found");
 
             return new OkObjectResult(new ApiSet(set));
         }

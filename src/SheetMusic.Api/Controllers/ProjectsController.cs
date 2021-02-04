@@ -20,13 +20,11 @@ namespace SheetMusic.Api.Controllers
     public class ProjectsController : ControllerBase
     {
         private readonly IProjectRepository projectRepository;
-        private readonly ISetRepository setRepository;
         private readonly IMediator mediator;
 
-        public ProjectsController(IProjectRepository projectRepository, ISetRepository setRepository, IMediator mediator)
+        public ProjectsController(IProjectRepository projectRepository, IMediator mediator)
         {
             this.projectRepository = projectRepository;
-            this.setRepository = setRepository;
             this.mediator = mediator;
         }
 

@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Repositories
 {
+    [Obsolete("Use CQRS pattern instead")]
     public class SetRepository : ISetRepository
     {
         private readonly SheetMusicContext context;
@@ -39,15 +40,6 @@ namespace SheetMusic.Api.Repositories
                 SetId = set.Id
             });
 
-            await context.SaveChangesAsync();
-        }
-
-        public async Task AddNewSetAsync(SheetMusicSet set)
-        {
-            if (context.SheetMusicSets.Any(s => s.ArchiveNumber == set.ArchiveNumber))
-                throw new ArchiveNumberOccupiedError(set.ArchiveNumber);
-
-            await context.SheetMusicSets.AddAsync(set);
             await context.SaveChangesAsync();
         }
 
@@ -81,14 +73,6 @@ namespace SheetMusic.Api.Repositories
             }
         }
 
-        public async Task<int> GetNextAvailableArchiveNumberAsync()
-        {
-            if (!await context.SheetMusicSets.AnyAsync()) //no sets in the database, start on 1
-                return 1;
-
-            return await context.SheetMusicSets.MaxAsync(s => s.ArchiveNumber) + 1;
-        }
-
         public async Task<Stream> GetPartPdfsAsZipForSetAsync(string identifier)
         {
             var set = await ResolveByIdentiferAsync(identifier);
@@ -112,21 +96,6 @@ namespace SheetMusic.Api.Repositories
 
                 return memstream;
             }
-        }
-
-        public async Task<List<SheetMusicSet>> GetSetsAsync()
-        {
-            return await context.SheetMusicSets
-                .Include(s => s.Parts).ThenInclude(p => p.Part)
-                .ToListAsync();
-        }
-
-        public async Task<List<SheetMusicSet>> GetSetsWithPartsAsync()
-        {
-            return await context.SheetMusicSets
-                .Include(s => s.Parts).ThenInclude(p => p.Part)
-                .Where(s => s.Parts.Count > 0)
-                .ToListAsync();
         }
 
         public async Task<SheetMusicSet> ResolveByIdentiferAsync(string identifier)
@@ -168,17 +137,6 @@ namespace SheetMusic.Api.Repositories
             return await matchingItemsQuery
                 .Include(s => s.Parts)
                 .ToListAsync();
-        }
-
-        public async Task DeleteMusicPartForSetAsync(Guid setId, Guid partId)
-        {
-            var musicPart = await context.SheetMusicParts.FirstOrDefaultAsync(smp => smp.SetId == setId && smp.MusicPartId == partId);
-
-            if (musicPart != null)
-            {
-                context.Remove(musicPart);
-                await context.SaveChangesAsync();
-            }
         }
     }
 }

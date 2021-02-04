@@ -14,11 +14,6 @@ namespace SheetMusic.Api.Controllers.ViewModels
 
         public ApiSet(SheetMusicSet set)
         {
-            if (set == null)
-            {
-                throw new ArgumentNullException(nameof(set));
-            }
-
             Parts = new List<ApiSheetMusicPart>();
 
             Id = set.Id;
