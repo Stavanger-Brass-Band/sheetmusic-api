@@ -209,7 +209,6 @@ namespace SheetMusic.Api.Test.Tests
                         await entryStream.WriteAsync(content);
                         await entryStream.FlushAsync();
                     }
-                    
                 }
 
                 await memoryStream.FlushAsync();

@@ -30,17 +30,15 @@ namespace SheetMusic.Api.Controllers
     public class SheetMusicController : ControllerBase
     {
         private readonly IBlobClient blobClient;
-        private readonly IPartRepository partRepository;
         private readonly ISetRepository setRepository;
         private readonly IMemoryCache memoryCache;
         private readonly IMediator mediator;
 
         private const long MaxFileSize = 300000000L; //300 MB
 
-        public SheetMusicController(IBlobClient blobClient, IPartRepository partRepository, ISetRepository setRepository, IMemoryCache memoryCache, IMediator mediator)
+        public SheetMusicController(IBlobClient blobClient, ISetRepository setRepository, IMemoryCache memoryCache, IMediator mediator)
         {
             this.blobClient = blobClient;
-            this.partRepository = partRepository;
             this.setRepository = setRepository;
             this.memoryCache = memoryCache;
             this.mediator = mediator;
@@ -199,7 +197,7 @@ namespace SheetMusic.Api.Controllers
             set = await mediator.Send(new GetSet(setIdentifier));
 
             if (set is null)
-                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+                throw new Exception("Set was null when retrieving after update");
 
             return new ApiSet(set);
         }
@@ -318,6 +316,7 @@ namespace SheetMusic.Api.Controllers
         [Authorize(AuthPolicy.Admin)]
         [HttpPost("sets/{setIdentifier}/parts/{partIdentifier}/content")]
         [MapToApiVersion("1.0")]
+        [Obsolete("Use version 2.0 of endpoint instead")]
         public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier, IFormFile file)
         {
             var set = await mediator.Send(new GetSet(setIdentifier));
@@ -465,10 +464,7 @@ namespace SheetMusic.Api.Controllers
 
         private string BaseUrl => $"{Request.Scheme}://{Request.Host}/sheetmusic";
 
-        private string DownloadTokenCacheKey(Guid setId)
-        {
-            return $"Download_{setId}";
-        }
+        private static string DownloadTokenCacheKey(Guid setId) => $"Download_{setId}";
 
         private bool TokenIsValid(Guid setId, string providedToken)
         {

@@ -29,7 +29,10 @@ namespace SheetMusic.Api.CQRS.Command
 
             protected override async Task Handle(DeletePart request, CancellationToken cancellationToken)
             {
-                var part = await db.MusicParts.FirstOrDefaultAsync(p => p.Id == request.PartId, cancellationToken: cancellationToken);
+                var part = await db.MusicParts
+                    .Include(p => p.MusicianMusicParts)
+                    .Include(p => p.Parts)
+                    .FirstOrDefaultAsync(p => p.Id == request.PartId, cancellationToken: cancellationToken);
 
                 if (part == null) throw new NotFoundError(request.PartId.ToString(), "Part not found");
 

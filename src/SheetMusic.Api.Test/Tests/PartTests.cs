@@ -89,5 +89,16 @@ namespace SheetMusic.Api.Test.Tests
             response = await adminClient.DeleteAsync($"parts/{part.Id}/aliases/testing");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
+
+        [Fact]
+        public async Task DeletePart_ShouldDeleteSuccessfully()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var partBuilder = new PartDataBuilder(adminClient);
+            var part = await partBuilder.ProvisionSinglePartAsync();
+
+            var response = await adminClient.DeleteAsync($"parts/{part.Name}");
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        }
     }
 }
