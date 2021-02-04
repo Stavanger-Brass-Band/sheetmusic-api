@@ -194,26 +194,7 @@ namespace SheetMusic.Api.Test.Tests
                 .WithParts(partCount)
                 .ProvisionAsync();
 
-            var sourceDir = $"{Path.GetTempPath()}{testSet.Id}";
-            Directory.CreateDirectory(sourceDir);
-            var content = Encoding.UTF8.GetBytes("this is just for testing purposes and is not a real PDF content string");
-
-            using (var memoryStream = new MemoryStream())
-            {
-                using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
-                {
-                    foreach (var part in parts)
-                    {
-                        var entry = zip.CreateEntry($"{part.Name}.pdf");
-                        using var entryStream = entry.Open();
-                        await entryStream.WriteAsync(content);
-                        await entryStream.FlushAsync();
-                    }
-                }
-
-                await memoryStream.FlushAsync();
-                await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{testSet.Id}");
-            }
+            await UploadPartsAsync(parts, testSet);
 
             var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
             partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -230,6 +211,40 @@ namespace SheetMusic.Api.Test.Tests
             {
                 setPart.SetId.Should().Be(testSet.Id);
                 parts.Should().Contain(p => p.Id == setPart.MusicPartId);
+            }
+        }
+
+        [Fact]
+        public async Task GetPartsAsZip_ShouldGiveCorrectContent()
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+            var testSet = await new SetDataBuilder(adminClient)
+                .ProvisionSingleSetAsync();
+
+            var partCount = 30;
+            var parts = await new PartDataBuilder(adminClient)
+                .WithParts(partCount)
+                .ProvisionAsync();
+
+            await UploadPartsAsync(parts, testSet);
+            factory.BlobMock.Setup(bm => bm.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>())).ReturnsAsync(new MemoryStream());
+
+            var token = await GetDownloadTokenAsync(testSet);
+            var zipResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={token}");
+            zipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using (var memoryStream = await zipResponse.Content.ReadAsStreamAsync())
+            {
+                using (var zip = new ZipArchive(memoryStream))
+                {
+                    zip.Entries.Count.Should().Be(partCount);
+
+                    foreach (var entry in zip.Entries)
+                    {
+                        parts.Should().Contain(s => $"{s.Name}.pdf" == entry.Name);
+                    }
+                }
             }
         }
 
@@ -261,6 +276,29 @@ namespace SheetMusic.Api.Test.Tests
             var body = await tokenResponse.Content.ReadAsStringAsync();
 
             return body;
+        }
+
+        private async Task UploadPartsAsync(List<ApiPart> parts, ApiSet set)
+        {
+            var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+            var content = Encoding.UTF8.GetBytes("this is just for testing purposes and is not a real PDF content string");
+
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                {
+                    foreach (var part in parts)
+                    {
+                        var entry = zip.CreateEntry($"{part.Name}.pdf");
+                        using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(content);
+                        await entryStream.FlushAsync();
+                    }
+                }
+
+                await memoryStream.FlushAsync();
+                await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{set.Id}");
+            }
         }
     }
 }
