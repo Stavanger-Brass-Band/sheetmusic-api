@@ -97,9 +97,7 @@ namespace SheetMusic.Api.Controllers
         public async Task<ActionResult<ApiPart>> AddNewPart(PartRequest request)
         {
             var command = new AddPart(request.Name, request.SortOrder, request.Indexable ?? true);
-            await mediator.Send(command);
-
-            var part = await mediator.Send(new GetMusicPart(request.Name));
+            var part = await mediator.Send(command);
 
             if (part is null)
                 return StatusCode(500); //newly created part not retrieved and error not detected, not very likely but an internal server error 

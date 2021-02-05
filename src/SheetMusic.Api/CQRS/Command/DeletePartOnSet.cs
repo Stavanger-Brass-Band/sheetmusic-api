@@ -31,6 +31,7 @@ namespace SheetMusic.Api.CQRS.Command
                 this.db = db;
                 this.mediator = mediator;
             }
+
             protected override async Task Handle(DeletePartOnSet request, CancellationToken cancellationToken)
             {
                 var partOnSet = await mediator.Send(new GetPartOnSet(request.SetIdentifier, request.PartIdentifier), cancellationToken);

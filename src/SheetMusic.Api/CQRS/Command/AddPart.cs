@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command
 {
-    public class AddPart : IRequest
+    public class AddPart : IRequest<MusicPart>
     {
         public AddPart(string name, int sortOrder, bool indexable)
         {
@@ -22,7 +22,7 @@ namespace SheetMusic.Api.CQRS.Command
         public int SortOrder { get; }
         public bool Indexable { get; }
 
-        public class Handler : AsyncRequestHandler<AddPart>
+        public class Handler : IRequestHandler<AddPart, MusicPart>
         {
             private readonly SheetMusicContext db;
 
@@ -31,7 +31,7 @@ namespace SheetMusic.Api.CQRS.Command
                 this.db = db;
             }
 
-            protected override async Task Handle(AddPart request, CancellationToken cancellationToken)
+            public async Task<MusicPart> Handle(AddPart request, CancellationToken cancellationToken)
             {
                 if (db.MusicParts.Any(p => p.Name.ToLower() == request.Name.ToLower()))
                     throw new PartAlreadyExistsError(request.Name);
@@ -46,6 +46,8 @@ namespace SheetMusic.Api.CQRS.Command
 
                 db.MusicParts.Add(part);
                 await db.SaveChangesAsync(cancellationToken);
+
+                return part;
             }
         }
     }

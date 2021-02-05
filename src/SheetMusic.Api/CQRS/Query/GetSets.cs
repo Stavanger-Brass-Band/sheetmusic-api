@@ -4,8 +4,8 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.OData;
 using SheetMusic.Api.OData.MVC;
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,7 +31,9 @@ namespace SheetMusic.Api.CQRS.Query
 
             public async Task<List<SheetMusicSet>> Handle(GetSets request, CancellationToken cancellationToken)
             {
-                var baseQuery = db.SheetMusicSets.AsQueryable();
+                var baseQuery = db.SheetMusicSets
+                    .OrderBy(s => s.ArchiveNumber)
+                    .AsQueryable();
 
                 if (request.QueryParams.HasFilter)
                 {
@@ -45,10 +47,25 @@ namespace SheetMusic.Api.CQRS.Query
                     });
                 }
 
-                if (request.QueryParams.Expand.Contains("parts"))
+                if (request.QueryParams.HasSearch)
                 {
-                    baseQuery = baseQuery.Include(s => s.Parts);
+                    var term = request.QueryParams.Search ?? "";
+
+                    baseQuery = baseQuery.Where(set =>
+                        set.ArchiveNumber.ToString().Contains(term) ||
+                        set.Title.Contains(term) ||
+                        (set.Arranger != null && set.Arranger.Contains(term)) ||
+                        (set.Composer != null && set.Composer.Contains(term)));
                 }
+
+                if (request.QueryParams.Skip.HasValue)
+                    baseQuery = baseQuery.Skip(request.QueryParams.Skip.Value);
+
+                if (request.QueryParams.Top.HasValue)
+                    baseQuery = baseQuery.Take(request.QueryParams.Top.Value);
+
+                if (request.QueryParams.Expand.Contains("parts"))
+                    baseQuery = baseQuery.Include(s => s.Parts).ThenInclude(p => p.Part);
 
                 return await baseQuery.ToListAsync(cancellationToken);
             }

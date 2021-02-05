@@ -42,8 +42,6 @@ namespace SheetMusic
             services.AddSheetMusicSwagger();
 
             services.AddSingleton<IBlobClient, BlobClient>();
-            services.AddScoped<IPartRepository, PartRepository>();
-            services.AddScoped<ISetRepository, SetRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IProjectRepository, ProjectRepository>();
             services.AddSingleton<IIndexAdminService, IndexAdminService>();

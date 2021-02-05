@@ -2,19 +2,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Net.Http.Headers;
 using SheetMusic.Api.Authorization;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.CQRS.Command;
 using SheetMusic.Api.CQRS.Query;
-using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
-using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Utilities;
 using System;
 using System.Collections.Generic;
@@ -31,46 +27,41 @@ namespace SheetMusic.Api.Controllers
     public class SheetMusicController : ControllerBase
     {
         private readonly IBlobClient blobClient;
-        private readonly ISetRepository setRepository;
         private readonly IMemoryCache memoryCache;
         private readonly IMediator mediator;
 
         private const long MaxFileSize = 300000000L; //300 MB
 
-        public SheetMusicController(IBlobClient blobClient, ISetRepository setRepository, IMemoryCache memoryCache, IMediator mediator)
+        public SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator)
         {
             this.blobClient = blobClient;
-            this.setRepository = setRepository;
             this.memoryCache = memoryCache;
             this.mediator = mediator;
         }
 
         /// <summary>
-        /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="searchTerm"/> if provided
+        /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided
         /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
         /// </summary>
-        /// <param name="searchTerm">Optional. A search term, can be archive number, title, arranger or composer</param>
-        /// <returns>Sets matching search term</returns>
+        /// <param name="queryParams">Optional. OData support for $filter</param>
+        /// <returns>Sets matching criteria</returns>
         [Produces("application/json", Type = typeof(List<ApiSet>))]
         [HttpGet("sets")]
-        public async Task<IActionResult> GetSetList(string? searchTerm)
+        public async Task<IActionResult> GetSetList(ODataQueryParams queryParams)
         {
-            List<SheetMusicSet> matchingSets;
-
-            if (!string.IsNullOrWhiteSpace(searchTerm))
-            {
-                matchingSets = await setRepository.SearchAsync(searchTerm);
-            }
-            else
-            {
-                matchingSets = await mediator.Send(new GetSets(new ODataQueryParams()));
-            }
+            var matchingSets = await mediator.Send(new GetSets(queryParams));
 
             var transformed = matchingSets.Select(s => new ApiSet(s)
             {
                 ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
-                PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts"
-
+                PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
+                Parts = queryParams.Expand.Contains("parts") ?
+                    s.Parts.Select(p => new ApiSheetMusicPart(p)
+                    {
+                        PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
+                        DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
+                    }).ToList()
+                    : null
             })
             .OrderBy(s => s.ArchiveNumber)
             .ToList();
@@ -245,13 +236,13 @@ namespace SheetMusic.Api.Controllers
                 return new BadRequestObjectResult("Download token must be provided and valid");
             }
 
-            var zip = await setRepository.GetPartPdfsAsZipForSetAsync(setIdentifier);
-            await zip.FlushAsync();
+            var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier));
+            await zipStream.FlushAsync();
+            zipStream.Position = 0;
 
-            zip.Position = 0;
             memoryCache.Remove(DownloadTokenCacheKey(set.Id)); //this is a one-time token
 
-            return File(zip, "application/zip", $"{set.Title}.zip");
+            return File(zipStream, "application/zip", $"{set.Title}.zip");
         }
 
         /// <summary>
@@ -304,7 +295,7 @@ namespace SheetMusic.Api.Controllers
 
             using (var stream = file.OpenReadStream())
             {
-                await setRepository.AddPartContentForSetAsync(identifier, stream);
+                await mediator.Send(new AddPartsContentForSet(identifier, stream));
             }
 
             return new OkResult();
@@ -323,23 +314,8 @@ namespace SheetMusic.Api.Controllers
         [Obsolete("Use version 2.0 of endpoint instead")]
         public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier, IFormFile file)
         {
-            var set = await mediator.Send(new GetSet(setIdentifier));
-
-            if (set is null)
-                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
-
-            var part = await mediator.Send(new GetMusicPart(partIdentifier));
-
-            if (part is null)
-                return NotFound(new ProblemDetails { Detail = $"Part {partIdentifier} was not found" });
-
-            if (set.Parts.Any(p => p.MusicPartId == part.Id))
-                throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
-
-            var relationship = new PartRelatedToSet(set.Id, part.Id);
-
-            await blobClient.AddMusicPartContentAsync(relationship, file.OpenReadStream());
-            await setRepository.AddMusicPartForSetAsync(set.Id, part.Id);
+            using var stream = file.OpenReadStream();
+            await mediator.Send(new AddPartOnSet(setIdentifier, partIdentifier, stream));
 
             return Ok();
         }
@@ -359,51 +335,17 @@ namespace SheetMusic.Api.Controllers
         [MapToApiVersion("2.0")]
         public async Task<IActionResult> AddPartContent(string setIdentifier, string partIdentifier)
         {
-            var set = await mediator.Send(new GetSet(setIdentifier));
-
-            if (set is null)
-                return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
-
-            var part = await mediator.Send(new GetMusicPart(partIdentifier));
-
-            if (part is null)
-                return NotFound(new ProblemDetails { Detail = $"Part {partIdentifier} was not found" });
-
-            if (set.Parts.Any(p => p.MusicPartId == part.Id))
-                throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
-
-            var relationship = new PartRelatedToSet(set.Id, part.Id);
-
-            if (!MultipartRequestHelper.IsMultipartContentType(Request.ContentType))
-                return BadRequest("Not a multipart request");
-
-            var boundary = MultipartRequestHelper.GetBoundary(MediaTypeHeaderValue.Parse(Request.ContentType), 10000000);
-            var reader = new MultipartReader(boundary, Request.Body);
-
-            // note: this is for a single file, you could also process multiple files
-            var section = await reader.ReadNextSectionAsync();
-
-            if (section == null)
-                return BadRequest("No sections in multipart defined");
-
-            if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition))
-                return BadRequest("No content disposition in multipart defined");
-
-            var fileName = contentDisposition.FileNameStar.ToString();
-            if (string.IsNullOrEmpty(fileName))
+            try
             {
-                fileName = contentDisposition.FileName.ToString();
+                using var fileStream = await MultipartRequestHelper.ExtractSingleFileStreamFromRequestAsync(Request);
+                await mediator.Send(new AddPartOnSet(setIdentifier, partIdentifier, fileStream));
+
+                return new OkResult();
             }
-
-            if (string.IsNullOrEmpty(fileName))
-                return BadRequest("No filename defined.");
-
-            using var fileStream = section.Body;
-
-            await blobClient.AddMusicPartContentAsync(relationship, fileStream);
-            await setRepository.AddMusicPartForSetAsync(set.Id, part.Id);
-
-            return new OkResult();
+            catch (MultipartFileError mfe)
+            {
+                return BadRequest(mfe.Message);
+            }
         }
 
         /// <summary>

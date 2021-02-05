@@ -1,6 +1,10 @@
-﻿using Microsoft.Net.Http.Headers;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Net.Http.Headers;
+using SheetMusic.Api.Errors;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Utilities
 {
@@ -48,6 +52,35 @@ namespace SheetMusic.Api.Utilities
                 && contentDisposition.DispositionType.Equals("form-data")
                 && (!string.IsNullOrEmpty(contentDisposition.FileName.Value)
                     || !string.IsNullOrEmpty(contentDisposition.FileNameStar.Value));
+        }
+
+        public static async Task<Stream> ExtractSingleFileStreamFromRequestAsync(HttpRequest request)
+        {
+            if (!IsMultipartContentType(request.ContentType))
+                throw new MultipartFileError("Not a multipart request");
+
+            var boundary = MultipartRequestHelper.GetBoundary(MediaTypeHeaderValue.Parse(request.ContentType), 10000000);
+            var reader = new MultipartReader(boundary, request.Body);
+
+            // note: this is for a single file, you could also process multiple files
+            var section = await reader.ReadNextSectionAsync();
+
+            if (section == null)
+                throw new MultipartFileError("No sections in multipart defined");
+
+            if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition))
+                throw new MultipartFileError("No content disposition in multipart defined");
+
+            var fileName = contentDisposition.FileNameStar.ToString();
+            if (string.IsNullOrEmpty(fileName))
+            {
+                fileName = contentDisposition.FileName.ToString();
+            }
+
+            if (string.IsNullOrEmpty(fileName))
+                throw new MultipartFileError("No filename defined.");
+
+            return section.Body;
         }
     }
 }

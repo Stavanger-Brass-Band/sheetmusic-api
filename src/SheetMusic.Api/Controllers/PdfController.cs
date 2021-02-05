@@ -9,7 +9,6 @@ using Newtonsoft.Json;
 using SheetMusic.Api.Controllers.InternalModels;
 using SheetMusic.Api.CQRS.Queries;
 using SheetMusic.Api.Database.Entities;
-using SheetMusic.Api.Repositories;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -23,14 +22,12 @@ namespace SheetMusic.Api.Controllers
     [Route("pdf")]
     public class PdfController : ControllerBase
     {
-        private readonly IPartRepository partRepository;
         private readonly IMediator mediator;
         private readonly IConfiguration configuration;
         private List<MusicPart> parts = new List<MusicPart>();
 
-        public PdfController(IPartRepository partRepository, IMediator mediator, IConfiguration configuration)
+        public PdfController(IMediator mediator, IConfiguration configuration)
         {
-            this.partRepository = partRepository;
             this.mediator = mediator;
             this.configuration = configuration;
         }

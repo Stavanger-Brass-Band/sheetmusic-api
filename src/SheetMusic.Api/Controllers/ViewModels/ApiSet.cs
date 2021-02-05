@@ -9,13 +9,11 @@ namespace SheetMusic.Api.Controllers.ViewModels
     {
         public ApiSet()
         {
-            Parts = new List<ApiSheetMusicPart>();
+
         }
 
         public ApiSet(SheetMusicSet set)
         {
-            Parts = new List<ApiSheetMusicPart>();
-
             Id = set.Id;
             ArchiveNumber = set.ArchiveNumber;
             Title = set.Title;
@@ -64,6 +62,6 @@ namespace SheetMusic.Api.Controllers.ViewModels
         /// <summary>
         /// A list of parts for the set, if included
         /// </summary>
-        public List<ApiSheetMusicPart> Parts { get; set; }
+        public List<ApiSheetMusicPart>? Parts { get; set; }
     }
 }

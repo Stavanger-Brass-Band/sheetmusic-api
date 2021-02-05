@@ -15,12 +15,15 @@ namespace SheetMusic.Api.OData.MVC
 
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            var param = new ODataQueryParams();
+            var param = new ODataQueryParams
+            {
+                Skip = GetIntParam(bindingContext, "$skip"),
+                Top = GetIntParam(bindingContext, "$top"),
+                Search = GetStringParam(bindingContext, "$search")
+            };
 
-            param.Skip = GetIntParam(bindingContext, "$skip");
-            param.Top = GetIntParam(bindingContext, "$top");
-
-            param.Search = GetStringParam(bindingContext, "$search");
+            if (param.Top < 1)
+                throw new InvalidOperationException("Top must be at least 1 row");
 
             var filter = GetStringParam(bindingContext, "$filter");
             var order = GetStringParam(bindingContext, "$orderby");
@@ -70,7 +73,7 @@ namespace SheetMusic.Api.OData.MVC
         }
 
 
-        private string? GetStringParam(ModelBindingContext bindingContext, string fieldName)
+        private static string? GetStringParam(ModelBindingContext bindingContext, string fieldName)
         {
             var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
             if (valueProviderResult != ValueProviderResult.None)
@@ -81,7 +84,7 @@ namespace SheetMusic.Api.OData.MVC
             return null;
         }
 
-        private int? GetIntParam(ModelBindingContext bindingContext, string fieldName)
+        private static int? GetIntParam(ModelBindingContext bindingContext, string fieldName)
         {
             var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
             if (valueProviderResult != ValueProviderResult.None)

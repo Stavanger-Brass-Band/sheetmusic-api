@@ -157,13 +157,13 @@
             <param name="file">The file to split</param>
             <returns>Zip archive with results</returns>
         </member>
-        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(System.String)">
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(SheetMusic.Api.OData.MVC.ODataQueryParams)">
             <summary>
-            Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="searchTerm"/> if provided
+            Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search.Search"/> if provided
             Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
             </summary>
-            <param name="searchTerm">Optional. A search term, can be archive number, title, arranger or composer</param>
-            <returns>Sets matching search term</returns>
+            <param name="queryParams">Optional. OData support for $filter</param>
+            <returns>Sets matching criteria</returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetPartsForSet(System.String)">
             <summary>
