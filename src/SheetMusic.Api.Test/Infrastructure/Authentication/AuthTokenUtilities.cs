@@ -2,42 +2,41 @@
 using System;
 using System.Text;
 
-namespace SheetMusic.Api.Test.Infrastructure.Authentication
+namespace SheetMusic.Api.Test.Infrastructure.Authentication;
+
+public static class AuthTokenUtilities
 {
-    public static class AuthTokenUtilities
+    /// <summary>
+    /// Converts <paramref name="bearerToken"/> from base64, UTF-8 encoded string and then deserializes it to <typeparamref name="T"/>
+    /// </summary>
+    /// <typeparam name="T">The type you wish to attempt to deserialize to</typeparam>
+    /// <param name="bearerToken">The token as it appears in the Authorization header</param>
+    /// <returns>Deserialized object of type <typeparamref name="T"/></returns>
+    public static T? UnwrapAuthToken<T>(string bearerToken) where T : class
     {
-        /// <summary>
-        /// Converts <paramref name="bearerToken"/> from base64, UTF-8 encoded string and then deserializes it to <typeparamref name="T"/>
-        /// </summary>
-        /// <typeparam name="T">The type you wish to attempt to deserialize to</typeparam>
-        /// <param name="bearerToken">The token as it appears in the Authorization header</param>
-        /// <returns>Deserialized object of type <typeparamref name="T"/></returns>
-        public static T? UnwrapAuthToken<T>(string bearerToken) where T : class
-        {
-            if (string.IsNullOrWhiteSpace(bearerToken))
-                return default;
+        if (string.IsNullOrWhiteSpace(bearerToken))
+            return default;
 
-            var tokenPart = bearerToken.Split(' ')[1];
-            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(tokenPart));
-            var deserialized = JsonConvert.DeserializeObject<T>(decoded);
+        var tokenPart = bearerToken.Split(' ')[1];
+        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(tokenPart));
+        var deserialized = JsonConvert.DeserializeObject<T>(decoded);
 
-            return deserialized;
-        }
+        return deserialized;
+    }
 
-        /// <summary>
-        /// Wraps <typeparamref name="T"/> by serializing, encoding and then converting to base 64 string. 
-        /// "Bearer" is also added, making it ready to be added as Authorization header
-        /// </summary>
-        /// <typeparam name="T">The type of the class that is serialized</typeparam>
-        /// <param name="tokenClass">The instance of the token to be wrapped</param>
-        /// <returns>Serialized, encoded string ready for authorization header</returns>
-        public static string WrapAuthToken<T>(T tokenClass) where T : class
-        {
-            var serialized = JsonConvert.SerializeObject(tokenClass);
-            var tokenBytes = Encoding.UTF8.GetBytes(serialized);
-            var tokenString = Convert.ToBase64String(tokenBytes);
+    /// <summary>
+    /// Wraps <typeparamref name="T"/> by serializing, encoding and then converting to base 64 string. 
+    /// "Bearer" is also added, making it ready to be added as Authorization header
+    /// </summary>
+    /// <typeparam name="T">The type of the class that is serialized</typeparam>
+    /// <param name="tokenClass">The instance of the token to be wrapped</param>
+    /// <returns>Serialized, encoded string ready for authorization header</returns>
+    public static string WrapAuthToken<T>(T tokenClass) where T : class
+    {
+        var serialized = JsonConvert.SerializeObject(tokenClass);
+        var tokenBytes = Encoding.UTF8.GetBytes(serialized);
+        var tokenString = Convert.ToBase64String(tokenBytes);
 
-            return $"Bearer {tokenString}";
-        }
+        return $"Bearer {tokenString}";
     }
 }

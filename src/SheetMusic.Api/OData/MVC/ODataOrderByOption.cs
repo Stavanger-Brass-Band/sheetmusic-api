@@ -1,11 +1,10 @@
 ﻿using SheetMusic.Api.OData.Constants;
 
-namespace SheetMusic.Api.OData.MVC
-{
-    public class ODataOrderByOption
-    {
-        public string Field { get; set; } = null!;
+namespace SheetMusic.Api.OData.MVC;
 
-        public SortDirection Direction { get; set; }
-    }
+public class ODataOrderByOption
+{
+    public string Field { get; set; } = null!;
+
+    public SortDirection Direction { get; set; }
 }

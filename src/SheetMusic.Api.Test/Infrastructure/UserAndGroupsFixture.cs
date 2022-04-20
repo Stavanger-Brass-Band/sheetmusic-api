@@ -4,18 +4,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Test.Infrastructure
+namespace SheetMusic.Api.Test.Infrastructure;
+
+public class UserAndGroupsFixture : IDisposable
 {
-    public class UserAndGroupsFixture : IDisposable
+    public UserAndGroupsFixture()
     {
-        public UserAndGroupsFixture()
-        {
 
-        }
+    }
 
-        public void Dispose()
-        {
-            throw new NotImplementedException();
-        }
+    public void Dispose()
+    {
+        throw new NotImplementedException();
     }
 }

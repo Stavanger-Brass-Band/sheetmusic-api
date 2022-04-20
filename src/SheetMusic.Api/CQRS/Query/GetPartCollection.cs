@@ -8,43 +8,42 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query
+namespace SheetMusic.Api.CQRS.Query;
+
+public class GetPartCollection : IRequest<List<MusicPart>>
 {
-    public class GetPartCollection : IRequest<List<MusicPart>>
+    public GetPartCollection(ODataQueryParams queryParams)
     {
-        public GetPartCollection(ODataQueryParams queryParams)
+        QueryParams = queryParams;
+    }
+
+    public ODataQueryParams QueryParams { get; }
+
+    public class Handler : IRequestHandler<GetPartCollection, List<MusicPart>>
+    {
+        private readonly SheetMusicContext db;
+
+        public Handler(SheetMusicContext db)
         {
-            QueryParams = queryParams;
+            this.db = db;
         }
-
-        public ODataQueryParams QueryParams { get; }
-
-        public class Handler : IRequestHandler<GetPartCollection, List<MusicPart>>
+        public async Task<List<MusicPart>> Handle(GetPartCollection request, CancellationToken cancellationToken)
         {
-            private readonly SheetMusicContext db;
+            var query = db.MusicParts.AsQueryable();
 
-            public Handler(SheetMusicContext db)
+            if (request.QueryParams != null && request.QueryParams.HasFilter)
             {
-                this.db = db;
-            }
-            public async Task<List<MusicPart>> Handle(GetPartCollection request, CancellationToken cancellationToken)
-            {
-                var query = db.MusicParts.AsQueryable();
-
-                if (request.QueryParams != null && request.QueryParams.HasFilter)
+                query = query.ApplyODataFilters(request.QueryParams, m =>
                 {
-                    query = query.ApplyODataFilters(request.QueryParams, m =>
-                    {
-                        m.MapField("name", p => p.Name);
-                        m.MapField("indexable", p => p.Indexable);
-                        m.MapField("sortOrder", p => p.SortOrder);
-                    });
-                }
-
-                var results = await query.ToListAsync();
-
-                return results;
+                    m.MapField("name", p => p.Name);
+                    m.MapField("indexable", p => p.Indexable);
+                    m.MapField("sortOrder", p => p.SortOrder);
+                });
             }
+
+            var results = await query.ToListAsync();
+
+            return results;
         }
     }
 }

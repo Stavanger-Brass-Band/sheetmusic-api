@@ -1,10 +1,9 @@
 ﻿using Xunit;
 
-namespace SheetMusic.Api.Test.Infrastructure.TestCollections
+namespace SheetMusic.Api.Test.Infrastructure.TestCollections;
+
+[CollectionDefinition(Collections.Part)]
+public class PartCollection : ICollectionFixture<SheetMusicWebAppFactory>
 {
-    [CollectionDefinition(Collections.Part)]
-    public class PartCollection : ICollectionFixture<SheetMusicWebAppFactory>
-    {
-        //for defining collection
-    }
+    //for defining collection
 }

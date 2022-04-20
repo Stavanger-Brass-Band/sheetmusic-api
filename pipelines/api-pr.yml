@@ -1,0 +1,58 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+    - '*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+jobs:
+- job: BuildAndPack
+  displayName: 'Build and test'
+  steps:
+    - task: UseDotNet@2
+      displayName: 'Use dotnet core 6.0'
+      inputs:
+        version: '6.0.x'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore packages'
+      inputs:
+        command: restore
+        projects: '**/*.csproj'
+        configuration: $(buildConfiguration)
+        feedsToUse: 'select'
+
+    - task: DotNetCoreCLI@2
+      displayName: Build
+      inputs:
+        command: build
+        configuration: $(buildConfiguration)
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run integration tests'
+      inputs:
+        command: test
+        arguments: '--configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
+        projects: '**/SheetMusic.Api.Test.csproj'
+
+    - task: Palmmedia.reportgenerator.reportgenerator-build-release-task.reportgenerator@4
+      displayName: 'Generate Code Coverage Report'
+      inputs:
+        reports: $(Agent.TempDirectory)/**/coverage.cobertura.xml
+        targetdir: $(Agent.TempDirectory)/CoverageResults/
+        reporttypes: 'HtmlInline_AzurePipelines;Cobertura;Badges'
+      
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage report'
+      inputs:
+        codeCoverageTool: Cobertura
+        summaryFileLocation: $(Agent.TempDirectory)/CoverageResults/Cobertura.xml
+        reportDirectory: $(Agent.TempDirectory)/CoverageResults
+        failIfCoverageEmpty: true

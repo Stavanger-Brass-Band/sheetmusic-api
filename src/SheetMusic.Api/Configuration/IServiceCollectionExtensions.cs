@@ -16,147 +16,146 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 
-namespace SheetMusic.Api.Configuration
+namespace SheetMusic.Api.Configuration;
+
+public static class IServiceCollectionExtensions
 {
-    public static class IServiceCollectionExtensions
+    public static IServiceCollection AddSheetMusicSecurity(this IServiceCollection services, IConfiguration configuration)
     {
-        public static IServiceCollection AddSheetMusicSecurity(this IServiceCollection services, IConfiguration configuration)
+        services.AddCors(options =>
         {
-            services.AddCors(options =>
-            {
-                options.AddPolicy("AllowMember", builder =>
-                    builder.WithOrigins("https://sheetmusic-member.azurewebsites.net",
-                                        "https://medlem.stavanger-brassband.no",
-                                        "http://localhost:5000",
-                                        "http://localhost:5100",
-                                        "https://localhost:5001")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials());
-            });
+            options.AddPolicy("AllowMember", builder =>
+                builder.WithOrigins("https://sheetmusic-member.azurewebsites.net",
+                                    "https://medlem.stavanger-brassband.no",
+                                    "http://localhost:5000",
+                                    "http://localhost:5100",
+                                    "https://localhost:5001")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials());
+        });
 
-            var secretKey = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
+        var secretKey = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
 
-            services.AddAuthentication(x =>
+        services.AddAuthentication(x =>
+        {
+            x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(x =>
+        {
+            x.Events = new JwtBearerEvents
             {
-                x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(x =>
-            {
-                x.Events = new JwtBearerEvents
+                OnTokenValidated = async context =>
                 {
-                    OnTokenValidated = async context =>
+                    if (context is null)
+                        throw new Exception("Unable to process token with no context");
+
+                    if (!context.Principal?.Identity?.IsAuthenticated ?? false || context.Principal?.Identity?.Name == null)
                     {
-                        if (context is null)
-                            throw new Exception("Unable to process token with no context");
+                        context.Fail("Unauthorized");
+                        return;
+                    }
 
-                        if (!context.Principal?.Identity?.IsAuthenticated ?? false || context.Principal?.Identity?.Name == null)
-                        {
-                            context.Fail("Unauthorized");
-                            return;
-                        }
+                    var userRepo = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                    if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
+                    {
+                        var user = await userRepo.GetByIdAsync(userId);
 
-                        var userRepo = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
-                        if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
+                        if (user == null)
                         {
-                            var user = await userRepo.GetByIdAsync(userId);
-
-                            if (user == null)
-                            {
-                                // return unauthorized if user no longer exists
-                                context.Fail("Unauthorized");
-                            }
-                        }
-                        else
-                        {
+                            // return unauthorized if user no longer exists
                             context.Fail("Unauthorized");
                         }
                     }
-                };
-                x.RequireHttpsMetadata = false;
-                x.SaveToken = true;
-                x.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-                    ValidateIssuer = false,
-                    ValidateAudience = false
-                };
-            });
-
-            services.AddAuthorization(options =>
+                    else
+                    {
+                        context.Fail("Unauthorized");
+                    }
+                }
+            };
+            x.RequireHttpsMetadata = false;
+            x.SaveToken = true;
+            x.TokenValidationParameters = new TokenValidationParameters
             {
-                options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
-            });
-            services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+                ValidateIssuer = false,
+                ValidateAudience = false
+            };
+        });
 
-            return services;
-        }
-
-        public static IServiceCollection AddSheetMusicSwagger(this IServiceCollection services)
+        services.AddAuthorization(options =>
         {
-            services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
+            options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
+        });
+        services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
 
-            services.AddSwaggerGen(setup =>
-            {
-                setup.OperationFilter<SwaggerDefaultValues>();
-                setup.OperationFilter<SwaggerHideVersionHeader>();
+        return services;
+    }
 
-                setup.AddSecurityDefinition("oauth2",
-                    new OpenApiSecurityScheme
-                    {
-                        Type = SecuritySchemeType.OAuth2,
-                        Flows = new OpenApiOAuthFlows()
-                        {
-                            Password = new OpenApiOAuthFlow
-                            {
-                                AuthorizationUrl = new Uri("/token", UriKind.Relative),
-                                TokenUrl = new Uri("/token", UriKind.Relative)
-                            }
-                        }
-                    });
+    public static IServiceCollection AddSheetMusicSwagger(this IServiceCollection services)
+    {
+        services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
 
-                setup.AddSecurityRequirement(new OpenApiSecurityRequirement
+        services.AddSwaggerGen(setup =>
+        {
+            setup.OperationFilter<SwaggerDefaultValues>();
+            setup.OperationFilter<SwaggerHideVersionHeader>();
+
+            setup.AddSecurityDefinition("oauth2",
+                new OpenApiSecurityScheme
                 {
+                    Type = SecuritySchemeType.OAuth2,
+                    Flows = new OpenApiOAuthFlows()
                     {
-                        new OpenApiSecurityScheme
+                        Password = new OpenApiOAuthFlow
                         {
-                            Reference = new OpenApiReference
-                            {
-                                Id = "oauth2",
-                                Type = ReferenceType.SecurityScheme,
-                            }
-                        },
-                        new List<string>()
+                            AuthorizationUrl = new Uri("/token", UriKind.Relative),
+                            TokenUrl = new Uri("/token", UriKind.Relative)
+                        }
                     }
                 });
 
-                //Locate the XML file being generated by ASP.NET...
-                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.XML";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
-                //... and tell Swagger to use those XML comments.
-                if (File.Exists(xmlPath))
-                    setup.IncludeXmlComments(xmlPath);
-            });
-
-            return services;
-        }
-
-        public static IServiceCollection AddSheetMusicVersioning(this IServiceCollection services)
-        {
-            services.AddApiVersioning(config =>
+            setup.AddSecurityRequirement(new OpenApiSecurityRequirement
             {
-                config.DefaultApiVersion = new ApiVersion(1, 0);
-                config.AssumeDefaultVersionWhenUnspecified = true;
-                config.ReportApiVersions = true;
-                config.ApiVersionReader = ApiVersionReader.Combine(new HeaderApiVersionReader("x-api-version"), new QueryStringApiVersionReader("api-version"));
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Id = "oauth2",
+                            Type = ReferenceType.SecurityScheme,
+                        }
+                    },
+                    new List<string>()
+                }
             });
 
-            services.AddVersionedApiExplorer();
+            //Locate the XML file being generated by ASP.NET...
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.XML";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
-            return services;
-        }
+            //... and tell Swagger to use those XML comments.
+            if (File.Exists(xmlPath))
+                setup.IncludeXmlComments(xmlPath);
+        });
+
+        return services;
+    }
+
+    public static IServiceCollection AddSheetMusicVersioning(this IServiceCollection services)
+    {
+        services.AddApiVersioning(config =>
+        {
+            config.DefaultApiVersion = new ApiVersion(1, 0);
+            config.AssumeDefaultVersionWhenUnspecified = true;
+            config.ReportApiVersions = true;
+            config.ApiVersionReader = ApiVersionReader.Combine(new HeaderApiVersionReader("x-api-version"), new QueryStringApiVersionReader("api-version"));
+        });
+
+        services.AddVersionedApiExplorer();
+
+        return services;
     }
 }

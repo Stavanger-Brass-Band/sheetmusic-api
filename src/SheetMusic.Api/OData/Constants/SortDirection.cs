@@ -1,5 +1,4 @@
-﻿namespace SheetMusic.Api.OData.Constants
-{
-    public enum SortDirection { asc, desc }
+﻿namespace SheetMusic.Api.OData.Constants;
 
-}
+public enum SortDirection { asc, desc }
+

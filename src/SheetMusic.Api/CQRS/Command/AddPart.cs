@@ -7,46 +7,47 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command
+namespace SheetMusic.Api.CQRS.Command;
+
+public class AddPart : IRequest<MusicPart>
 {
-    public class AddPart : IRequest
+    public AddPart(string name, int sortOrder, bool indexable)
     {
-        public AddPart(string name, int sortOrder, bool indexable)
+        Name = name;
+        SortOrder = sortOrder;
+        Indexable = indexable;
+    }
+
+    public string Name { get; }
+    public int SortOrder { get; }
+    public bool Indexable { get; }
+
+    public class Handler : IRequestHandler<AddPart, MusicPart>
+    {
+        private readonly SheetMusicContext db;
+
+        public Handler(SheetMusicContext db)
         {
-            Name = name;
-            SortOrder = sortOrder;
-            Indexable = indexable;
+            this.db = db;
         }
 
-        public string Name { get; }
-        public int SortOrder { get; }
-        public bool Indexable { get; }
-
-        public class Handler : AsyncRequestHandler<AddPart>
+        public async Task<MusicPart> Handle(AddPart request, CancellationToken cancellationToken)
         {
-            private readonly SheetMusicContext db;
+            if (db.MusicParts.Any(p => p.Name.ToLower() == request.Name.ToLower()))
+                throw new PartAlreadyExistsError(request.Name);
 
-            public Handler(SheetMusicContext db)
+            var part = new MusicPart
             {
-                this.db = db;
-            }
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Indexable = request.Indexable,
+                SortOrder = request.SortOrder
+            };
 
-            protected override async Task Handle(AddPart request, CancellationToken cancellationToken)
-            {
-                if (db.MusicParts.Any(p => p.Name.ToLower() == request.Name.ToLower()))
-                    throw new PartAlreadyExistsError(request.Name);
+            db.MusicParts.Add(part);
+            await db.SaveChangesAsync(cancellationToken);
 
-                var part = new MusicPart
-                {
-                    Id = Guid.NewGuid(),
-                    Name = request.Name,
-                    Indexable = request.Indexable,
-                    SortOrder = request.SortOrder
-                };
-
-                db.MusicParts.Add(part);
-                await db.SaveChangesAsync(cancellationToken);
-            }
+            return part;
         }
     }
 }

@@ -157,13 +157,13 @@
             <param name="file">The file to split</param>
             <returns>Zip archive with results</returns>
         </member>
-        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(System.String)">
+        <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(SheetMusic.Api.OData.MVC.ODataQueryParams)">
             <summary>
-            Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="searchTerm"/> if provided
+            Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search.Search"/> if provided
             Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
             </summary>
-            <param name="searchTerm">Optional. A search term, can be archive number, title, arranger or composer</param>
-            <returns>Sets matching search term</returns>
+            <param name="queryParams">Optional. OData support for $filter</param>
+            <returns>Sets matching criteria</returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetPartsForSet(System.String)">
             <summary>
@@ -182,9 +182,9 @@
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSinglePartFile(System.String,System.String,System.String)">
             <summary>
-            Gets the PDF file for set with <paramref name="identifier"/>, part with <paramref name="partIdentifier"/>
+            Gets the PDF file for set with <paramref name="setIdentifier"/>, part with <paramref name="partIdentifier"/>
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
             <param name="downloadToken">A token to prove you are authorized for download</param>
             <returns>The PDF file, if it exists. 404 otherwise.</returns>
@@ -193,14 +193,14 @@
             <summary>
             Gets information about a single set, either by guid, number or title.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
-            <returns>Set matching <paramref name="identifier"/></returns>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <returns>Set matching <paramref name="setIdentifier"/></returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.UpdateSetInformation(System.String,SheetMusic.Api.Controllers.RequestModels.SetRequest)">
             <summary>
             Updates information about a set. PS! All properties will be updated, omitted once are nulled out.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="request">Update set parameters</param>
             <returns>Updated set metadata</returns>
         </member>
@@ -208,7 +208,7 @@
             <summary>
             Authorized a set for download, allowing a single download for the one with the token.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <returns></returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetPartsForSetAzZip(System.String,System.String)">
@@ -216,7 +216,7 @@
             Gets the part collection for a set as a zip file. 
             Accepts anonymous requests, but they must provide a download token that is validated to be able to download.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="downloadToken">A token for proving that user is allowed to download this set</param>
             <returns>Zipped collection of parts</returns>
         </member>
@@ -254,9 +254,9 @@
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.DeletePart(System.String,System.String)">
             <summary>
-            Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="identifier"/>.
+            Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <param name="partIdentifier">Name of the part to add</param>
             <returns>204 if successfull, 404 if not found, 500 if something bad happens</returns>
         </member>
@@ -270,9 +270,9 @@
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.DeleteSet(System.String)">
             <summary>
-            Deletes the set with <paramref name="identifier"/>, including all the parts and files
+            Deletes the set with <paramref name="setIdentifier"/>, including all the parts and files
             </summary>
-            <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+            <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <returns>200 if ok, 404 if not found, 500 if something bad happens</returns>
         </member>
         <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.Id">

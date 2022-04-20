@@ -1,13 +1,12 @@
 ﻿using System;
 
-namespace SheetMusic.Api.Controllers.RequestModels
+namespace SheetMusic.Api.Controllers.RequestModels;
+
+public class NewProjectRequest
 {
-    public class NewProjectRequest
-    {
-        public string Name { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
-        public DateTime StartDate { get; set; }
+    public DateTime StartDate { get; set; }
 
-        public DateTime EndDate { get; set; }
-    }
+    public DateTime EndDate { get; set; }
 }

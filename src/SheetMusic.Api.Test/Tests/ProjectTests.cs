@@ -8,63 +8,34 @@ using System.Net;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests
+namespace SheetMusic.Api.Test.Tests;
+
+[Collection(Collections.Project)]
+public class ProjectTests : IClassFixture<SheetMusicWebAppFactory>
 {
-    [Collection(Collections.Project)]
-    public class ProjectTests : IClassFixture<SheetMusicWebAppFactory>
+    private readonly SheetMusicWebAppFactory factory;
+
+    public ProjectTests(SheetMusicWebAppFactory factory)
     {
-        private readonly SheetMusicWebAppFactory factory;
+        this.factory = factory;
+    }
 
-        public ProjectTests(SheetMusicWebAppFactory factory)
+    [Fact]
+    public async Task UpdateProject_ShouldUpdateProjectSuccessfully_WhenUserIsAdmin()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
         {
-            this.factory = factory;
-        }
+            Name = "New project - Admin",
+            Comments = "This is a long comment",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
 
-        [Fact]
-        public async Task UpdateProject_ShouldUpdateProjectSuccessfully_WhenUserIsAdmin()
-        {
-            var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+        await client.PostAsJsonAsync($"projects", project);
 
-            var project = new
-            {
-                Name = "New project - Admin",
-                Comments = "This is a long comment",
-                StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
-                EndDate = DateTimeOffset.UtcNow.AddMonths(1)
-            };
-
-            await client.PostAsJsonAsync($"projects", project);
-
-            var response = await client.PutAsJsonAsync($"projects/{project.Name}",
-                new
-                {
-                    project.Name,
-                    Comments = "This is a long comment",
-                    project.StartDate,
-                    project.EndDate
-                });
-
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-        }
-
-        [Fact]
-        public async Task UpdateProject_ShouldBeForbidden_WhenUserIsReader()
-        {
-            var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-            var project = new
-            {
-                Name = "New project - Reader",
-                Comments = "This is a long comment",
-                StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
-                EndDate = DateTimeOffset.UtcNow.AddMonths(1)
-            };
-
-            await client.PostAsJsonAsync($"projects", project);
-
-            client = factory.CreateClientWithTestToken(TestUser.Testesen);
-
-            var response = await client.PutAsJsonAsync($"projects/{project.Name}",
+        var response = await client.PutAsJsonAsync($"projects/{project.Name}",
             new
             {
                 project.Name,
@@ -73,7 +44,35 @@ namespace SheetMusic.Api.Test.Tests
                 project.EndDate
             });
 
-            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        }
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateProject_ShouldBeForbidden_WhenUserIsReader()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = "New project - Reader",
+            Comments = "This is a long comment",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+
+        await client.PostAsJsonAsync($"projects", project);
+
+        client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.PutAsJsonAsync($"projects/{project.Name}",
+        new
+        {
+            project.Name,
+            Comments = "This is a long comment",
+            project.StartDate,
+            project.EndDate
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

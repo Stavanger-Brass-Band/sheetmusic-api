@@ -7,44 +7,44 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query
-{
-    public class GetProject : IRequest<Project>
-    {
-        private readonly string identifier;
+namespace SheetMusic.Api.CQRS.Query;
 
-        public GetProject(string identifier)
+public class GetProject : IRequest<Project>
+{
+    private readonly string identifier;
+
+    public GetProject(string identifier)
+    {
+        this.identifier = identifier;
+    }
+
+    public class Handler : IRequestHandler<GetProject, Project>
+    {
+        private readonly SheetMusicContext db;
+
+        public Handler(SheetMusicContext db)
         {
-            this.identifier = identifier;
+            this.db = db;
         }
 
-        public class Handler : IRequestHandler<GetProject, Project>
+        public async Task<Project> Handle(GetProject request, CancellationToken cancellationToken)
         {
-            private readonly SheetMusicContext db;
+            Project? result;
 
-            public Handler(SheetMusicContext db)
+            if (Guid.TryParse(request.identifier, out var guid))
             {
-                this.db = db;
+                result = await db.Projects.FirstOrDefaultAsync(project => project.Id == guid, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                //ignore casing when comparing on title
+                result = await db.Projects.SingleOrDefaultAsync(project => project.Name.ToLower() == request.identifier.ToLower(), cancellationToken: cancellationToken);
             }
 
-            public async Task<Project> Handle(GetProject request, CancellationToken cancellationToken)
-            {
-                Project result;
+            if (result is null)
+                throw new NotFoundError($"projects/{request.identifier}", "Project not found");
 
-                if (Guid.TryParse(request.identifier, out var guid))
-                {
-                    result = await db.Projects.FirstOrDefaultAsync(project => project.Id == guid);
-                }
-                else
-                {
-                    //ignore casing when comparing on title
-                    result = await db.Projects.SingleOrDefaultAsync(project => project.Name.ToLower() == request.identifier.ToLower());
-                }
-
-                if (result == null) throw new NotFoundError($"projects/{request.identifier}", "Project not found");
-
-                return result;
-            }
+            return result;
         }
     }
 }
