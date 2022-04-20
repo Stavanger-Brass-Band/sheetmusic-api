@@ -93,7 +93,6 @@ stages:
   jobs:
   - deployment: DeployToProd
     displayName: 'Deploy to production'
-    pool: 'Hosted VS2017'
     environment: 'API production'
     strategy:
       runOnce:
