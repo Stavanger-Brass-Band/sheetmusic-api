@@ -73,7 +73,6 @@ stages:
   jobs:
   - deployment: DeployToTest
     displayName: 'Deploy to test'
-    pool: 'Hosted VS2017'
     environment: 'API test'
     strategy:
       runOnce:
