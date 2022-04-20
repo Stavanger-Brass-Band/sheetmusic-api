@@ -6,45 +6,44 @@ using SheetMusic.Api.Errors;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command
+namespace SheetMusic.Api.CQRS.Command;
+
+public class DeletePartOnSet : IRequest
 {
-    public class DeletePartOnSet : IRequest
+    public DeletePartOnSet(string setIdentifier, string partIdentifier)
     {
-        public DeletePartOnSet(string setIdentifier, string partIdentifier)
+        SetIdentifier = setIdentifier;
+        PartIdentifier = partIdentifier;
+    }
+
+    public string SetIdentifier { get; }
+    public string PartIdentifier { get; }
+
+    public class Handler : AsyncRequestHandler<DeletePartOnSet>
+    {
+        private readonly IBlobClient blobClient;
+        private readonly SheetMusicContext db;
+        private readonly IMediator mediator;
+
+        public Handler(IBlobClient blobClient, SheetMusicContext db, IMediator mediator)
         {
-            SetIdentifier = setIdentifier;
-            PartIdentifier = partIdentifier;
+            this.blobClient = blobClient;
+            this.db = db;
+            this.mediator = mediator;
         }
 
-        public string SetIdentifier { get; }
-        public string PartIdentifier { get; }
-
-        public class Handler : AsyncRequestHandler<DeletePartOnSet>
+        protected override async Task Handle(DeletePartOnSet request, CancellationToken cancellationToken)
         {
-            private readonly IBlobClient blobClient;
-            private readonly SheetMusicContext db;
-            private readonly IMediator mediator;
+            var partOnSet = await mediator.Send(new GetPartOnSet(request.SetIdentifier, request.PartIdentifier), cancellationToken);
+            if (partOnSet is null) throw new NotFoundError($"{request.SetIdentifier}/{request.PartIdentifier}");
 
-            public Handler(IBlobClient blobClient, SheetMusicContext db, IMediator mediator)
+            var blobIdentifer = new PartRelatedToSet(partOnSet.SetId, partOnSet.MusicPartId);
+            await blobClient.DeletePartContentAsync(blobIdentifer);
+
+            if (partOnSet is not null)
             {
-                this.blobClient = blobClient;
-                this.db = db;
-                this.mediator = mediator;
-            }
-
-            protected override async Task Handle(DeletePartOnSet request, CancellationToken cancellationToken)
-            {
-                var partOnSet = await mediator.Send(new GetPartOnSet(request.SetIdentifier, request.PartIdentifier), cancellationToken);
-                if (partOnSet is null) throw new NotFoundError($"{request.SetIdentifier}/{request.PartIdentifier}");
-
-                var blobIdentifer = new PartRelatedToSet(partOnSet.SetId, partOnSet.MusicPartId);
-                await blobClient.DeletePartContentAsync(blobIdentifer);
-
-                if (partOnSet is not null)
-                {
-                    db.Remove(partOnSet);
-                    await db.SaveChangesAsync(cancellationToken);
-                }
+                db.Remove(partOnSet);
+                await db.SaveChangesAsync(cancellationToken);
             }
         }
     }

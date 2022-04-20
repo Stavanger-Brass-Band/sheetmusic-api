@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Search
+namespace SheetMusic.Api.Search;
+
+public interface IIndexAdminService
 {
-    public interface IIndexAdminService
-    {
-        Task ClearIndexAsync<T>();
-        Task EnsureIndexAsync<T>();
-        Task FillIndexAsync<T>(IEnumerable<T> items);
-        SearchIndexClient GetQueryClient<T>();
-    }
+    Task ClearIndexAsync<T>();
+    Task EnsureIndexAsync<T>();
+    Task FillIndexAsync<T>(IEnumerable<T> items);
+    SearchIndexClient GetQueryClient<T>();
 }

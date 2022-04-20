@@ -15,74 +15,73 @@ using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
 using System.Reflection;
 
-namespace SheetMusic
+namespace SheetMusic;
+
+public class Startup
 {
-    public class Startup
+    public Startup(IConfiguration configuration)
     {
-        public Startup(IConfiguration configuration)
+        Configuration = configuration;
+    }
+
+    public IConfiguration Configuration { get; }
+
+    // This method gets called by the runtime. Use this method to add services to the container.
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddDbContext<SheetMusicContext>(options => options.UseSqlServer(Configuration.GetConnectionString("SheetMusicContext")));
+
+        services.Configure<FormOptions>(x =>
         {
-            Configuration = configuration;
-        }
+            x.ValueLengthLimit = int.MaxValue;
+            x.MultipartBodyLengthLimit = int.MaxValue; // In case of multipart
+        });
 
-        public IConfiguration Configuration { get; }
+        services.AddSheetMusicSecurity(Configuration);
+        services.AddSheetMusicVersioning();
+        services.AddSheetMusicSwagger();
 
-        // This method gets called by the runtime. Use this method to add services to the container.
-        public void ConfigureServices(IServiceCollection services)
+        services.AddSingleton<IBlobClient, BlobClient>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddSingleton<IIndexAdminService, IndexAdminService>();
+
+        services.AddMediatR(Assembly.GetAssembly(typeof(Startup))!);
+
+        services.AddHealthChecks();
+        services.AddMemoryCache();
+
+        services.AddControllers()
+            .AddFluentValidation(config => config.RegisterValidatorsFromAssemblyContaining<Startup>());
+    }
+
+    // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
+    {
+        app.UseMiddleware<ErrorHandlerMiddleware>();
+
+        app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseHttpsRedirection();
+        app.UseCors("AllowMember");
+
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
         {
-            services.AddDbContext<SheetMusicContext>(options => options.UseSqlServer(Configuration.GetConnectionString("SheetMusicContext")));
-
-            services.Configure<FormOptions>(x =>
+            // build a swagger endpoint for each discovered API version
+            foreach (var description in provider.ApiVersionDescriptions)
             {
-                x.ValueLengthLimit = int.MaxValue;
-                x.MultipartBodyLengthLimit = int.MaxValue; // In case of multipart
-            });
+                options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
+            }
+            options.OAuthAppName("SheetMusic API");
+        });
 
-            services.AddSheetMusicSecurity(Configuration);
-            services.AddSheetMusicVersioning();
-            services.AddSheetMusicSwagger();
 
-            services.AddSingleton<IBlobClient, BlobClient>();
-            services.AddScoped<IUserRepository, UserRepository>();
-            services.AddScoped<IProjectRepository, ProjectRepository>();
-            services.AddSingleton<IIndexAdminService, IndexAdminService>();
-
-            services.AddMediatR(Assembly.GetAssembly(typeof(Startup)));
-
-            services.AddHealthChecks();
-            services.AddMemoryCache();
-
-            services.AddControllers()
-                .AddFluentValidation(config => config.RegisterValidatorsFromAssemblyContaining<Startup>());
-        }
-
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
+        app.UseEndpoints(endpoints =>
         {
-            app.UseMiddleware<ErrorHandlerMiddleware>();
-
-            app.UseRouting();
-            app.UseAuthentication();
-            app.UseAuthorization();
-            app.UseHttpsRedirection();
-            app.UseCors("AllowMember");
-
-            app.UseSwagger();
-            app.UseSwaggerUI(options =>
-            {
-                // build a swagger endpoint for each discovered API version
-                foreach (var description in provider.ApiVersionDescriptions)
-                {
-                    options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
-                }
-                options.OAuthAppName("SheetMusic API");
-            });
-
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-                endpoints.MapHealthChecks("/health");
-            });
-        }
+            endpoints.MapControllers();
+            endpoints.MapHealthChecks("/health");
+        });
     }
 }

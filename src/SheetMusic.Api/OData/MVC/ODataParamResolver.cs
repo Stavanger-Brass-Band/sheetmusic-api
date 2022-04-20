@@ -5,97 +5,96 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.OData.MVC
+namespace SheetMusic.Api.OData.MVC;
+
+public class ODataParamResolver : IModelBinder
 {
-    public class ODataParamResolver : IModelBinder
+    public ODataParamResolver()
     {
-        public ODataParamResolver()
+    }
+
+    public Task BindModelAsync(ModelBindingContext bindingContext)
+    {
+        var param = new ODataQueryParams
         {
+            Skip = GetIntParam(bindingContext, "$skip"),
+            Top = GetIntParam(bindingContext, "$top"),
+            Search = GetStringParam(bindingContext, "$search")
+        };
+
+        if (param.Top < 1)
+            throw new InvalidOperationException("Top must be at least 1 row");
+
+        var filter = GetStringParam(bindingContext, "$filter");
+        var order = GetStringParam(bindingContext, "$orderby");
+
+        var expand = GetStringParam(bindingContext, "$expand");
+
+        if (expand != null)
+        {
+            try
+            {
+                param.Expand = new List<string>(expand.Split(','));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Invalid expand clause", ex);
+            }
         }
 
-        public Task BindModelAsync(ModelBindingContext bindingContext)
+        if (order != null)
         {
-            var param = new ODataQueryParams
+            try
             {
-                Skip = GetIntParam(bindingContext, "$skip"),
-                Top = GetIntParam(bindingContext, "$top"),
-                Search = GetStringParam(bindingContext, "$search")
-            };
-
-            if (param.Top < 1)
-                throw new InvalidOperationException("Top must be at least 1 row");
-
-            var filter = GetStringParam(bindingContext, "$filter");
-            var order = GetStringParam(bindingContext, "$orderby");
-
-            var expand = GetStringParam(bindingContext, "$expand");
-
-            if (expand != null)
-            {
-                try
-                {
-                    param.Expand = new List<string>(expand.Split(','));
-                }
-                catch (Exception ex)
-                {
-                    throw new InvalidOperationException("Invalid expand clause", ex);
-                }
+                var orderoptions = order.Split(',')
+                    .Select(t => t.Trim().Split(' ')).Select(t => new ODataOrderByOption()
+                    {
+                        Field = t[0].Trim(),
+                        Direction = t.Length == 1 ? SortDirection.asc : t[1].Trim() == "asc" ? SortDirection.asc : SortDirection.desc
+                    });
+                param.OrderBy = orderoptions.ToList();
             }
-
-            if (order != null)
+            catch (Exception ex)
             {
-                try
-                {
-                    var orderoptions = order.Split(',')
-                        .Select(t => t.Trim().Split(' ')).Select(t => new ODataOrderByOption()
-                        {
-                            Field = t[0].Trim(),
-                            Direction = t.Length == 1 ? SortDirection.asc : t[1].Trim() == "asc" ? SortDirection.asc : SortDirection.desc
-                        });
-                    param.OrderBy = orderoptions.ToList();
-                }
-                catch (Exception ex)
-                {
-                    throw new ArgumentException("Invalid order by clause", ex);
-                }
+                throw new ArgumentException("Invalid order by clause", ex);
             }
-            else
-            {
-                param.OrderBy = new List<ODataOrderByOption>();
-            }
-
-            if (filter != null)
-                param.Filter = ODataParser.Parse(filter);
-
-            bindingContext.Result = ModelBindingResult.Success(param);
-
-            return Task.CompletedTask;
+        }
+        else
+        {
+            param.OrderBy = new List<ODataOrderByOption>();
         }
 
+        if (filter != null)
+            param.Filter = ODataParser.Parse(filter);
 
-        private static string? GetStringParam(ModelBindingContext bindingContext, string fieldName)
+        bindingContext.Result = ModelBindingResult.Success(param);
+
+        return Task.CompletedTask;
+    }
+
+
+    private static string? GetStringParam(ModelBindingContext bindingContext, string fieldName)
+    {
+        var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
+        if (valueProviderResult != ValueProviderResult.None)
         {
-            var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
-            if (valueProviderResult != ValueProviderResult.None)
-            {
-                var value = valueProviderResult.FirstValue;
-                return value;
-            }
-            return null;
+            var value = valueProviderResult.FirstValue;
+            return value;
         }
+        return null;
+    }
 
-        private static int? GetIntParam(ModelBindingContext bindingContext, string fieldName)
+    private static int? GetIntParam(ModelBindingContext bindingContext, string fieldName)
+    {
+        var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
+        if (valueProviderResult != ValueProviderResult.None)
         {
-            var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
-            if (valueProviderResult != ValueProviderResult.None)
-            {
-                var value = valueProviderResult.FirstValue;
-                if (int.TryParse(value, out var fvalue))
-                    return fvalue;
-            }
-            return null;
+            var value = valueProviderResult.FirstValue;
+            if (int.TryParse(value, out var fvalue))
+                return fvalue;
         }
-
+        return null;
     }
 
 }
+

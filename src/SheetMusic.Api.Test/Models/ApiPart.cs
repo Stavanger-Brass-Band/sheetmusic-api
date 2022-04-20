@@ -1,18 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Test.Models
+namespace SheetMusic.Api.Test.Models;
+
+public class ApiPart
 {
-    public class ApiPart
-    {
-        public Guid Id { get; set; }
+    public Guid Id { get; set; }
 
-        public string Name { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
-        public int SortOrder { get; set; }
+    public int SortOrder { get; set; }
 
-        public bool Indexable { get; set; }
+    public bool Indexable { get; set; }
 
-        public List<string> Aliases { get; set; } = new List<string>();
-    }
+    public List<string> Aliases { get; set; } = new List<string>();
 }

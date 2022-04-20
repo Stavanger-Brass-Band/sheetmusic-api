@@ -1,11 +1,10 @@
-﻿namespace SheetMusic.Api.Test.Models
+﻿namespace SheetMusic.Api.Test.Models;
+
+public class PutPartModel
 {
-    public class PutPartModel
-    {
-        public string Name { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
-        public int SortOrder { get; set; }
+    public int SortOrder { get; set; }
 
-        public bool? Indexable { get; set; }
-    }
+    public bool? Indexable { get; set; }
 }

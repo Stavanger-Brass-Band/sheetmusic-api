@@ -5,51 +5,49 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SheetMusic.Api.Configuration
+namespace SheetMusic.Api.Configuration;
+
+/// <summary>
+/// Represents the Swagger/Swashbuckle operation filter used to document the implicit API version parameter.
+/// </summary>
+/// <remarks>This <see cref="IOperationFilter"/> is only required due to bugs in the <see cref="SwaggerGenerator"/>.
+/// Once they are fixed and published, this class can be removed.</remarks>
+public class SwaggerDefaultValues : IOperationFilter
 {
-
     /// <summary>
-    /// Represents the Swagger/Swashbuckle operation filter used to document the implicit API version parameter.
+    /// Applies the filter to the specified operation using the given context.
     /// </summary>
-    /// <remarks>This <see cref="IOperationFilter"/> is only required due to bugs in the <see cref="SwaggerGenerator"/>.
-    /// Once they are fixed and published, this class can be removed.</remarks>
-    public class SwaggerDefaultValues : IOperationFilter
+    /// <param name="operation">The operation to apply the filter to.</param>
+    /// <param name="context">The current operation filter context.</param>
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
-        /// <summary>
-        /// Applies the filter to the specified operation using the given context.
-        /// </summary>
-        /// <param name="operation">The operation to apply the filter to.</param>
-        /// <param name="context">The current operation filter context.</param>
-        public void Apply(OpenApiOperation operation, OperationFilterContext context)
+        var apiDescription = context.ApiDescription;
+
+        operation.Deprecated |= apiDescription.IsDeprecated();
+
+        if (operation.Parameters == null)
+            return;
+
+        foreach (var parameter in operation.Parameters)
         {
-            var apiDescription = context.ApiDescription;
+            var description = apiDescription.ParameterDescriptions.First(p => p.Name == parameter.Name);
 
-            operation.Deprecated |= apiDescription.IsDeprecated();
+            if (parameter.Description == null)
+                parameter.Description = description.ModelMetadata?.Description;
 
-            if (operation.Parameters == null)
-                return;
-
-            foreach (var parameter in operation.Parameters)
+            if (parameter.Schema.Default == null && description.DefaultValue != null)
             {
-                var description = apiDescription.ParameterDescriptions.First(p => p.Name == parameter.Name);
+                var defaultValue = new OpenApiString(description.DefaultValue.ToString());
+                parameter.Schema.Default = defaultValue;
 
-                if (parameter.Description == null)
-                    parameter.Description = description.ModelMetadata?.Description;
-
-                if (parameter.Schema.Default == null && description.DefaultValue != null)
+                if (parameter.Name.Contains("api-version")) //lock-down version parm
                 {
-                    var defaultValue = new OpenApiString(description.DefaultValue.ToString());
-                    parameter.Schema.Default = defaultValue;
-
-                    if (parameter.Name.Contains("api-version")) //lock-down version parm
-                    {
-                        parameter.Schema.Enum = new List<IOpenApiAny> { defaultValue };
-                        parameter.Required = true;
-                    }
+                    parameter.Schema.Enum = new List<IOpenApiAny> { defaultValue };
+                    parameter.Required = true;
                 }
-
-                parameter.Required |= description.IsRequired;
             }
+
+            parameter.Required |= description.IsRequired;
         }
     }
 }

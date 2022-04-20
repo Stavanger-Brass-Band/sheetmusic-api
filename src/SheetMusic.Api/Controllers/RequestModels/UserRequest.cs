@@ -1,12 +1,11 @@
 ﻿using System;
 
-namespace SheetMusic.Api.Controllers.RequestModels
+namespace SheetMusic.Api.Controllers.RequestModels;
+
+public class UserRequest
 {
-    public class UserRequest
-    {
-        public Guid? Id { get; set; }
-        public string Name { get; set; } = null!;
-        public string Email { get; set; } = null!;
-        public string Password { get; set; } = null!;
-    }
+    public Guid? Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string Password { get; set; } = null!;
 }

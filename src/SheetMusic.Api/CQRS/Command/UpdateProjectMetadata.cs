@@ -5,40 +5,39 @@ using SheetMusic.Api.Database;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command
-{
-    public class UpdateProjectMetadata : IRequest
-    {
-        private readonly string identifier;
-        private readonly UpdateProjectRequest request;
+namespace SheetMusic.Api.CQRS.Command;
 
-        public UpdateProjectMetadata(string identifier, UpdateProjectRequest request)
+public class UpdateProjectMetadata : IRequest
+{
+    private readonly string identifier;
+    private readonly UpdateProjectRequest request;
+
+    public UpdateProjectMetadata(string identifier, UpdateProjectRequest request)
+    {
+        this.identifier = identifier;
+        this.request = request;
+    }
+
+    public class Handler : AsyncRequestHandler<UpdateProjectMetadata>
+    {
+        private readonly SheetMusicContext db;
+        private readonly IMediator mediator;
+
+        public Handler(SheetMusicContext db, IMediator mediator)
         {
-            this.identifier = identifier;
-            this.request = request;
+            this.db = db;
+            this.mediator = mediator;
         }
 
-        public class Handler : AsyncRequestHandler<UpdateProjectMetadata>
+        protected override async Task Handle(UpdateProjectMetadata command, CancellationToken cancellationToken)
         {
-            private readonly SheetMusicContext db;
-            private readonly IMediator mediator;
+            var project = await mediator.Send(new GetProject(command.identifier));
 
-            public Handler(SheetMusicContext db, IMediator mediator)
-            {
-                this.db = db;
-                this.mediator = mediator;
-            }
+            project.Name = command.request.Name;
+            project.StartDate = command.request.StartDate;
+            project.EndDate = command.request.EndDate;
 
-            protected override async Task Handle(UpdateProjectMetadata command, CancellationToken cancellationToken)
-            {
-                var project = await mediator.Send(new GetProject(command.identifier));
-
-                project.Name = command.request.Name;
-                project.StartDate = command.request.StartDate;
-                project.EndDate = command.request.EndDate;
-
-                await db.SaveChangesAsync();
-            }
+            await db.SaveChangesAsync();
         }
     }
 }

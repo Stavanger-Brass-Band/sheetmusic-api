@@ -6,42 +6,41 @@ using SheetMusic.Api.Errors;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query
+namespace SheetMusic.Api.CQRS.Query;
+
+public class GetPartOnSet : IRequest<SheetMusicPart?>
 {
-    public class GetPartOnSet : IRequest<SheetMusicPart?>
+    public GetPartOnSet(string setIdentifier, string partIdentifier)
     {
-        public GetPartOnSet(string setIdentifier, string partIdentifier)
+        SetIdentifier = setIdentifier;
+        PartIdentifier = partIdentifier;
+    }
+
+    public string SetIdentifier { get; }
+    public string PartIdentifier { get; }
+
+    public class Handler : IRequestHandler<GetPartOnSet, SheetMusicPart?>
+    {
+        private readonly IMediator mediator;
+        private readonly SheetMusicContext db;
+
+        public Handler(IMediator mediator, SheetMusicContext db)
         {
-            SetIdentifier = setIdentifier;
-            PartIdentifier = partIdentifier;
+            this.mediator = mediator;
+            this.db = db;
         }
 
-        public string SetIdentifier { get; }
-        public string PartIdentifier { get; }
-
-        public class Handler : IRequestHandler<GetPartOnSet, SheetMusicPart?>
+        public async Task<SheetMusicPart?> Handle(GetPartOnSet request, CancellationToken cancellationToken)
         {
-            private readonly IMediator mediator;
-            private readonly SheetMusicContext db;
+            var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
+            if (set is null) throw new NotFoundError(request.SetIdentifier);
 
-            public Handler(IMediator mediator, SheetMusicContext db)
-            {
-                this.mediator = mediator;
-                this.db = db;
-            }
+            var part = await mediator.Send(new GetMusicPart(request.PartIdentifier), cancellationToken);
+            if (part is null) throw new NotFoundError(request.PartIdentifier);
 
-            public async Task<SheetMusicPart?> Handle(GetPartOnSet request, CancellationToken cancellationToken)
-            {
-                var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
-                if (set is null) throw new NotFoundError(request.SetIdentifier);
-
-                var part = await mediator.Send(new GetMusicPart(request.PartIdentifier), cancellationToken);
-                if (part is null) throw new NotFoundError(request.PartIdentifier);
-
-                return await db.SheetMusicParts
-                    .Include(smp => smp.Part)
-                    .FirstOrDefaultAsync(smp => smp.SetId == set.Id && smp.MusicPartId == part.Id, cancellationToken: cancellationToken);
-            }
+            return await db.SheetMusicParts
+                .Include(smp => smp.Part)
+                .FirstOrDefaultAsync(smp => smp.SetId == set.Id && smp.MusicPartId == part.Id, cancellationToken: cancellationToken);
         }
     }
 }

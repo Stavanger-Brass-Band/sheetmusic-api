@@ -1,7 +1,6 @@
-﻿namespace SheetMusic.Api.Authorization
+﻿namespace SheetMusic.Api.Authorization;
+
+public class AuthPolicy
 {
-    public class AuthPolicy
-    {
-        public const string Admin = "Admin";
-    }
+    public const string Admin = "Admin";
 }
