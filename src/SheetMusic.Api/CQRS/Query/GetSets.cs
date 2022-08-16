@@ -64,10 +64,10 @@ public class GetSets : IRequest<List<SheetMusicSet>>
             if (request.QueryParams.Top.HasValue)
                 baseQuery = baseQuery.Take(request.QueryParams.Top.Value);
 
-            if (request.QueryParams.Expand.Contains("parts"))
-                baseQuery = baseQuery.Include(s => s.Parts).ThenInclude(p => p.Part);
-
-            return await baseQuery.ToListAsync(cancellationToken);
+            return await baseQuery
+                .Include(s => s.Parts)
+                    .ThenInclude(p => p.Part)
+                .ToListAsync(cancellationToken);
         }
     }
 }

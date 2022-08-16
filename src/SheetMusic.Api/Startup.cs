@@ -69,6 +69,8 @@ public class Startup
         app.UseSwagger();
         app.UseSwaggerUI(options =>
         {
+            options.DisplayRequestDuration();
+
             // build a swagger endpoint for each discovered API version
             foreach (var description in provider.ApiVersionDescriptions)
             {
