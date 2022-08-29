@@ -36,7 +36,7 @@
 		</PackageReference>
 		<PackageReference Include="PDF.Core" Version="2020.12.2" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="6.4.0" />
-		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.3.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.4.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUi" Version="6.4.0" />
 	</ItemGroup>
 </Project>
