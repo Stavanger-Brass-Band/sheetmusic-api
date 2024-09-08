@@ -11,24 +11,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Query;
 
-public class GetSets : IRequest<List<SheetMusicSet>>
+public class GetSets(ODataQueryParams queryParams) : IRequest<List<SheetMusicSet>>
 {
-    public GetSets(ODataQueryParams queryParams)
+    public ODataQueryParams QueryParams { get; } = queryParams;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<GetSets, List<SheetMusicSet>>
     {
-        QueryParams = queryParams;
-    }
-
-    public ODataQueryParams QueryParams { get; }
-
-    public class Handler : IRequestHandler<GetSets, List<SheetMusicSet>>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
         public async Task<List<SheetMusicSet>> Handle(GetSets request, CancellationToken cancellationToken)
         {
             var baseQuery = db.SheetMusicSets

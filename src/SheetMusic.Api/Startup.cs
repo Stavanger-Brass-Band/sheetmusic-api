@@ -1,4 +1,6 @@
-﻿using FluentValidation.AspNetCore;
+﻿using Asp.Versioning.ApiExplorer;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -17,14 +19,9 @@ using System.Reflection;
 
 namespace SheetMusic;
 
-public class Startup
+public class Startup(IConfiguration configuration)
 {
-    public Startup(IConfiguration configuration)
-    {
-        Configuration = configuration;
-    }
-
-    public IConfiguration Configuration { get; }
+    public IConfiguration Configuration { get; } = configuration;
 
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
@@ -46,13 +43,13 @@ public class Startup
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
-        services.AddMediatR(Assembly.GetAssembly(typeof(Startup))!);
+        services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining(typeof(Startup)));
 
         services.AddHealthChecks();
         services.AddMemoryCache();
 
-        services.AddControllers()
-            .AddFluentValidation(config => config.RegisterValidatorsFromAssemblyContaining<Startup>());
+        services.AddFluentValidationAutoValidation().AddFluentValidationClientsideAdapters();
+        services.AddValidatorsFromAssemblyContaining<Startup>();
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

@@ -2,11 +2,7 @@
 
 namespace SheetMusic.Api.Errors;
 
-public class ArchiveNumberOccupiedError : ExceptionBase
+public class ArchiveNumberOccupiedError(int archiveNumber) : ExceptionBase($"Archive number [{archiveNumber}] is already in use")
 {
     public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
-
-    public ArchiveNumberOccupiedError(int archiveNumber) : base($"Archive number [{archiveNumber}] is already in use")
-    {
-    }
 }

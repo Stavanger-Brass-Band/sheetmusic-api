@@ -23,14 +23,8 @@ namespace SheetMusic.Api.Controllers;
 [ApiController]
 [Authorize("Admin")]
 [Produces("application/json")]
-public class PartsController : ControllerBase
+public class PartsController(IMediator mediator) : ControllerBase
 {
-    private readonly IMediator mediator;
-
-    public PartsController(IMediator mediator)
-    {
-        this.mediator = mediator;
-    }
 
     /// <summary>
     /// Rebuild the part index manually. 

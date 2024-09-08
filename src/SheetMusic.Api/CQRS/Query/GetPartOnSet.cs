@@ -8,28 +8,13 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Query;
 
-public class GetPartOnSet : IRequest<SheetMusicPart?>
+public class GetPartOnSet(string setIdentifier, string partIdentifier) : IRequest<SheetMusicPart?>
 {
-    public GetPartOnSet(string setIdentifier, string partIdentifier)
+    public string SetIdentifier { get; } = setIdentifier;
+    public string PartIdentifier { get; } = partIdentifier;
+
+    public class Handler(IMediator mediator, SheetMusicContext db) : IRequestHandler<GetPartOnSet, SheetMusicPart?>
     {
-        SetIdentifier = setIdentifier;
-        PartIdentifier = partIdentifier;
-    }
-
-    public string SetIdentifier { get; }
-    public string PartIdentifier { get; }
-
-    public class Handler : IRequestHandler<GetPartOnSet, SheetMusicPart?>
-    {
-        private readonly IMediator mediator;
-        private readonly SheetMusicContext db;
-
-        public Handler(IMediator mediator, SheetMusicContext db)
-        {
-            this.mediator = mediator;
-            this.db = db;
-        }
-
         public async Task<SheetMusicPart?> Handle(GetPartOnSet request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);

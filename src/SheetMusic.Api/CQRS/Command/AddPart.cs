@@ -9,28 +9,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddPart : IRequest<MusicPart>
+public class AddPart(string name, int sortOrder, bool indexable) : IRequest<MusicPart>
 {
-    public AddPart(string name, int sortOrder, bool indexable)
+    public string Name { get; } = name;
+    public int SortOrder { get; } = sortOrder;
+    public bool Indexable { get; } = indexable;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<AddPart, MusicPart>
     {
-        Name = name;
-        SortOrder = sortOrder;
-        Indexable = indexable;
-    }
-
-    public string Name { get; }
-    public int SortOrder { get; }
-    public bool Indexable { get; }
-
-    public class Handler : IRequestHandler<AddPart, MusicPart>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
         public async Task<MusicPart> Handle(AddPart request, CancellationToken cancellationToken)
         {
             if (db.MusicParts.Any(p => p.Name.ToLower() == request.Name.ToLower()))

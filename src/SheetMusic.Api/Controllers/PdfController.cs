@@ -20,17 +20,9 @@ namespace SheetMusic.Api.Controllers;
 
 [Authorize]
 [Route("pdf")]
-public class PdfController : ControllerBase
+public class PdfController(IMediator mediator, IConfiguration configuration) : ControllerBase
 {
-    private readonly IMediator mediator;
-    private readonly IConfiguration configuration;
     private List<MusicPart> parts = new List<MusicPart>();
-
-    public PdfController(IMediator mediator, IConfiguration configuration)
-    {
-        this.mediator = mediator;
-        this.configuration = configuration;
-    }
 
     /// <summary>
     /// Splits the PDF <paramref name="file"/> into single-page pdf files added to a zip archive
@@ -52,11 +44,9 @@ public class PdfController : ControllerBase
                 var entryName = $"{file.Name}_{i}.pdf";
                 var zipEntry = zip.CreateEntry(entryName);
 
-                using (var entryStream = zipEntry.Open())
-                {
-                    await entryStream.WriteAsync(singlePage.BinaryData);
-                    await entryStream.FlushAsync();
-                }
+                using var entryStream = zipEntry.Open();
+                await entryStream.WriteAsync(singlePage.BinaryData);
+                await entryStream.FlushAsync();
             }
         }
 

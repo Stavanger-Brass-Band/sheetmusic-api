@@ -11,34 +11,15 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddPartOnSet : IRequest
+public class AddPartOnSet(string setIdentifier, string partIdentifier, Stream content) : IRequest
 {
+    public string SetIdentifier { get; } = setIdentifier;
+    public string PartIdentifier { get; } = partIdentifier;
+    public Stream Content { get; } = content;
 
-    public AddPartOnSet(string setIdentifier, string partIdentifier, Stream content)
+    public class Handler(SheetMusicContext db, IMediator mediator, IBlobClient blobClient) : IRequestHandler<AddPartOnSet>
     {
-        SetIdentifier = setIdentifier;
-        PartIdentifier = partIdentifier;
-        Content = content;
-    }
-
-    public string SetIdentifier { get; }
-    public string PartIdentifier { get; }
-    public Stream Content { get; }
-
-    public class Handler : AsyncRequestHandler<AddPartOnSet>
-    {
-        private readonly SheetMusicContext db;
-        private readonly IMediator mediator;
-        private readonly IBlobClient blobClient;
-
-        public Handler(SheetMusicContext db, IMediator mediator, IBlobClient blobClient)
-        {
-            this.db = db;
-            this.mediator = mediator;
-            this.blobClient = blobClient;
-        }
-
-        protected override async Task Handle(AddPartOnSet request, CancellationToken cancellationToken)
+        public async Task Handle(AddPartOnSet request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
             if (set is null) throw new NotFoundError(request.SetIdentifier, "Set was not found");

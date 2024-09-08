@@ -8,29 +8,13 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class DeleteSet : IRequest
+public class DeleteSet(string setIdentifier) : IRequest
 {
-    public DeleteSet(string setIdentifier)
+    public string SetIdentifier { get; } = setIdentifier;
+
+    public class Handler(IBlobClient blobClient, SheetMusicContext db, IMediator mediator) : IRequestHandler<DeleteSet>
     {
-        SetIdentifier = setIdentifier;
-    }
-
-    public string SetIdentifier { get; }
-
-    public class Handler : AsyncRequestHandler<DeleteSet>
-    {
-        private readonly IBlobClient blobClient;
-        private readonly SheetMusicContext db;
-        private readonly IMediator mediator;
-
-        public Handler(IBlobClient blobClient, SheetMusicContext db, IMediator mediator)
-        {
-            this.blobClient = blobClient;
-            this.db = db;
-            this.mediator = mediator;
-        }
-
-        protected override async Task Handle(DeleteSet request, CancellationToken cancellationToken)
+        public async Task Handle(DeleteSet request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
 

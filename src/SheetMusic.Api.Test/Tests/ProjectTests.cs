@@ -11,15 +11,8 @@ using Xunit;
 namespace SheetMusic.Api.Test.Tests;
 
 [Collection(Collections.Project)]
-public class ProjectTests : IClassFixture<SheetMusicWebAppFactory>
+public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
-    private readonly SheetMusicWebAppFactory factory;
-
-    public ProjectTests(SheetMusicWebAppFactory factory)
-    {
-        this.factory = factory;
-    }
-
     [Fact]
     public async Task UpdateProject_ShouldUpdateProjectSuccessfully_WhenUserIsAdmin()
     {

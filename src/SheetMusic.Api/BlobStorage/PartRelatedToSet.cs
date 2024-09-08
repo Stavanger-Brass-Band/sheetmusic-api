@@ -2,17 +2,11 @@
 
 namespace SheetMusic.Api.BlobStorage;
 
-public class PartRelatedToSet
+public class PartRelatedToSet(Guid setId, Guid partId)
 {
-    public PartRelatedToSet(Guid setId, Guid partId)
-    {
-        SetId = setId;
-        PartId = partId;
-    }
+    public Guid SetId { get; set; } = setId;
 
-    public Guid SetId { get; set; }
-
-    public Guid PartId { get; set; }
+    public Guid PartId { get; set; } = partId;
 
     public string BlobPath => $"{SetId}/{PartId}.pdf";
 }

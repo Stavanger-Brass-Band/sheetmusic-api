@@ -11,31 +11,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddPartsContentForSet : IRequest
+public class AddPartsContentForSet(string setIdentifier, Stream zipFileStream) : IRequest
 {
-    public AddPartsContentForSet(string setIdentifier, Stream zipFileStream)
+    public string SetIdentifier { get; } = setIdentifier;
+    public Stream ZipFileStream { get; } = zipFileStream;
+
+    public class Handler(ILogger<AddPartsContentForSet.Handler> logger, IMediator mediator) : IRequestHandler<AddPartsContentForSet>
     {
-        SetIdentifier = setIdentifier;
-        ZipFileStream = zipFileStream;
-    }
-
-    public string SetIdentifier { get; }
-    public Stream ZipFileStream { get; }
-
-    public class Handler : AsyncRequestHandler<AddPartsContentForSet>
-    {
-        private readonly ILogger<Handler> logger;
-        private readonly IBlobClient blobClient;
-        private readonly IMediator mediator;
-
-        public Handler(ILogger<Handler> logger, IBlobClient blobClient, IMediator mediator)
-        {
-            this.logger = logger;
-            this.blobClient = blobClient;
-            this.mediator = mediator;
-        }
-
-        protected override async Task Handle(AddPartsContentForSet request, CancellationToken cancellationToken)
+        public async Task Handle(AddPartsContentForSet request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
 
@@ -44,25 +27,23 @@ public class AddPartsContentForSet : IRequest
 
             logger.LogInformation($"Resolver identifier '{request.SetIdentifier}' as set '{set.Id}'");
 
-            using (var zipArchive = new ZipArchive(request.ZipFileStream))
+            using var zipArchive = new ZipArchive(request.ZipFileStream);
+            foreach (var entry in zipArchive.Entries)
             {
-                foreach (var entry in zipArchive.Entries)
-                {
-                    logger.LogInformation($"Processing entry {entry.Name}");
+                logger.LogInformation($"Processing entry {entry.Name}");
 
-                    var partName = Path.GetFileNameWithoutExtension(entry.Name);
-                    var part = await mediator.Send(new GetMusicPart(partName), cancellationToken) ?? await mediator.Send(new AddPart(partName, 99, true), cancellationToken);
+                var partName = Path.GetFileNameWithoutExtension(entry.Name);
+                var part = await mediator.Send(new GetMusicPart(partName), cancellationToken) ?? await mediator.Send(new AddPart(partName, 99, true), cancellationToken);
 
-                    if (set.Parts.Any(sp => sp.MusicPartId == part.Id))
-                        throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
+                if (set.Parts.Any(sp => sp.MusicPartId == part.Id))
+                    throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
 
-                    logger.LogInformation($"Part identified as {part.Name}. Uploading.");
+                logger.LogInformation($"Part identified as {part.Name}. Uploading.");
 
-                    using var entryStream = entry.Open();
-                    await mediator.Send(new AddPartOnSet(set.Id.ToString(), part.Id.ToString(), entryStream), cancellationToken);
+                using var entryStream = entry.Open();
+                await mediator.Send(new AddPartOnSet(set.Id.ToString(), part.Id.ToString(), entryStream), cancellationToken);
 
-                    logger.LogInformation($"Part '{part.Name}' successfully added to set '{set.Title}'");
-                }
+                logger.LogInformation($"Part '{part.Name}' successfully added to set '{set.Title}'");
             }
         }
     }

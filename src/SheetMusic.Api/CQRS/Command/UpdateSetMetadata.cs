@@ -9,27 +9,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class UpdateSetMetadata : IRequest
+public class UpdateSetMetadata(Guid setId, SetRequest setMetadta) : IRequest
 {
-    public UpdateSetMetadata(Guid setId, SetRequest setMetadta)
+    public Guid SetId { get; } = setId;
+    public SetRequest SetMetadata { get; } = setMetadta;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<UpdateSetMetadata>
     {
-        SetId = setId;
-        SetMetadata = setMetadta;
-    }
-
-    public Guid SetId { get; }
-    public SetRequest SetMetadata { get; }
-
-    public class Handler : AsyncRequestHandler<UpdateSetMetadata>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
-        protected override async Task Handle(UpdateSetMetadata request, CancellationToken cancellationToken)
+        public async Task Handle(UpdateSetMetadata request, CancellationToken cancellationToken)
         {
             var set = await db.SheetMusicSets.FirstOrDefaultAsync(s => s.Id == request.SetId);
 

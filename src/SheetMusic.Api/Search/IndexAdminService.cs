@@ -1,21 +1,16 @@
 ﻿using Microsoft.Azure.Search;
 using Microsoft.Azure.Search.Models;
 using Microsoft.Extensions.Configuration;
+using SheetMusic.Api.Configuration;
+using SheetMusic.Api.Errors;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Search;
 
-public class IndexAdminService : IIndexAdminService
+public class IndexAdminService(IConfiguration config) : IIndexAdminService
 {
-    private readonly IConfiguration config;
-
-    public IndexAdminService(IConfiguration config)
-    {
-        this.config = config;
-    }
-
     public async Task EnsureIndexAsync<T>()
     {
         var model = new Index
@@ -47,8 +42,8 @@ public class IndexAdminService : IIndexAdminService
         return new SearchIndexClient(Host, GetIndexName<T>(), new SearchCredentials(AdminKey));
     }
 
-    private string Host => config["Search:Host"];
-    private string AdminKey => config["Search:AdminKey"];
+    private string Host => config[ConfigKeys.SearchHost] ?? throw new MissingConfigurationException(ConfigKeys.SearchHost);
+    private string AdminKey => config[ConfigKeys.SearchAdminKey] ?? throw new MissingConfigurationException(ConfigKeys.SearchAdminKey);
 
     private string GetIndexName<T>() => typeof(T).Name.ToLower();
 }

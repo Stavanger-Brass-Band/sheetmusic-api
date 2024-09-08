@@ -11,15 +11,8 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Repositories;
 
-public class ProjectRepository : IProjectRepository
+public class ProjectRepository(SheetMusicContext context) : IProjectRepository
 {
-    private readonly SheetMusicContext context;
-
-    public ProjectRepository(SheetMusicContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<List<Project>> GetProjectsAsync(ODataQueryParams? queryParams = null)
     {
         var query = context.Projects.AsQueryable();

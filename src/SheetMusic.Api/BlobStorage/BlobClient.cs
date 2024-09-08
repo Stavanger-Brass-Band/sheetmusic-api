@@ -9,18 +9,9 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.BlobStorage;
 
-public class BlobClient : IBlobClient
+public class BlobClient(IConfiguration configuration) : IBlobClient
 {
     private const string ContainerName = "sheet-music";
-
-    private readonly IConfiguration configuration;
-    private readonly ILogger<BlobClient> logger;
-
-    public BlobClient(IConfiguration configuration, ILogger<BlobClient> logger)
-    {
-        this.configuration = configuration;
-        this.logger = logger;
-    }
 
     private CloudBlobContainer GetContainer()
     {
@@ -41,12 +32,10 @@ public class BlobClient : IBlobClient
     {
         var blob = GetBlob(identifier);
 
-        using (var memoryStream = new MemoryStream())
-        {
-            await blob.DownloadToStreamAsync(memoryStream);
-            await memoryStream.FlushAsync();
-            return memoryStream.ToArray();
-        }
+        using var memoryStream = new MemoryStream();
+        await blob.DownloadToStreamAsync(memoryStream);
+        await memoryStream.FlushAsync();
+        return memoryStream.ToArray();
     }
 
     public async Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier)

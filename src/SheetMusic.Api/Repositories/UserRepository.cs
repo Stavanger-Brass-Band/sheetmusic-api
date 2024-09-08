@@ -10,15 +10,8 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Repositories;
 
-public class UserRepository : IUserRepository
+public class UserRepository(SheetMusicContext context) : IUserRepository
 {
-    private readonly SheetMusicContext context;
-
-    public UserRepository(SheetMusicContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<Musician?> AuthenticateAsync(string email, string password)
     {
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
@@ -116,11 +109,9 @@ public class UserRepository : IUserRepository
         if (password == null) throw new ArgumentNullException("password");
         if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", "password");
 
-        using (var hmac = new System.Security.Cryptography.HMACSHA512())
-        {
-            passwordSalt = hmac.Key;
-            passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-        }
+        using var hmac = new System.Security.Cryptography.HMACSHA512();
+        passwordSalt = hmac.Key;
+        passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
     }
 
     private static bool VerifyPasswordHash(string password, byte[]? storedHash, byte[]? storedSalt)
@@ -129,13 +120,11 @@ public class UserRepository : IUserRepository
         if (storedHash?.Length != 64) throw new ArgumentException("Invalid length of password hash (64 bytes expected).", "passwordHash");
         if (storedSalt?.Length != 128) throw new ArgumentException("Invalid length of password salt (128 bytes expected).", "passwordHash");
 
-        using (var hmac = new System.Security.Cryptography.HMACSHA512(storedSalt))
+        using var hmac = new System.Security.Cryptography.HMACSHA512(storedSalt);
+        var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+        for (int i = 0; i < computedHash.Length; i++)
         {
-            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-            for (int i = 0; i < computedHash.Length; i++)
-            {
-                if (computedHash[i] != storedHash[i]) return false;
-            }
+            if (computedHash[i] != storedHash[i]) return false;
         }
 
         return true;

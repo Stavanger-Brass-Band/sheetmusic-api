@@ -9,13 +9,22 @@
             Configures the Swagger generation options.
             </summary>
             <remarks>This allows API versioning to define a Swagger document per API version after the
-            <see cref="T:Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider"/> service has been resolved from the service container.</remarks>
-        </member>
-        <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.#ctor(Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider)">
-            <summary>
+            <see cref="T:Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider"/> service has been resolved from the service container.</remarks>
+            <remarks>
             Initializes a new instance of the <see cref="T:SheetMusic.Api.Configuration.ConfigureSwaggerOptions"/> class.
+            </remarks>
+            <param name="provider">The <see cref="T:Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider">provider</see> used to generate Swagger documents.</param>
+        </member>
+        <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.#ctor(Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider)">
+            <summary>
+            Configures the Swagger generation options.
             </summary>
-            <param name="provider">The <see cref="T:Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider">provider</see> used to generate Swagger documents.</param>
+            <remarks>This allows API versioning to define a Swagger document per API version after the
+            <see cref="T:Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider"/> service has been resolved from the service container.</remarks>
+            <remarks>
+            Initializes a new instance of the <see cref="T:SheetMusic.Api.Configuration.ConfigureSwaggerOptions"/> class.
+            </remarks>
+            <param name="provider">The <see cref="T:Asp.Versioning.ApiExplorer.IApiVersionDescriptionProvider">provider</see> used to generate Swagger documents.</param>
         </member>
         <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.Configure(Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions)">
             <inheritdoc />
@@ -35,6 +44,14 @@
             <param name="context">The current operation filter context.</param>
         </member>
         <member name="T:SheetMusic.Api.Controllers.PartsController">
+            <summary>
+            This controller contains endpoints for manipulating Parts resources. 
+            Not to be confused with parts that belongs to a set, that is a different resource.
+            
+            PS! Only Administrators can invoke endpoints in this controller.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.PartsController.#ctor(MediatR.IMediator)">
             <summary>
             This controller contains endpoints for manipulating Parts resources. 
             Not to be confused with parts that belongs to a set, that is a different resource.
@@ -312,6 +329,11 @@
             <param name="fieldMappings"></param>
         </member>
         <member name="T:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.RenameParameterVisitor">
+            <summary>
+            Renames the expression root to provided expression.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.RenameParameterVisitor.#ctor(System.Linq.Expressions.ParameterExpression)">
             <summary>
             Renames the expression root to provided expression.
             </summary>

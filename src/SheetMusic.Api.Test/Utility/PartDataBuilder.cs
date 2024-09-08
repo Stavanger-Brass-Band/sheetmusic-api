@@ -9,16 +9,9 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Utility;
 
-public class PartDataBuilder
+public class PartDataBuilder(HttpClient httpClient)
 {
-    private readonly HttpClient httpClient;
-
     public List<PutPartModel> PartRequests { get; private set; } = new List<PutPartModel>();
-
-    public PartDataBuilder(HttpClient httpClient)
-    {
-        this.httpClient = httpClient;
-    }
 
     public async Task<ApiPart> ProvisionSinglePartAsync()
     {
@@ -45,7 +38,7 @@ public class PartDataBuilder
             var body = await response.Content.ReadAsStringAsync();
             var apiPart = JsonConvert.DeserializeObject<ApiPart>(body);
             AssertPropsAreEqual(item, apiPart);
-            createdItems.Add(apiPart);
+            createdItems.Add(apiPart!);
         }
 
         return createdItems;
@@ -56,10 +49,11 @@ public class PartDataBuilder
         return PartRequests.FirstOrDefault(p => p.Name == partName);
     }
 
-    private static void AssertPropsAreEqual(PutPartModel item, ApiPart apiPart)
+    private static void AssertPropsAreEqual(PutPartModel item, ApiPart? apiPart)
     {
-        apiPart.Name.Should().Be(item.Name);
-        apiPart.SortOrder.Should().Be(item.SortOrder);
-        apiPart.Indexable.Should().Be(item.Indexable ?? false);
+        apiPart.Should().NotBeNull();
+        apiPart?.Name.Should().Be(item.Name);
+        apiPart?.SortOrder.Should().Be(item.SortOrder);
+        apiPart?.Indexable.Should().Be(item.Indexable ?? false);
     }
 }

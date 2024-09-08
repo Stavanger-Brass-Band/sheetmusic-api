@@ -309,18 +309,11 @@ public class ODataFilterExpressionBuilder<T>
     /// <summary>
     /// Renames the expression root to provided expression.
     /// </summary>
-    private class RenameParameterVisitor : ExpressionVisitor
+    private class RenameParameterVisitor(ParameterExpression parameter) : ExpressionVisitor
     {
-        private readonly ParameterExpression _parameter;
-
-        public RenameParameterVisitor(ParameterExpression parameter)
-        {
-            _parameter = parameter;
-        }
-
         protected override System.Linq.Expressions.Expression VisitParameter(ParameterExpression originalParameter)
         {
-            return _parameter;
+            return parameter;
         }
     }
     #endregion
