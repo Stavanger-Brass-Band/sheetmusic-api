@@ -2,11 +2,7 @@
 
 namespace SheetMusic.Api.Errors;
 
-public class PartAlreadyExistsError : ExceptionBase
+public class PartAlreadyExistsError(string partName) : ExceptionBase($"Part '{partName}' already exists")
 {
     public override HttpStatusCode StatusCode => HttpStatusCode.Conflict;
-
-    public PartAlreadyExistsError(string partName) : base($"Part '{partName}' already exists")
-    {
-    }
 }

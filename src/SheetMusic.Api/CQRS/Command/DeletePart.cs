@@ -9,25 +9,13 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class DeletePart : IRequest
+public class DeletePart(Guid partId) : IRequest
 {
-    public DeletePart(Guid partId)
+    public Guid PartId { get; } = partId;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<DeletePart>
     {
-        PartId = partId;
-    }
-
-    public Guid PartId { get; }
-
-    public class Handler : AsyncRequestHandler<DeletePart>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
-        protected override async Task Handle(DeletePart request, CancellationToken cancellationToken)
+        public async Task Handle(DeletePart request, CancellationToken cancellationToken)
         {
             var part = await db.MusicParts
                 .Include(p => p.MusicianMusicParts)

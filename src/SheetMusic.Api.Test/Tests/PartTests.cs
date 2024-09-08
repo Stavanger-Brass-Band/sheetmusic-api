@@ -12,15 +12,8 @@ using Xunit;
 namespace SheetMusic.Api.Test.Tests;
 
 [Collection(Collections.Part)]
-public class PartTests : IClassFixture<SheetMusicWebAppFactory>
+public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
-    private readonly SheetMusicWebAppFactory factory;
-
-    public PartTests(SheetMusicWebAppFactory factory)
-    {
-        this.factory = factory;
-    }
-
     [Fact]
     public async Task CreatePart_ShouldBeForbidden_WhenReader()
     {

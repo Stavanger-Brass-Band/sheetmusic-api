@@ -2,11 +2,7 @@
 
 namespace SheetMusic.Api.Errors;
 
-public class MissingInputError : ExceptionBase
+public class MissingInputError(string fieldName) : ExceptionBase($"{fieldName} must have a value")
 {
     public override HttpStatusCode StatusCode => HttpStatusCode.BadRequest;
-
-    public MissingInputError(string fieldName) : base($"{fieldName} must have a value")
-    {
-    }
 }

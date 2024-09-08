@@ -10,15 +10,8 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Repositories;
 
-public class UserRepository : IUserRepository
+public class UserRepository(SheetMusicContext context) : IUserRepository
 {
-    private readonly SheetMusicContext context;
-
-    public UserRepository(SheetMusicContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<Musician?> AuthenticateAsync(string email, string password)
     {
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))

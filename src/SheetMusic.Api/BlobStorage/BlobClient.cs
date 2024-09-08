@@ -9,18 +9,9 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.BlobStorage;
 
-public class BlobClient : IBlobClient
+public class BlobClient(IConfiguration configuration, ILogger<BlobClient> logger) : IBlobClient
 {
     private const string ContainerName = "sheet-music";
-
-    private readonly IConfiguration configuration;
-    private readonly ILogger<BlobClient> logger;
-
-    public BlobClient(IConfiguration configuration, ILogger<BlobClient> logger)
-    {
-        this.configuration = configuration;
-        this.logger = logger;
-    }
 
     private CloudBlobContainer GetContainer()
     {

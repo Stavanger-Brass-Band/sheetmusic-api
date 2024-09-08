@@ -9,24 +9,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Query;
 
-public class GetMusicPart : IRequest<MusicPart?>
+public class GetMusicPart(string partIdentifier) : IRequest<MusicPart?>
 {
-    public GetMusicPart(string partIdentifier)
+    public string PartIdentifier { get; } = partIdentifier;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<GetMusicPart, MusicPart?>
     {
-        PartIdentifier = partIdentifier;
-    }
-
-    public string PartIdentifier { get; }
-
-    public class Handler : IRequestHandler<GetMusicPart, MusicPart?>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
         public async Task<MusicPart?> Handle(GetMusicPart request, CancellationToken cancellationToken)
         {
             MusicPart? result = null;

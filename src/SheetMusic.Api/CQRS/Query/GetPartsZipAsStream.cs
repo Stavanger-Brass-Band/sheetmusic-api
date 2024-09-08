@@ -8,26 +8,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Query;
 
-public class GetPartsZipAsStream : IRequest<Stream>
+public class GetPartsZipAsStream(string setIdentifier) : IRequest<Stream>
 {
-    public GetPartsZipAsStream(string setIdentifier)
+    public string SetIdentifier { get; } = setIdentifier;
+
+    public class Handler(IBlobClient blobClient, IMediator mediator) : IRequestHandler<GetPartsZipAsStream, Stream>
     {
-        SetIdentifier = setIdentifier;
-    }
-
-    public string SetIdentifier { get; }
-
-    public class Handler : IRequestHandler<GetPartsZipAsStream, Stream>
-    {
-        private readonly IBlobClient blobClient;
-        private readonly IMediator mediator;
-
-        public Handler(IBlobClient blobClient, IMediator mediator)
-        {
-            this.blobClient = blobClient;
-            this.mediator = mediator;
-        }
-
         public async Task<Stream> Handle(GetPartsZipAsStream request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);

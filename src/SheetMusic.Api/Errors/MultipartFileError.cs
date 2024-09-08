@@ -2,9 +2,6 @@
 
 namespace SheetMusic.Api.Errors;
 
-public class MultipartFileError : Exception
+public class MultipartFileError(string? message) : Exception(message)
 {
-    public MultipartFileError(string? message) : base(message)
-    {
-    }
 }

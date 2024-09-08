@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -35,7 +34,7 @@ public static class IServiceCollectionExtensions
                     .AllowCredentials());
         });
 
-        var secretKey = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
+        var secretKey = Encoding.ASCII.GetBytes(configuration[ConfigKeys.Secret] ?? throw new MissingConfigurationException(ConfigKeys.Secret));
 
         services.AddAuthentication(x =>
         {
@@ -146,15 +145,13 @@ public static class IServiceCollectionExtensions
 
     public static IServiceCollection AddSheetMusicVersioning(this IServiceCollection services)
     {
-        services.AddApiVersioning(config =>
+        var builder = services.AddApiVersioning(config =>
         {
             config.DefaultApiVersion = new ApiVersion(1, 0);
             config.AssumeDefaultVersionWhenUnspecified = true;
             config.ReportApiVersions = true;
             config.ApiVersionReader = ApiVersionReader.Combine(new HeaderApiVersionReader("x-api-version"), new QueryStringApiVersionReader("api-version"));
-        });
-
-        services.AddVersionedApiExplorer();
+        }).AddApiExplorer();
 
         return services;
     }

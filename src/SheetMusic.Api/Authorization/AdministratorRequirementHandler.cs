@@ -7,17 +7,8 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Authorization;
 
-public class AdministratorRequirementHandler : AuthorizationHandler<AdministratorRequirement>
+public class AdministratorRequirementHandler(SheetMusicContext dbContext, IMemoryCache memoryCache) : AuthorizationHandler<AdministratorRequirement>
 {
-    private readonly SheetMusicContext dbContext;
-    private readonly IMemoryCache memoryCache;
-
-    public AdministratorRequirementHandler(SheetMusicContext dbContext, IMemoryCache memoryCache)
-    {
-        this.dbContext = dbContext;
-        this.memoryCache = memoryCache;
-    }
-
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdministratorRequirement requirement)
     {
         if (!context?.User?.Identity?.IsAuthenticated ?? false || context?.User?.Identity?.Name == null)

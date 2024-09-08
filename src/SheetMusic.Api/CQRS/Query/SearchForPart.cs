@@ -13,28 +13,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Queries;
 
-public class SearchForPart : IRequest<MusicPart?>
+public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart?>
 {
-    public SearchForPart(params string[] searchFragments)
+    public string[] SearchFragments { get; } = searchFragments;
+
+    public class Handler(IIndexAdminService indexAdminService, SheetMusicContext db, ILogger<SearchForPart.Handler> logger) : IRequestHandler<SearchForPart, MusicPart?>
     {
-        SearchFragments = searchFragments;
-    }
-
-    public string[] SearchFragments { get; }
-
-    public class Handler : IRequestHandler<SearchForPart, MusicPart?>
-    {
-        private readonly IIndexAdminService indexAdminService;
-        private readonly SheetMusicContext db;
-        private readonly ILogger<Handler> logger;
-
-        public Handler(IIndexAdminService indexAdminService, SheetMusicContext db, ILogger<Handler> logger)
-        {
-            this.indexAdminService = indexAdminService;
-            this.db = db;
-            this.logger = logger;
-        }
-
         public async Task<MusicPart?> Handle(SearchForPart request, CancellationToken cancellationToken)
         {
             var client = indexAdminService.GetQueryClient<PartIndex>();

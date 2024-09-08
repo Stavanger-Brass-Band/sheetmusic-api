@@ -3,12 +3,8 @@ using SheetMusic.Api.Database.Entities;
 
 namespace SheetMusic.Api.Database;
 
-public class SheetMusicContext : DbContext
+public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : DbContext(options)
 {
-    public SheetMusicContext(DbContextOptions<SheetMusicContext> options) : base(options)
-    {
-    }
-
     public DbSet<SheetMusicSet> SheetMusicSets { get; set; } = null!;
     public DbSet<Category> Categories { get; set; } = null!;
     public DbSet<SheetMusicCategory> SheetMusicCategories { get; set; } = null!;

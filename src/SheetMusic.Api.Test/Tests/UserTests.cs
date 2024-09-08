@@ -13,15 +13,8 @@ using Xunit;
 namespace SheetMusic.Api.Test.Tests;
 
 [CollectionDefinition(Collections.User)]
-public class UserTests : IClassFixture<SheetMusicWebAppFactory>
+public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
-    private readonly SheetMusicWebAppFactory factory;
-
-    public UserTests(SheetMusicWebAppFactory factory)
-    {
-        this.factory = factory;
-    }
-
     [Fact]
     public async Task GetUser_AsMe_ShouldGiveForbidden_WhenNonAdministrator()
     {

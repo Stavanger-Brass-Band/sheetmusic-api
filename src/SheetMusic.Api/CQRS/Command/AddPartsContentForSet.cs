@@ -11,31 +11,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddPartsContentForSet : IRequest
+public class AddPartsContentForSet(string setIdentifier, Stream zipFileStream) : IRequest
 {
-    public AddPartsContentForSet(string setIdentifier, Stream zipFileStream)
+    public string SetIdentifier { get; } = setIdentifier;
+    public Stream ZipFileStream { get; } = zipFileStream;
+
+    public class Handler(ILogger<AddPartsContentForSet.Handler> logger, IMediator mediator) : IRequestHandler<AddPartsContentForSet>
     {
-        SetIdentifier = setIdentifier;
-        ZipFileStream = zipFileStream;
-    }
-
-    public string SetIdentifier { get; }
-    public Stream ZipFileStream { get; }
-
-    public class Handler : AsyncRequestHandler<AddPartsContentForSet>
-    {
-        private readonly ILogger<Handler> logger;
-        private readonly IBlobClient blobClient;
-        private readonly IMediator mediator;
-
-        public Handler(ILogger<Handler> logger, IBlobClient blobClient, IMediator mediator)
-        {
-            this.logger = logger;
-            this.blobClient = blobClient;
-            this.mediator = mediator;
-        }
-
-        protected override async Task Handle(AddPartsContentForSet request, CancellationToken cancellationToken)
+        public async Task Handle(AddPartsContentForSet request, CancellationToken cancellationToken)
         {
             var set = await mediator.Send(new GetSet(request.SetIdentifier), cancellationToken);
 

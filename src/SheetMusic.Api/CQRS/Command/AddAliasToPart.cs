@@ -10,27 +10,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddAliasToPart : IRequest
+public class AddAliasToPart(Guid partId, string alias) : IRequest
 {
-    public AddAliasToPart(Guid partId, string alias)
+    public Guid PartId { get; } = partId;
+    public string Alias { get; } = alias;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<AddAliasToPart>
     {
-        PartId = partId;
-        Alias = alias;
-    }
-
-    public Guid PartId { get; }
-    public string Alias { get; }
-
-    public class Handler : AsyncRequestHandler<AddAliasToPart>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
-        protected override async Task Handle(AddAliasToPart request, CancellationToken cancellationToken)
+        public async Task Handle(AddAliasToPart request, CancellationToken cancellationToken)
         {
             var part = await db.MusicParts
                 .Include(p => p.Aliases)

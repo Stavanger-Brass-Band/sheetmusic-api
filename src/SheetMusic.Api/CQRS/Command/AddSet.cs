@@ -10,25 +10,13 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class AddSet : IRequest
+public class AddSet(SetRequest input) : IRequest
 {
-    public AddSet(SetRequest input)
+    public SetRequest Input { get; } = input;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<AddSet>
     {
-        Input = input;
-    }
-
-    public SetRequest Input { get; }
-
-    public class Handler : AsyncRequestHandler<AddSet>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
-        protected override async Task Handle(AddSet request, CancellationToken cancellationToken)
+        public async Task Handle(AddSet request, CancellationToken cancellationToken)
         {
             var input = request.Input;
             int? archiveNumber = input.ArchiveNumber;

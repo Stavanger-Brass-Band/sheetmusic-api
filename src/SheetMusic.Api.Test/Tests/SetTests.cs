@@ -20,15 +20,8 @@ using Xunit;
 namespace SheetMusic.Api.Test.Tests;
 
 [Collection(Collections.Set)]
-public class SetTests : IClassFixture<SheetMusicWebAppFactory>
+public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
-    private readonly SheetMusicWebAppFactory factory;
-
-    public SetTests(SheetMusicWebAppFactory factory)
-    {
-        this.factory = factory;
-    }
-
     [Fact]
     public async Task GetSingleSet_AsReader_ShouldBeSuccessfull()
     {

@@ -19,17 +19,8 @@ namespace SheetMusic.Api.Controllers;
 
 [Authorize(AuthPolicy.Admin)]
 [ApiController]
-public class UsersController : ControllerBase
+public class UsersController(IUserRepository userRepository, IConfiguration configuration) : ControllerBase
 {
-    private readonly IUserRepository userRepository;
-    private readonly IConfiguration configuration;
-
-    public UsersController(IUserRepository userRepository, IConfiguration configuration)
-    {
-        this.userRepository = userRepository;
-        this.configuration = configuration;
-    }
-
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]

@@ -3,26 +3,15 @@ using System;
 
 namespace SheetMusic.Api.Controllers.ViewModels;
 
-public class ApiProject
+public class ApiProject(Project project)
 {
+    public Guid Id { get; set; } = project.Id;
 
+    public string Name { get; set; } = project.Name;
 
-    public ApiProject(Project project)
-    {
-        Id = project.Id;
-        Name = project.Name;
-        Comments = project.Comments;
-        StartDate = project.StartDate;
-        EndDate = project.EndDate;
-    }
+    public string? Comments { get; set; } = project.Comments;
 
-    public Guid Id { get; set; }
+    public DateTime StartDate { get; set; } = project.StartDate;
 
-    public string Name { get; set; }
-
-    public string? Comments { get; set; }
-
-    public DateTime StartDate { get; set; }
-
-    public DateTime EndDate { get; set; }
+    public DateTime EndDate { get; set; } = project.EndDate;
 }

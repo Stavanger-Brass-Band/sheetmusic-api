@@ -5,24 +5,15 @@ using System.Linq;
 
 namespace SheetMusic.Api.Controllers.ViewModels;
 
-public class ApiPart
+public class ApiPart(MusicPart part)
 {
-    public ApiPart(MusicPart part)
-    {
-        Id = part.Id;
-        Name = part.Name;
-        SortOrder = part.SortOrder;
-        Indexable = part.Indexable;
-        Aliases = part.Aliases?.Where(a => a.Enabled).Select(a => a.Alias).ToList() ?? new List<string>();
-    }
+    public Guid Id { get; set; } = part.Id;
 
-    public Guid Id { get; set; }
+    public string Name { get; set; } = part.Name;
 
-    public string Name { get; set; }
+    public int SortOrder { get; set; } = part.SortOrder;
 
-    public int SortOrder { get; set; }
+    public bool Indexable { get; set; } = part.Indexable;
 
-    public bool Indexable { get; set; }
-
-    public List<string> Aliases { get; set; }
+    public List<string> Aliases { get; set; } = part.Aliases?.Where(a => a.Enabled).Select(a => a.Alias).ToList() ?? new List<string>();
 }

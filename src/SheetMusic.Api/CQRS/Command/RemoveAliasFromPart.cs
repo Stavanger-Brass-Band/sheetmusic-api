@@ -9,27 +9,14 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Command;
 
-public class RemoveAliasFromPart : IRequest
+public class RemoveAliasFromPart(Guid partId, string aliasToRemove) : IRequest
 {
-    public RemoveAliasFromPart(Guid partId, string aliasToRemove)
+    public Guid PartId { get; } = partId;
+    public string AliasToRemove { get; } = aliasToRemove;
+
+    public class Handler(SheetMusicContext db) : IRequestHandler<RemoveAliasFromPart>
     {
-        PartId = partId;
-        AliasToRemove = aliasToRemove;
-    }
-
-    public Guid PartId { get; }
-    public string AliasToRemove { get; }
-
-    public class Handler : AsyncRequestHandler<RemoveAliasFromPart>
-    {
-        private readonly SheetMusicContext db;
-
-        public Handler(SheetMusicContext db)
-        {
-            this.db = db;
-        }
-
-        protected override async Task Handle(RemoveAliasFromPart request, CancellationToken cancellationToken)
+        public async Task Handle(RemoveAliasFromPart request, CancellationToken cancellationToken)
         {
             var part = await db.MusicParts
                 .Include(p => p.Aliases)

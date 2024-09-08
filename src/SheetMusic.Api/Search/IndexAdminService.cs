@@ -7,15 +7,8 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Search;
 
-public class IndexAdminService : IIndexAdminService
+public class IndexAdminService(IConfiguration config) : IIndexAdminService
 {
-    private readonly IConfiguration config;
-
-    public IndexAdminService(IConfiguration config)
-    {
-        this.config = config;
-    }
-
     public async Task EnsureIndexAsync<T>()
     {
         var model = new Index

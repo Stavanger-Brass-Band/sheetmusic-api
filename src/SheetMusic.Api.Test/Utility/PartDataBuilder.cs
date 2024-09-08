@@ -9,16 +9,9 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Utility;
 
-public class PartDataBuilder
+public class PartDataBuilder(HttpClient httpClient)
 {
-    private readonly HttpClient httpClient;
-
     public List<PutPartModel> PartRequests { get; private set; } = new List<PutPartModel>();
-
-    public PartDataBuilder(HttpClient httpClient)
-    {
-        this.httpClient = httpClient;
-    }
 
     public async Task<ApiPart> ProvisionSinglePartAsync()
     {

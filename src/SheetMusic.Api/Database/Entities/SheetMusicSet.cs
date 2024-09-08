@@ -3,21 +3,11 @@ using System.Collections.Generic;
 
 namespace SheetMusic.Api.Database.Entities;
 
-public class SheetMusicSet
+public class SheetMusicSet(int archiveNumber, string title)
 {
-    public SheetMusicSet(int archiveNumber, string title)
-    {
-        Id = Guid.NewGuid();
-        ArchiveNumber = archiveNumber;
-        Title = title;
-        Parts = new List<SheetMusicPart>();
-        Categories = new List<SheetMusicCategory>();
-        ProjectConnections = new List<ProjectSheetMusicSet>();
-    }
-
-    public Guid Id { get; set; }
-    public int ArchiveNumber { get; set; }
-    public string Title { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public int ArchiveNumber { get; set; } = archiveNumber;
+    public string Title { get; set; } = title;
     public string? Composer { get; set; }
     public string? Arranger { get; set; }
     public string? SoleSellingAgent { get; set; }
@@ -26,8 +16,8 @@ public class SheetMusicSet
     public string? BorrowedFrom { get; set; }
     public DateTimeOffset? BorrowedDateTime { get; set; }
 
-    public List<SheetMusicPart> Parts { get; set; }
-    public List<SheetMusicCategory> Categories { get; set; }
-    public List<ProjectSheetMusicSet> ProjectConnections { get; set; }
+    public List<SheetMusicPart> Parts { get; set; } = new List<SheetMusicPart>();
+    public List<SheetMusicCategory> Categories { get; set; } = new List<SheetMusicCategory>();
+    public List<ProjectSheetMusicSet> ProjectConnections { get; set; } = new List<ProjectSheetMusicSet>();
 
 }

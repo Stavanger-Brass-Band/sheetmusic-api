@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using Asp.Versioning;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -24,20 +25,9 @@ namespace SheetMusic.Api.Controllers;
 [Route("sheetmusic")]
 [ApiVersion("1.0", Deprecated = true)]
 [ApiVersion("2.0")]
-public class SheetMusicController : ControllerBase
+public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator) : ControllerBase
 {
-    private readonly IBlobClient blobClient;
-    private readonly IMemoryCache memoryCache;
-    private readonly IMediator mediator;
-
     private const long MaxFileSize = 300000000L; //300 MB
-
-    public SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator)
-    {
-        this.blobClient = blobClient;
-        this.memoryCache = memoryCache;
-        this.mediator = mediator;
-    }
 
     /// <summary>
     /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided

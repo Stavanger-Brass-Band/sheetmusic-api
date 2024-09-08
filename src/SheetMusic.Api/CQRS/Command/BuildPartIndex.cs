@@ -10,18 +10,9 @@ namespace SheetMusic.Api.CQRS.Command;
 
 public class BuildPartIndex : IRequest
 {
-    public class Handler : AsyncRequestHandler<BuildPartIndex>
+    public class Handler(IIndexAdminService indexAdminService, SheetMusicContext db) : IRequestHandler<BuildPartIndex>
     {
-        private readonly IIndexAdminService indexAdminService;
-        private readonly SheetMusicContext db;
-
-        public Handler(IIndexAdminService indexAdminService, SheetMusicContext db)
-        {
-            this.indexAdminService = indexAdminService;
-            this.db = db;
-        }
-
-        protected override async Task Handle(BuildPartIndex request, CancellationToken cancellationToken)
+        public async Task Handle(BuildPartIndex request, CancellationToken cancellationToken)
         {
             await indexAdminService.ClearIndexAsync<PartIndex>();
             await indexAdminService.EnsureIndexAsync<PartIndex>();

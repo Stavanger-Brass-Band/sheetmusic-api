@@ -17,17 +17,8 @@ namespace SheetMusic.Api.Controllers;
 
 [Authorize]
 [ApiController]
-public class ProjectsController : ControllerBase
+public class ProjectsController(IProjectRepository projectRepository, IMediator mediator) : ControllerBase
 {
-    private readonly IProjectRepository projectRepository;
-    private readonly IMediator mediator;
-
-    public ProjectsController(IProjectRepository projectRepository, IMediator mediator)
-    {
-        this.projectRepository = projectRepository;
-        this.mediator = mediator;
-    }
-
     [HttpGet("projects")]
     public async Task<IActionResult> GetProjects([FromQuery] ODataQueryParams? query)
     {

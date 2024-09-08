@@ -9,15 +9,10 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Infrastructure.Authentication;
 
-internal class IntgTestAuthenticationHandler : AuthenticationHandler<IntgTestSchemeOptions>
+internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock systemClock) : AuthenticationHandler<IntgTestSchemeOptions>(options, logger, encoder, systemClock)
 {
     public static string AuthenticationScheme = "IntgTestAuthenticationScheme";
 
-    public IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock systemClock)
-        : base(options, logger, encoder, systemClock)
-    {
-
-    }
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         try
