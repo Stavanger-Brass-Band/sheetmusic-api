@@ -49,7 +49,7 @@ jobs:
         targetdir: $(Agent.TempDirectory)/CoverageResults/
         reporttypes: 'HtmlInline_AzurePipelines;Cobertura;Badges'
       
-    - task: PublishCodeCoverageResults@1
+    - task: PublishCodeCoverageResults@2
       displayName: 'Publish code coverage report'
       inputs:
         codeCoverageTool: Cobertura
