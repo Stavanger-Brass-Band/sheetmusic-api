@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using SheetMusic.Api.Authorization;
+using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
 using System;
 using System.IdentityModel.Tokens.Jwt;
@@ -32,7 +34,7 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
             return BadRequest(new { message = "Username or password is incorrect" });
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration["AppSettings:Secret"]);
+        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.Secret] ?? throw new MissingConfigurationException(ConfigKeys.Secret));
         var expires = DateTime.UtcNow.AddDays(7);
 
         var tokenDescriptor = new SecurityTokenDescriptor

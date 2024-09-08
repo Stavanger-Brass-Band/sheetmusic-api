@@ -138,10 +138,9 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
 
         var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
         var setPart = await AddPartToSetAsync(testSet, part);
-
-        setPart.SetId.Should().Be(testSet.Id);
+        setPart.Should().NotBeNull();
+        setPart!.SetId.Should().Be(testSet.Id);
         setPart.MusicPartId.Should().Be(part.Id);
-
     }
 
     [Fact]
@@ -197,10 +196,10 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
 
         var set = JsonConvert.DeserializeObject<ApiSet>(body);
         set.Should().NotBeNull();
-        set.Parts.Should().NotBeEmpty();
+        set?.Parts.Should().NotBeEmpty();
         set?.Parts?.Count.Should().Be(partCount);
 
-        foreach (var setPart in set?.Parts ?? new List<ApiSetPart>())
+        foreach (var setPart in set?.Parts ?? [])
         {
             setPart.SetId.Should().Be(testSet.Id);
             parts.Should().Contain(p => p.Id == setPart.MusicPartId);
@@ -227,21 +226,17 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var zipResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={token}");
         zipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using (var memoryStream = await zipResponse.Content.ReadAsStreamAsync())
-        {
-            using (var zip = new ZipArchive(memoryStream))
-            {
-                zip.Entries.Count.Should().Be(partCount);
+        using var memoryStream = await zipResponse.Content.ReadAsStreamAsync();
+        using var zip = new ZipArchive(memoryStream);
+        zip.Entries.Count.Should().Be(partCount);
 
-                foreach (var entry in zip.Entries)
-                {
-                    parts.Should().Contain(s => $"{s.Name}.pdf" == entry.Name);
-                }
-            }
+        foreach (var entry in zip.Entries)
+        {
+            parts.Should().Contain(s => $"{s.Name}.pdf" == entry.Name);
         }
     }
 
-    private async Task<ApiSetPart> AddPartToSetAsync(ApiSet set, ApiPart part)
+    private async Task<ApiSetPart?> AddPartToSetAsync(ApiSet set, ApiPart part)
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
@@ -276,21 +271,19 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var content = Encoding.UTF8.GetBytes("this is just for testing purposes and is not a real PDF content string");
 
-        using (var memoryStream = new MemoryStream())
+        using var memoryStream = new MemoryStream();
+        using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
         {
-            using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+            foreach (var part in parts)
             {
-                foreach (var part in parts)
-                {
-                    var entry = zip.CreateEntry($"{part.Name}.pdf");
-                    using var entryStream = entry.Open();
-                    await entryStream.WriteAsync(content);
-                    await entryStream.FlushAsync();
-                }
+                var entry = zip.CreateEntry($"{part.Name}.pdf");
+                using var entryStream = entry.Open();
+                await entryStream.WriteAsync(content);
+                await entryStream.FlushAsync();
             }
-
-            await memoryStream.FlushAsync();
-            await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{set.Id}");
         }
+
+        await memoryStream.FlushAsync();
+        await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{set.Id}");
     }
 }

@@ -44,11 +44,9 @@ public class PdfController(IMediator mediator, IConfiguration configuration) : C
                 var entryName = $"{file.Name}_{i}.pdf";
                 var zipEntry = zip.CreateEntry(entryName);
 
-                using (var entryStream = zipEntry.Open())
-                {
-                    await entryStream.WriteAsync(singlePage.BinaryData);
-                    await entryStream.FlushAsync();
-                }
+                using var entryStream = zipEntry.Open();
+                await entryStream.WriteAsync(singlePage.BinaryData);
+                await entryStream.FlushAsync();
             }
         }
 

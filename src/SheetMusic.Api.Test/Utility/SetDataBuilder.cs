@@ -44,7 +44,8 @@ internal class SetDataBuilder
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var body = await response.Content.ReadAsStringAsync();
             var apiSet = JsonConvert.DeserializeObject<ApiSet>(body);
-            apiSet.OriginatingId = set.OriginatingId;
+            apiSet.Should().NotBeNull();
+            apiSet!.OriginatingId = set.OriginatingId;
             AssertPropsAreEqual(set, apiSet);
 
             createdSets.Add(apiSet);

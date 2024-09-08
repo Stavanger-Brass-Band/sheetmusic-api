@@ -38,7 +38,7 @@ public class PartDataBuilder(HttpClient httpClient)
             var body = await response.Content.ReadAsStringAsync();
             var apiPart = JsonConvert.DeserializeObject<ApiPart>(body);
             AssertPropsAreEqual(item, apiPart);
-            createdItems.Add(apiPart);
+            createdItems.Add(apiPart!);
         }
 
         return createdItems;
@@ -49,10 +49,11 @@ public class PartDataBuilder(HttpClient httpClient)
         return PartRequests.FirstOrDefault(p => p.Name == partName);
     }
 
-    private static void AssertPropsAreEqual(PutPartModel item, ApiPart apiPart)
+    private static void AssertPropsAreEqual(PutPartModel item, ApiPart? apiPart)
     {
-        apiPart.Name.Should().Be(item.Name);
-        apiPart.SortOrder.Should().Be(item.SortOrder);
-        apiPart.Indexable.Should().Be(item.Indexable ?? false);
+        apiPart.Should().NotBeNull();
+        apiPart?.Name.Should().Be(item.Name);
+        apiPart?.SortOrder.Should().Be(item.SortOrder);
+        apiPart?.Indexable.Should().Be(item.Indexable ?? false);
     }
 }

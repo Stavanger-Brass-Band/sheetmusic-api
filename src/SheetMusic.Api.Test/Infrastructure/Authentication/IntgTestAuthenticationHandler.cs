@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Infrastructure.Authentication;
 
-internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock systemClock) : AuthenticationHandler<IntgTestSchemeOptions>(options, logger, encoder, systemClock)
+internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder) : AuthenticationHandler<IntgTestSchemeOptions>(options, logger, encoder)
 {
     public static string AuthenticationScheme = "IntgTestAuthenticationScheme";
 

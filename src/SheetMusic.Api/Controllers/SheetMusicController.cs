@@ -397,7 +397,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
     private bool TokenIsValid(Guid setId, string providedToken)
     {
-        if (memoryCache.TryGetValue(DownloadTokenCacheKey(setId), out string cachedToken))
+        if (memoryCache.TryGetValue(DownloadTokenCacheKey(setId), out string? cachedToken))
         {
             if (providedToken == cachedToken)
             {

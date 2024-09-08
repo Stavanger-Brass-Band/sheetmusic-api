@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SheetMusic.Api.Authorization;
+using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System;

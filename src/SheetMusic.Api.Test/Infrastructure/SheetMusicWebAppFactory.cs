@@ -58,47 +58,45 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
 
     private void SeedUserData()
     {
-        using (var scope = TestServices.CreateScope())
+        using var scope = TestServices.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+        var adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
+        db.UserGroups.Add(adminGroup);
+
+        var memberGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Reader" };
+        db.UserGroups.Add(memberGroup);
+
+        string password = "intgTest123";
+        byte[] passwordSalt;
+        byte[] passwordHash;
+
+        using (var hmac = new System.Security.Cryptography.HMACSHA512())
         {
-            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
-            var adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
-            db.UserGroups.Add(adminGroup);
-
-            var memberGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Reader" };
-            db.UserGroups.Add(memberGroup);
-
-            string password = "intgTest123";
-            byte[] passwordSalt;
-            byte[] passwordHash;
-
-            using (var hmac = new System.Security.Cryptography.HMACSHA512())
-            {
-                passwordSalt = hmac.Key;
-                passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-            }
-
-            db.Musicians.Add(new Musician
-            {
-                Id = TestUser.Testesen.Identifier,
-                Email = TestUser.Testesen.Email,
-                Name = TestUser.Testesen.Name,
-                UserGroupId = memberGroup.Id,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt
-            });
-
-            db.Musicians.Add(new Musician
-            {
-                Id = TestUser.Administrator.Identifier,
-                Email = TestUser.Administrator.Email,
-                Name = TestUser.Administrator.Name,
-                UserGroupId = adminGroup.Id,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt
-            });
-
-            db.SaveChanges();
+            passwordSalt = hmac.Key;
+            passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
         }
+
+        db.Musicians.Add(new Musician
+        {
+            Id = TestUser.Testesen.Identifier,
+            Email = TestUser.Testesen.Email,
+            Name = TestUser.Testesen.Name,
+            UserGroupId = memberGroup.Id,
+            PasswordHash = passwordHash,
+            PasswordSalt = passwordSalt
+        });
+
+        db.Musicians.Add(new Musician
+        {
+            Id = TestUser.Administrator.Identifier,
+            Email = TestUser.Administrator.Email,
+            Name = TestUser.Administrator.Name,
+            UserGroupId = adminGroup.Id,
+            PasswordHash = passwordHash,
+            PasswordSalt = passwordSalt
+        });
+
+        db.SaveChanges();
     }
 
     public HttpClient CreateClientWithTestToken(TestUser user)
