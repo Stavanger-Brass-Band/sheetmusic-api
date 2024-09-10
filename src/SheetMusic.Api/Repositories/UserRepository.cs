@@ -38,7 +38,10 @@ public class UserRepository(SheetMusicContext context) : IUserRepository
 
     public async Task<Musician> GetByIdAsync(Guid id)
     {
-        return await context.Musicians.FindAsync(id) ?? throw new NotFoundError($"musicians/{id}", $"{nameof(Musician)} not found");
+        return await context.Musicians
+            .Include(u => u.UserGroup)
+            .FirstOrDefaultAsync(u => u.Id == id) 
+            ?? throw new NotFoundError($"musicians/{id}", $"{nameof(Musician)} not found");
     }
 
     public async Task<Musician> CreateAsync(Musician user, string password)
@@ -63,10 +66,7 @@ public class UserRepository(SheetMusicContext context) : IUserRepository
 
     public async Task UpdateAsync(Musician updatedMusician, string? password = null)
     {
-        var existingMusician = await context.Musicians.FindAsync(updatedMusician.Id);
-
-        if (existingMusician == null)
-            throw new NotFoundError(nameof(Musician));
+        var existingMusician = await context.Musicians.FindAsync(updatedMusician.Id) ?? throw new NotFoundError(nameof(Musician));
 
         if (updatedMusician.Email != existingMusician.Email)
         {
@@ -81,8 +81,7 @@ public class UserRepository(SheetMusicContext context) : IUserRepository
         // update password if it was entered
         if (!string.IsNullOrWhiteSpace(password))
         {
-            byte[] passwordHash, passwordSalt;
-            CreatePasswordHash(password, out passwordHash, out passwordSalt);
+            CreatePasswordHash(password, out byte[] passwordHash, out byte[] passwordSalt);
 
             existingMusician.PasswordHash = passwordHash;
             existingMusician.PasswordSalt = passwordSalt;
@@ -106,7 +105,8 @@ public class UserRepository(SheetMusicContext context) : IUserRepository
 
     private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
-        if (password == null) throw new ArgumentNullException("password");
+        ArgumentNullException.ThrowIfNull(password);
+
         if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", "password");
 
         using var hmac = new System.Security.Cryptography.HMACSHA512();
