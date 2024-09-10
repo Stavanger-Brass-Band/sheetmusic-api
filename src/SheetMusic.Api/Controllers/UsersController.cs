@@ -39,10 +39,7 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(new Claim[]
-            {
-                new Claim(ClaimTypes.Name, user.Id.ToString())
-            }),
+            Subject = new ClaimsIdentity([new Claim(ClaimTypes.Name, user.Id.ToString())]),
             Expires = expires,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
@@ -79,6 +76,20 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
         user = await userRepository.CreateAsync(user, request.Password);
 
         return new CreatedResult("users", new ApiUser(user));
+    }
+
+    [HttpPut("users/{identifier}")]
+    public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
+    {
+        var user = await userRepository.GetByIdAsync(identifier);
+        var isAdmin = user.UserGroup?.Name == "Admin";
+
+        if (!User.HasClaim(c => c.Type == ClaimTypes.Name && c.Value == identifier.ToString()) && !isAdmin)
+            return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
+
+        await userRepository.UpdateAsync(user, request.Password);
+
+        return Ok();
     }
 
     [HttpGet("users")]
