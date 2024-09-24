@@ -82,7 +82,7 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
         var user = await userRepository.GetByIdAsync(identifier);
-        var isAdmin = user.UserGroup?.Name == "Admin";
+        var isAdmin = user.UserGroup?.Name?.ToLower() == "admin";
 
         if (!User.HasClaim(c => c.Type == ClaimTypes.Name && c.Value == identifier.ToString()) && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
