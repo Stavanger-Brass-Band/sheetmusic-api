@@ -81,13 +81,17 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
-        var user = await userRepository.GetByIdAsync(identifier);
-        var isAdmin = user.UserGroup?.Name?.ToLower() == "admin";
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
+            return BadRequest("Unable to find Name claim and identify user");
 
-        if (!User.HasClaim(c => c.Type == ClaimTypes.Name && c.Value == identifier.ToString()) && !isAdmin)
+        var currentUser = await userRepository.GetByIdAsync(authenticatedUserId);
+        var isAdmin = currentUser.UserGroup?.Name?.ToLower() == "admin";
+        var userToChange = await userRepository.GetByIdAsync(identifier);
+        
+        if (authenticatedUserId != identifier && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
 
-        await userRepository.UpdateAsync(user, request.Password);
+        await userRepository.UpdateAsync(userToChange, request.Password);
 
         return Ok();
     }
