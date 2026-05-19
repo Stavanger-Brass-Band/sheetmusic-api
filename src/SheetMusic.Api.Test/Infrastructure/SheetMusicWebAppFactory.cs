@@ -12,6 +12,7 @@ using SheetMusic.Api.Search;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 
@@ -41,14 +42,29 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
             services.TryRemoveService<IIndexAdminService>();
             services.AddSingleton(IndexAdminMock.Object);
 
-            services.AddEntityFrameworkInMemoryDatabase();
-            var builder = services.AddAuthentication();
-            builder.AddScheme<IntgTestSchemeOptions, IntgTestAuthenticationHandler>(IntgTestAuthenticationHandler.AuthenticationScheme, opts => { });
+            var authBuilder = services.AddAuthentication();
+            authBuilder.AddScheme<IntgTestSchemeOptions, IntgTestAuthenticationHandler>(IntgTestAuthenticationHandler.AuthenticationScheme, opts => { });
             services.PostConfigureAll<JwtBearerOptions>(o => o.ForwardAuthenticate = IntgTestAuthenticationHandler.AuthenticationScheme);
 
-            services.TryRemoveService<DbContextOptions<SheetMusicContext>>();
-            services.AddDbContext<SheetMusicContext>(options => options.UseInMemoryDatabase($"SheetMusicIntegrationTest_{sessionId}"));
-            TestServices = services.BuildServiceProvider();
+            // Remove all EF Core and DbContext-related services
+            var efDescriptors = services.Where(d => 
+                d.ServiceType.Namespace != null && 
+                (d.ServiceType.Namespace.StartsWith("Microsoft.EntityFrameworkCore") ||
+                 d.ServiceType == typeof(SheetMusicContext) ||
+                 d.ServiceType == typeof(DbContextOptions<SheetMusicContext>) ||
+                 d.ServiceType == typeof(DbContextOptions))).ToList();
+            
+            foreach (var descriptor in efDescriptors)
+            {
+                services.Remove(descriptor);
+            }
+            
+            // Add InMemory DbContext with fresh services
+            services.AddDbContext<SheetMusicContext>(options => 
+                options.UseInMemoryDatabase($"SheetMusicIntegrationTest_{sessionId}"));
+            
+            var sp = services.BuildServiceProvider();
+            TestServices = sp;
 
             SeedUserData();
         });

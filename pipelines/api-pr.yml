@@ -16,9 +16,9 @@ jobs:
   displayName: 'Build and test'
   steps:
     - task: UseDotNet@2
-      displayName: 'Use dotnet core 8.0'
+      displayName: 'Use dotnet core 10.0'
       inputs:
-        version: '8.0.x'
+        version: '10.0.x'
 
     - task: DotNetCoreCLI@2
       displayName: 'Restore packages'
