@@ -1,9 +1,9 @@
-FROM microsoft/dotnet:2.2-aspnetcore-runtime AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM microsoft/dotnet:2.2-sdk AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["SheetMusic.Api/SheetMusic.Api.csproj", "SheetMusic.Api/"]
 RUN dotnet restore "SheetMusic.Api/SheetMusic.Api.csproj"
