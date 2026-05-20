@@ -35,7 +35,7 @@ public class AddAliasToPart(Guid partId, string alias) : IRequest
             };
 
             db.MusicPartAliases.Add(alias);
-            
+
             await db.SaveChangesAsync(cancellationToken);
         }
     }

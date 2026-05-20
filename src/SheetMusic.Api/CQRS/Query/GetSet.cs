@@ -39,7 +39,7 @@ public class GetSet(string setIdentifier) : IRequest<SheetMusicSet?>
                     .Include(s => s.Parts).ThenInclude(p => p.Part)
                     .SingleOrDefaultAsync(set => set.Title.ToLower() == request.SetIdentifier.ToLower(), cancellationToken: cancellationToken);
             }
-            
+
             return result;
         }
     }

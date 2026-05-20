@@ -40,7 +40,7 @@ public class UserRepository(SheetMusicContext context) : IUserRepository
     {
         return await context.Musicians
             .Include(u => u.UserGroup)
-            .FirstOrDefaultAsync(u => u.Id == id) 
+            .FirstOrDefaultAsync(u => u.Id == id)
             ?? throw new NotFoundError($"musicians/{id}", $"{nameof(Musician)} not found");
     }
 
