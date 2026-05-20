@@ -2,7 +2,7 @@
 description: "Fast code reviewer for Sheet Music API. Reviews code against CQRS, MediatR, and project conventions. Use when validating implementations, checking for pattern violations, or reviewing pull requests."
 name: "Code Reviewer"
 tools: [read, search]
-model: "GPT-4o (copilot)"
+model: GPT-5.4 mini (copilot)
 user-invocable: false
 ---
 

@@ -35,7 +35,7 @@ public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart
                 var searchResult = await client.SearchAsync<PartIndex>($"{searchTerm}~", options, cancellationToken);
                 var foundPart = searchResult.Value.GetResults().FirstOrDefault();
 
-                logger.LogInformation($"Search for '{searchTerm}' resulted in '{foundPart?.Document.PartName ?? string.Empty}'");
+                logger.LogInformation("Search for '{SearchTerm}' resulted in '{PartName}'", searchTerm, foundPart?.Document.PartName ?? string.Empty);
 
                 if (foundPart == null) return null;
 
@@ -47,10 +47,10 @@ public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart
 
                 return part;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                //TODO: Log error
-                return null; //part not found 
+                logger.LogWarning(ex, "Search failed for terms: {Terms}", string.Join(", ", request.SearchFragments));
+                return null;
             }
         }
     }
