@@ -1,0 +1,21 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.3.4">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SheetMusic.Api\SheetMusic.Api.csproj" />
+    <ProjectReference Include="..\SheetMusic.ServiceDefaults\SheetMusic.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.3.4" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.3.4" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>42646e90-3eb7-4503-89e4-9ded2356ca53</UserSecretsId>
+  </PropertyGroup>
+
+</Project>
