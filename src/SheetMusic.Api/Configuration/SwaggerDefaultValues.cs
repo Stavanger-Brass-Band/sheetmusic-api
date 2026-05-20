@@ -34,12 +34,12 @@ public class SwaggerDefaultValues : IOperationFilter
 
             if (parameter.Schema is OpenApiSchema schema && schema.Default == null && description.DefaultValue != null)
             {
-                var defaultValue = description.DefaultValue.ToString()!;
-                schema.Default = JsonValue.Create(defaultValue);
+                var defaultValue = description.DefaultValue.ToString() ?? string.Empty;
+                schema.Default = (JsonNode?)JsonValue.Create(defaultValue);
 
-                if (parameter.Name.Contains("api-version")) //lock-down version parm
+                if (parameter.Name?.Contains("api-version") == true) //lock-down version parm
                 {
-                    schema.Enum = [JsonValue.Create(defaultValue)];
+                    schema.Enum = [(JsonNode)JsonValue.Create(defaultValue)!];
                     parameter.Required = true;
                 }
             }

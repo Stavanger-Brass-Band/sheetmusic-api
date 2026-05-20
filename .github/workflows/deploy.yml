@@ -1,0 +1,80 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build and pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore packages
+        run: dotnet restore src/SheetMusic.sln
+
+      - name: Build
+        run: dotnet build src/SheetMusic.sln --configuration Release --no-restore
+
+      - name: Publish
+        run: dotnet publish src/SheetMusic.Api/SheetMusic.Api.csproj --configuration Release --output ./publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sheetmusic-api
+          path: ./publish
+
+      - name: Run integration tests
+        run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release
+
+  deploy-test:
+    name: Deploy to test
+    needs: build
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: sheetmusic-api
+          path: ./publish
+
+      - name: Deploy to Azure Web App (test)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: sheet-music-api-test
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  deploy-prod:
+    name: Deploy to production
+    needs: deploy-test
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: sheetmusic-api
+          path: ./publish
+
+      - name: Deploy to Azure Web App (production)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: sheet-music-api
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
