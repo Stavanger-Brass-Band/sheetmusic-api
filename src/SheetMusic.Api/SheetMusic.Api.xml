@@ -160,20 +160,6 @@
             <response code="401">Authorization header (bearer token) is invalid</response>
             <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
         </member>
-        <member name="M:SheetMusic.Api.Controllers.PdfController.SplitPdfIntoSinglePages(Microsoft.AspNetCore.Http.IFormFile)">
-            <summary>
-            Splits the PDF <paramref name="file"/> into single-page pdf files added to a zip archive
-            </summary>
-            <param name="file">The file to split</param>
-            <returns>Zip file with the split results</returns>
-        </member>
-        <member name="M:SheetMusic.Api.Controllers.PdfController.SmartSplitPdf(Microsoft.AspNetCore.Http.IFormFile)">
-            <summary>
-            Attempts to recognize where the page splits are, splits the files and returns the pdf collection in a zip archive
-            </summary>
-            <param name="file">The file to split</param>
-            <returns>Zip archive with results</returns>
-        </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(SheetMusic.Api.OData.MVC.ODataQueryParams)">
             <summary>
             Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search.Search"/> if provided
