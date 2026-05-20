@@ -1,6 +1,6 @@
-﻿using MediatR;
-using Microsoft.Azure.Search;
-using Microsoft.Azure.Search.Models;
+﻿using Azure.Search.Documents;
+using Azure.Search.Documents.Models;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Database;
@@ -31,8 +31,9 @@ public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart
                     .Replace("'", "")
                     .Replace("`", "");
 
-                var searchResult = await client.Documents.SearchAsync<PartIndex>($"{searchTerm}~", new SearchParameters { QueryType = QueryType.Full, SearchMode = SearchMode.All });
-                var foundPart = searchResult.Results.FirstOrDefault();
+                var options = new SearchOptions { QueryType = SearchQueryType.Full, SearchMode = SearchMode.All };
+                var searchResult = await client.SearchAsync<PartIndex>($"{searchTerm}~", options, cancellationToken);
+                var foundPart = searchResult.Value.GetResults().FirstOrDefault();
 
                 logger.LogInformation($"Search for '{searchTerm}' resulted in '{foundPart?.Document.PartName ?? string.Empty}'");
 

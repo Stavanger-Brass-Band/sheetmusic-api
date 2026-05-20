@@ -1,18 +1,22 @@
-﻿using Microsoft.Azure.Search;
-using Microsoft.Azure.Search.Models;
+﻿using Azure.Search.Documents.Indexes;
+using Azure.Search.Documents.Indexes.Models;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace SheetMusic.Api.Search;
 
-[SerializePropertyNamesAsCamelCase]
 public class PartIndex
 {
     [Key]
+    [SimpleField(IsKey = true)]
+    [JsonPropertyName("id")]
     public string Id { get; set; } = null!;
 
-    [IsFilterable, IsSearchable]
+    [SearchableField(IsFilterable = true)]
+    [JsonPropertyName("partName")]
     public string PartName { get; set; } = null!;
 
-    [IsFilterable, IsSearchable]
+    [SearchableField(IsFilterable = true)]
+    [JsonPropertyName("aliases")]
     public string[] Aliases { get; set; } = null!;
 }
