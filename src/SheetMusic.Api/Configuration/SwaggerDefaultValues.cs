@@ -2,7 +2,6 @@
 using Microsoft.OpenApi;
 using System.Text.Json.Nodes;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SheetMusic.Api.Configuration;
@@ -35,11 +34,12 @@ public class SwaggerDefaultValues : IOperationFilter
 
             if (parameter.Schema is OpenApiSchema schema && schema.Default == null && description.DefaultValue != null)
             {
-                schema.Default = JsonValue.Create(description.DefaultValue.ToString());
+                var defaultValue = description.DefaultValue.ToString()!;
+                schema.Default = JsonValue.Create(defaultValue);
 
                 if (parameter.Name.Contains("api-version")) //lock-down version parm
                 {
-                    schema.Enum = new List<JsonNode?> { JsonValue.Create(description.DefaultValue.ToString()) };
+                    schema.Enum = [JsonValue.Create(defaultValue)];
                     parameter.Required = true;
                 }
             }
