@@ -93,4 +93,22 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await adminClient.DeleteAsync($"parts/{part.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
+
+    [Fact]
+    public async Task SearchForPart_ShouldReturn404_WhenNoMatch()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync("parts/index?searchTerm=nonexistent");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task SearchForPart_ShouldBeForbidden_WhenReader()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.GetAsync("parts/index?searchTerm=test");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }
