@@ -1,8 +1,9 @@
 ---
 description: "Expert at developing features for the Sheet Music API using CQRS, MediatR, EF Core patterns. Use when adding endpoints, commands, queries, entities, validators, or tests to the Sheet Music codebase."
 name: "Sheet Music API Developer"
-tools: [read, edit, search, execute, web]
+tools: [execute/runNotebookCell, execute/executionSubagent, execute/getTerminalOutput, execute/killTerminal, execute/sendToTerminal, execute/runTask, execute/createAndRunTask, execute/runInTerminal, execute/runTests, execute/testFailure, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/readNotebookCellOutput, read/terminalSelection, read/terminalLastCommand, read/getTaskOutput, agent/runSubagent, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web/fetch, web/githubRepo, web/githubTextSearch, browser/openBrowserPage, browser/readPage, browser/screenshotPage, browser/navigatePage, browser/clickElement, browser/dragElement, browser/hoverElement, browser/typeInPage, browser/runPlaywrightCode, browser/handleDialog, todo, agent]
 argument-hint: "What feature or endpoint do you want to add?"
+agents: ["Code Reviewer"]
 user-invocable: true
 hooks:
   PostToolUse:

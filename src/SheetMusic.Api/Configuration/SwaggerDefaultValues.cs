@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
+using System.Text.Json.Nodes;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SheetMusic.Api.Configuration;
@@ -23,26 +22,24 @@ public class SwaggerDefaultValues : IOperationFilter
     {
         var apiDescription = context.ApiDescription;
 
-        operation.Deprecated |= apiDescription.IsDeprecated();
-
         if (operation.Parameters == null)
             return;
 
-        foreach (var parameter in operation.Parameters)
+        foreach (var parameter in operation.Parameters.OfType<OpenApiParameter>())
         {
             var description = apiDescription.ParameterDescriptions.First(p => p.Name == parameter.Name);
 
             if (parameter.Description == null)
                 parameter.Description = description.ModelMetadata?.Description;
 
-            if (parameter.Schema.Default == null && description.DefaultValue != null)
+            if (parameter.Schema is OpenApiSchema schema && schema.Default == null && description.DefaultValue != null)
             {
-                var defaultValue = new OpenApiString(description.DefaultValue.ToString());
-                parameter.Schema.Default = defaultValue;
+                var defaultValue = description.DefaultValue.ToString()!;
+                schema.Default = JsonValue.Create(defaultValue);
 
                 if (parameter.Name.Contains("api-version")) //lock-down version parm
                 {
-                    parameter.Schema.Enum = new List<IOpenApiAny> { defaultValue };
+                    schema.Enum = [JsonValue.Create(defaultValue)];
                     parameter.Required = true;
                 }
             }

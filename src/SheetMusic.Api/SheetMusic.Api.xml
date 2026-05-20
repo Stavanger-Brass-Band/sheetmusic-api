@@ -36,7 +36,7 @@
             <remarks>This <see cref="T:Swashbuckle.AspNetCore.SwaggerGen.IOperationFilter"/> is only required due to bugs in the <see cref="T:Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenerator"/>.
             Once they are fixed and published, this class can be removed.</remarks>
         </member>
-        <member name="M:SheetMusic.Api.Configuration.SwaggerDefaultValues.Apply(Microsoft.OpenApi.Models.OpenApiOperation,Swashbuckle.AspNetCore.SwaggerGen.OperationFilterContext)">
+        <member name="M:SheetMusic.Api.Configuration.SwaggerDefaultValues.Apply(Microsoft.OpenApi.OpenApiOperation,Swashbuckle.AspNetCore.SwaggerGen.OperationFilterContext)">
             <summary>
             Applies the filter to the specified operation using the given context.
             </summary>
@@ -159,20 +159,6 @@
             <response code="404">Part not found, make sure part name is correct</response>
             <response code="401">Authorization header (bearer token) is invalid</response>
             <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-        </member>
-        <member name="M:SheetMusic.Api.Controllers.PdfController.SplitPdfIntoSinglePages(Microsoft.AspNetCore.Http.IFormFile)">
-            <summary>
-            Splits the PDF <paramref name="file"/> into single-page pdf files added to a zip archive
-            </summary>
-            <param name="file">The file to split</param>
-            <returns>Zip file with the split results</returns>
-        </member>
-        <member name="M:SheetMusic.Api.Controllers.PdfController.SmartSplitPdf(Microsoft.AspNetCore.Http.IFormFile)">
-            <summary>
-            Attempts to recognize where the page splits are, splits the files and returns the pdf collection in a zip archive
-            </summary>
-            <param name="file">The file to split</param>
-            <returns>Zip archive with results</returns>
         </member>
         <member name="M:SheetMusic.Api.Controllers.SheetMusicController.GetSetList(SheetMusic.Api.OData.MVC.ODataQueryParams)">
             <summary>

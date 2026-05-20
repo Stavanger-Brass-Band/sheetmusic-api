@@ -12,6 +12,7 @@ using SheetMusic.Api.Search;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
 using System;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -22,7 +23,7 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
 {
     public ServiceProvider TestServices = null!;
     public Mock<IBlobClient> BlobMock = null!;
-    public Mock<IIndexAdminService> IndexAdminMock = null!;
+    public FakeIndexAdminService FakeIndexAdmin = null!;
     private readonly Guid sessionId;
 
     public SheetMusicWebAppFactory()
@@ -37,12 +38,18 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
         builder.ConfigureTestServices(services =>
         {
             BlobMock = new Mock<IBlobClient>();
+            BlobMock.Setup(b => b.GetMusicPartContentAsync(It.IsAny<PartRelatedToSet>()))
+                .ReturnsAsync(Array.Empty<byte>());
+            BlobMock.Setup(b => b.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>()))
+                .ReturnsAsync(new MemoryStream());
+            BlobMock.Setup(b => b.HasPdfFileAsync(It.IsAny<PartRelatedToSet>()))
+                .ReturnsAsync(true);
             services.TryRemoveService<IBlobClient>();
             services.AddSingleton(BlobMock.Object);
 
-            IndexAdminMock = new Mock<IIndexAdminService>();
+            FakeIndexAdmin = new FakeIndexAdminService();
             services.TryRemoveService<IIndexAdminService>();
-            services.AddSingleton(IndexAdminMock.Object);
+            services.AddSingleton<IIndexAdminService>(FakeIndexAdmin);
 
             var authBuilder = services.AddAuthentication();
             authBuilder.AddScheme<IntgTestSchemeOptions, IntgTestAuthenticationHandler>(IntgTestAuthenticationHandler.AuthenticationScheme, opts => { });

@@ -63,7 +63,10 @@ public class Startup(IConfiguration configuration)
         app.UseHttpsRedirection();
         app.UseCors("AllowMember");
 
-        app.UseSwagger();
+        app.UseSwagger(options =>
+        {
+            options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1;
+        });
         app.UseSwaggerUI(options =>
         {
             options.DisplayRequestDuration();

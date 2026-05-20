@@ -1,10 +1,12 @@
-﻿using Microsoft.Azure.Search;
-using Microsoft.Azure.Search.Models;
+﻿using Azure;
+using Azure.Search.Documents;
+using Azure.Search.Documents.Indexes;
+using Azure.Search.Documents.Indexes.Models;
 using Microsoft.Extensions.Configuration;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Errors;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Search;
@@ -13,36 +15,32 @@ public class IndexAdminService(IConfiguration config) : IIndexAdminService
 {
     public async Task EnsureIndexAsync<T>()
     {
-        var model = new Microsoft.Azure.Search.Models.Index
-        {
-            Name = GetIndexName<T>(),
-            Fields = FieldBuilder.BuildForType<T>()
-        };
+        var indexClient = new SearchIndexClient(Endpoint, new AzureKeyCredential(AdminKey));
+        var fieldBuilder = new FieldBuilder();
+        var searchFields = fieldBuilder.Build(typeof(T));
 
-        var serviceClient = new SearchServiceClient(Host, new SearchCredentials(AdminKey));
-        await serviceClient.Indexes.CreateOrUpdateAsync(model);
+        var definition = new SearchIndex(GetIndexName<T>(), searchFields);
+        await indexClient.CreateOrUpdateIndexAsync(definition);
     }
 
     public async Task FillIndexAsync<T>(IEnumerable<T> items)
     {
-        var indexClient = new SearchIndexClient(Host, GetIndexName<T>(), new SearchCredentials(AdminKey));
-        var batch = IndexBatch.New(items.Select(IndexAction.Upload));
-
-        await indexClient.Documents.IndexAsync(batch);
+        var client = GetQueryClient<T>();
+        await client.UploadDocumentsAsync(items);
     }
 
     public async Task ClearIndexAsync<T>()
     {
-        var serviceClient = new SearchServiceClient(Host, new SearchCredentials(AdminKey));
-        await serviceClient.Indexes.DeleteAsync(GetIndexName<T>());
+        var indexClient = new SearchIndexClient(Endpoint, new AzureKeyCredential(AdminKey));
+        await indexClient.DeleteIndexAsync(GetIndexName<T>());
     }
 
-    public SearchIndexClient GetQueryClient<T>()
+    public SearchClient GetQueryClient<T>()
     {
-        return new SearchIndexClient(Host, GetIndexName<T>(), new SearchCredentials(AdminKey));
+        return new SearchClient(Endpoint, GetIndexName<T>(), new AzureKeyCredential(AdminKey));
     }
 
-    private string Host => config[ConfigKeys.SearchHost] ?? throw new MissingConfigurationException(ConfigKeys.SearchHost);
+    private Uri Endpoint => new Uri($"https://{config[ConfigKeys.SearchHost] ?? throw new MissingConfigurationException(ConfigKeys.SearchHost)}");
     private string AdminKey => config[ConfigKeys.SearchAdminKey] ?? throw new MissingConfigurationException(ConfigKeys.SearchAdminKey);
 
     private string GetIndexName<T>() => typeof(T).Name.ToLower();

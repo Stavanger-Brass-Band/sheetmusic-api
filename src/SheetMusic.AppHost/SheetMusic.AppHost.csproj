@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SheetMusic.Api\SheetMusic.Api.csproj" />
-    <ProjectReference Include="..\SheetMusic.ServiceDefaults\SheetMusic.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>
