@@ -19,10 +19,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore packages
-        run: dotnet restore
+        run: dotnet restore src/SheetMusic.sln
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build src/SheetMusic.sln --configuration Release --no-restore
 
       - name: Run integration tests
         run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release --collect:"XPlat Code Coverage"
