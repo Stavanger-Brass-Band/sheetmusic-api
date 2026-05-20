@@ -286,4 +286,103 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         await memoryStream.FlushAsync();
         await FileUploader.UploadFromStream(memoryStream, adminClient, $"sheetmusic/sets/{set.Id}");
     }
+
+    [Fact]
+    public async Task AddNewSet_ShouldBeForbidden_WhenReader()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.PostAsJsonAsync("sheetmusic/sets", new { Title = "Test Set", Composer = "Test" });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetSet_ShouldReturn404_WhenNotFound()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.GetAsync("sheetmusic/sets/nonexistent-set-xyz");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PutAsJsonAsync("sheetmusic/sets/nonexistent-set-xyz", new { Title = "Test", Composer = "Test" });
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetPartsForSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync("sheetmusic/sets/nonexistent-set-xyz/parts");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetSinglePartFile_ShouldNotReturnOk_WhenNoToken()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        await AddPartToSetAsync(testSet, part);
+
+        var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf");
+        response.StatusCode.Should().NotBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetSinglePartFile_ShouldNotReturnOk_WhenInvalidToken()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        await AddPartToSetAsync(testSet, part);
+
+        var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken=invalid-token");
+        response.StatusCode.Should().NotBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetDownloadToken_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync("sheetmusic/sets/nonexistent-set-xyz/zip/token");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetPartsAsZip_ShouldNotReturnOk_WhenInvalidToken()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken=invalid");
+        response.StatusCode.Should().NotBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetSetsThatHasPartsButNoFiles_ShouldBeSuccessful()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync("sheetmusic/sets/withoutFiles");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task DeleteSet_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }
