@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET 10.0
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -30,20 +30,13 @@ jobs:
         run: dotnet publish src/SheetMusic.Api/SheetMusic.Api.csproj --configuration Release --output ./publish
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sheetmusic-api
           path: ./publish
 
       - name: Run integration tests
-        run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release --collect:"XPlat Code Coverage"
-
-      - name: Generate code coverage report
-        uses: danielpalme/ReportGenerator-GitHub-Action@5
-        with:
-          reports: '**/coverage.cobertura.xml'
-          targetdir: coverage-results
-          reporttypes: 'HtmlInline;Cobertura;Badges'
+        run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release
 
   deploy-test:
     name: Deploy to test
@@ -53,7 +46,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: sheetmusic-api
           path: ./publish
@@ -74,7 +67,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: sheetmusic-api
           path: ./publish
