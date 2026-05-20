@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using SheetMusic.Api.Authorization;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
@@ -117,17 +117,10 @@ public static class IServiceCollectionExtensions
                     }
                 });
 
-            setup.AddSecurityRequirement(new OpenApiSecurityRequirement
+            setup.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
             {
                 {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Id = "oauth2",
-                            Type = ReferenceType.SecurityScheme,
-                        }
-                    },
+                    new OpenApiSecuritySchemeReference("oauth2"),
                     new List<string>()
                 }
             });

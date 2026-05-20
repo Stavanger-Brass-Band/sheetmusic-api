@@ -1,4 +1,4 @@
-﻿using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 
@@ -8,7 +8,8 @@ public class SwaggerHideVersionHeader : IOperationFilter
 {
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
-        var headerParameter = operation.Parameters.FirstOrDefault(x => x.Name == "x-api-version");
-        operation.Parameters.Remove(headerParameter);
+        var headerParameter = operation.Parameters.OfType<OpenApiParameter>().FirstOrDefault(x => x.Name == "x-api-version");
+        if (headerParameter != null)
+            operation.Parameters.Remove(headerParameter);
     }
 }
