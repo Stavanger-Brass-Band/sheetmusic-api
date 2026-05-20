@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -8,7 +9,6 @@ using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
-using SheetMusic.Api.Repositories;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -21,16 +21,21 @@ namespace SheetMusic.Api.Controllers;
 
 [Authorize(AuthPolicy.Admin)]
 [ApiController]
-public class UsersController(IUserRepository userRepository, IConfiguration configuration) : ControllerBase
+public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration) : ControllerBase
 {
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]
     public async Task<IActionResult> AuthenticateAsync([FromForm] LoginRequest request)
     {
-        var user = await userRepository.AuthenticateAsync(request.username, request.password);
+        var user = await userManager.FindByEmailAsync(request.username);
 
-        if (user == null)
+        if (user == null || user.Inactive)
+            return BadRequest(new { message = "Username or password is incorrect" });
+
+        var result = await signInManager.CheckPasswordSignInAsync(user, request.password, lockoutOnFailure: false);
+
+        if (!result.Succeeded)
             return BadRequest(new { message = "Username or password is incorrect" });
 
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -59,21 +64,21 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
     [HttpPost("users/register")]
     public async Task<IActionResult> RegisterAsync([FromBody] UserRequest request)
     {
-        if (!request.Id.HasValue)
+        var user = new ApplicationUser
         {
-            request.Id = Guid.NewGuid();
-        }
-
-        var user = new Musician
-        {
-            Id = request.Id.Value,
-            Name = request.Name,
+            Id = request.Id ?? Guid.NewGuid(),
+            UserName = request.Email,
             Email = request.Email,
-            UserGroupId = Guid.Parse("307E4C23-FFD0-4350-9CF0-F5A80097C4D9"), //reader, hardcoded for now
-            Inactive = true //inactive until manually activated
+            DisplayName = request.Name,
+            Inactive = true
         };
 
-        user = await userRepository.CreateAsync(user, request.Password);
+        var result = await userManager.CreateAsync(user, request.Password);
+
+        if (!result.Succeeded)
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+
+        await userManager.AddToRoleAsync(user, "Reader");
 
         return new CreatedResult("users", new ApiUser(user));
     }
@@ -84,14 +89,21 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
             return BadRequest("Unable to find Name claim and identify user");
 
-        var currentUser = await userRepository.GetByIdAsync(authenticatedUserId);
-        var isAdmin = currentUser.UserGroup?.Name?.ToLower() == "admin";
-        var userToChange = await userRepository.GetByIdAsync(identifier);
+        var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
+        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+        var userToChange = await userManager.FindByIdAsync(identifier.ToString());
+
+        if (userToChange == null)
+            return NotFound();
 
         if (authenticatedUserId != identifier && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
 
-        await userRepository.UpdateAsync(userToChange, request.Password);
+        if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(userToChange);
+            await userManager.ResetPasswordAsync(userToChange, token, request.Password);
+        }
 
         return Ok();
     }
@@ -99,7 +111,7 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
     [HttpGet("users")]
     public IActionResult GetAll()
     {
-        var users = userRepository.GetAll();
+        var users = userManager.Users.ToList();
         var apiUsers = users.Select(u => new ApiUser(u));
 
         return Ok(apiUsers);
@@ -115,10 +127,12 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
 
         if (Guid.TryParse(identifier, out var id))
         {
-            var user = await userRepository.GetByIdAsync(id);
-            var apiUser = new ApiUser(user);
+            var user = await userManager.FindByIdAsync(id.ToString());
 
-            return Ok(apiUser);
+            if (user == null)
+                return NotFound();
+
+            return Ok(new ApiUser(user));
         }
         else
         {

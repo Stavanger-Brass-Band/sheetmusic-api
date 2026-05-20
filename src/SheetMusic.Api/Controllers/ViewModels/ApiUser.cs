@@ -5,17 +5,14 @@ namespace SheetMusic.Api.Controllers.ViewModels;
 
 public class ApiUser
 {
-    public ApiUser(Musician musician)
+    public ApiUser(ApplicationUser user)
     {
-        if (musician == null)
-        {
-            throw new ArgumentNullException(nameof(musician));
-        }
+        ArgumentNullException.ThrowIfNull(user);
 
-        Id = musician.Id;
-        Name = musician.Name ?? null!;
-        Email = musician.Email ?? null!;
-        Inactive = musician.Inactive;
+        Id = user.Id;
+        Name = user.DisplayName ?? user.UserName ?? null!;
+        Email = user.Email ?? null!;
+        Inactive = user.Inactive;
     }
 
     public Guid Id { get; set; }

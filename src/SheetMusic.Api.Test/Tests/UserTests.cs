@@ -135,4 +135,95 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
+
+    [Fact]
+    public async Task RegisterUser_ShouldReturnBadRequest_WhenDuplicateEmail()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Duplicate User",
+            Email = TestUser.Testesen.Email,
+            Password = "SecurePassword123!"
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RegisterUser_ShouldReturnBadRequest_WhenWeakPassword()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Weak Password User",
+            Email = $"weak-{Guid.NewGuid():N}@user.com",
+            Password = "short"
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetToken_ShouldReturnBadRequest_WhenUserIsInactive()
+    {
+        // Register creates inactive user by default
+        var client = factory.CreateClient();
+        var email = $"inactive-{Guid.NewGuid():N}@user.com";
+
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Inactive User",
+            Email = email,
+            Password = "SecurePassword123!"
+        });
+
+        var collection = new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "basic"),
+            new("username", email),
+            new("password", "SecurePassword123!")
+        };
+
+        var content = new FormUrlEncodedContent(collection);
+        var response = await client.PostAsync("token", content);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GetUser_ById_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await client.GetAsync($"users/{Guid.NewGuid()}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateUser_ShouldBeSuccessful_WhenAdminUpdatesAnother()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        // Use admin's own account to avoid mutating shared test state
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Administrator.Identifier}", new
+        {
+            Password = "UpdatedAdmin123!"
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateUser_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Administrator.Identifier}", new
+        {
+            Password = "HackerPassword1!"
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

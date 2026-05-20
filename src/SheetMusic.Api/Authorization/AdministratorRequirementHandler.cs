@@ -1,13 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
-using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using System;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Authorization;
 
-public class AdministratorRequirementHandler(SheetMusicContext dbContext, IMemoryCache memoryCache) : AuthorizationHandler<AdministratorRequirement>
+public class AdministratorRequirementHandler(UserManager<ApplicationUser> userManager, IMemoryCache memoryCache) : AuthorizationHandler<AdministratorRequirement>
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdministratorRequirement requirement)
     {
@@ -34,11 +34,9 @@ public class AdministratorRequirementHandler(SheetMusicContext dbContext, IMemor
             return;
         }
 
-        var dbUser = await dbContext.Musicians
-            .Include(m => m.UserGroup)
-            .FirstOrDefaultAsync(m => m.Id == userId);
+        var user = await userManager.FindByIdAsync(userId.ToString()!);
 
-        isAdmin = dbUser?.UserGroup?.Name == requirement.AdminGroupName;
+        isAdmin = user != null && await userManager.IsInRoleAsync(user, requirement.AdminGroupName);
 
         if (isAdmin)
             context.Succeed(requirement);

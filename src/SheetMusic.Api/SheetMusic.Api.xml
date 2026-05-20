@@ -308,6 +308,18 @@
             Contains the sheet music set to project connection
             </summary>
         </member>
+        <member name="T:SheetMusic.Api.Migrations.AddIdentityFramework">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
         <member name="M:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.EnsureProperParameterName(SheetMusic.Api.OData.Expression.ODataFieldMapping{`0})">
             <summary>
             Update the expressions in the provided field mapping to use the correct root param name.

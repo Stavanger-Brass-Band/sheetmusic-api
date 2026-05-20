@@ -1,14 +1,15 @@
 ﻿using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SheetMusic.Api.Authorization;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
-using SheetMusic.Api.Repositories;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System;
 using System.Collections.Generic;
@@ -58,14 +59,13 @@ public static class IServiceCollectionExtensions
                         return;
                     }
 
-                    var userRepo = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                    var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
                     if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
                     {
-                        var user = await userRepo.GetByIdAsync(userId);
+                        var user = await userManager.FindByIdAsync(userId.ToString());
 
-                        if (user == null)
+                        if (user == null || user.Inactive)
                         {
-                            // return unauthorized if user no longer exists
                             context.Fail("Unauthorized");
                         }
                     }
