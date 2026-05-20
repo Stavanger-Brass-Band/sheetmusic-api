@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
 		<nullable>enable</nullable>
 		<LangVersion>latest</LangVersion>
 		<UserSecretsId>59fb632e-4969-4656-b02c-fb769ed180b3</UserSecretsId>
@@ -38,5 +39,9 @@
 		<PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="6.7.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.7.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUi" Version="6.7.3" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\SheetMusic.ServiceDefaults\SheetMusic.ServiceDefaults.csproj" />
 	</ItemGroup>
 </Project>

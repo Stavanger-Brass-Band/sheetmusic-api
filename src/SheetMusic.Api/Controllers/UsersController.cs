@@ -87,7 +87,7 @@ public class UsersController(IUserRepository userRepository, IConfiguration conf
         var currentUser = await userRepository.GetByIdAsync(authenticatedUserId);
         var isAdmin = currentUser.UserGroup?.Name?.ToLower() == "admin";
         var userToChange = await userRepository.GetByIdAsync(identifier);
-        
+
         if (authenticatedUserId != identifier && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
 

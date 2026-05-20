@@ -13,7 +13,7 @@ public class IndexAdminService(IConfiguration config) : IIndexAdminService
 {
     public async Task EnsureIndexAsync<T>()
     {
-        var model = new Index
+        var model = new Microsoft.Azure.Search.Models.Index
         {
             Name = GetIndexName<T>(),
             Fields = FieldBuilder.BuildForType<T>()

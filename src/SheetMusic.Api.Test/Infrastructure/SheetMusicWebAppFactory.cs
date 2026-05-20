@@ -32,6 +32,8 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("SkipMigrations", "true");
+
         builder.ConfigureTestServices(services =>
         {
             BlobMock = new Mock<IBlobClient>();

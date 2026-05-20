@@ -29,7 +29,7 @@ public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart
                     .Replace("[", "l")
                     .Replace("]", "l")
                     .Replace("'", "")
-                    .Replace("`","");
+                    .Replace("`", "");
 
                 var searchResult = await client.Documents.SearchAsync<PartIndex>($"{searchTerm}~", new SearchParameters { QueryType = QueryType.Full, SearchMode = SearchMode.All });
                 var foundPart = searchResult.Results.FirstOrDefault();

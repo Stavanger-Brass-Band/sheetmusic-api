@@ -6,7 +6,7 @@ public class UpdateProjectRequest
 {
     public string Name { get; set; } = null!;
 
-    public string? Comments { get; set; } 
+    public string? Comments { get; set; }
 
     public DateTime StartDate { get; set; }
 

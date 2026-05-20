@@ -19,7 +19,7 @@ public class ODataQueryParams
 
     [JsonPropertyName("$filter")]
     public ODataExpression? Filter { get; set; }
-    
+
     [JsonPropertyName("$search")]
     public string? Search { get; set; }
 
