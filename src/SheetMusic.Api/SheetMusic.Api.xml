@@ -283,7 +283,7 @@
             User management endpoints using ASP.NET Core Identity.
             </summary>
         </member>
-        <member name="M:SheetMusic.Api.Controllers.UsersController.#ctor(Microsoft.AspNetCore.Identity.UserManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.AspNetCore.Identity.SignInManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.Extensions.Configuration.IConfiguration)">
+        <member name="M:SheetMusic.Api.Controllers.UsersController.#ctor(Microsoft.AspNetCore.Identity.UserManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.AspNetCore.Identity.SignInManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.Extensions.Configuration.IConfiguration,MediatR.IMediator)">
             <summary>
             User management endpoints using ASP.NET Core Identity.
             </summary>
@@ -311,6 +311,16 @@
         <member name="M:SheetMusic.Api.Controllers.UsersController.GetByIdAsync(System.String)">
             <summary>
             Get a user by ID or "me" for the current user.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.ForgotPasswordAsync(SheetMusic.Api.Controllers.RequestModels.ForgotPasswordRequest)">
+            <summary>
+            Request a password reset email. Always returns 200 to prevent user enumeration.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.ResetPasswordAsync(SheetMusic.Api.Controllers.RequestModels.ResetPasswordRequest)">
+            <summary>
+            Reset a user's password using a token received via email.
             </summary>
         </member>
         <member name="T:SheetMusic.Api.Controllers.UsersV1Controller">

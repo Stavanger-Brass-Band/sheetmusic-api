@@ -5,10 +5,12 @@ using MediatR;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Resend;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
@@ -33,6 +35,15 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
     })
     .AddEntityFrameworkStores<SheetMusicContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromHours(1));
+
+builder.Services.AddResend(options =>
+{
+    options.ApiToken = builder.Configuration[ConfigKeys.ResendApiKey] ?? string.Empty;
+});
+builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 
 builder.Services.Configure<FormOptions>(x =>
 {

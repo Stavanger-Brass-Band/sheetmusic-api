@@ -1,4 +1,7 @@
 ﻿using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -346,5 +349,145 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Password = "HackerPassword1!"
         });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // --- Forgot password / Password reset ---
+
+    [Fact]
+    public async Task ForgotPassword_ShouldReturn200AndSendEmail_WhenActiveUserExists()
+    {
+        var client = CreateV2Client();
+        factory.FakeEmail.Clear();
+
+        var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = TestUser.Testesen.Email });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.FakeEmail.SentEmails.Should().HaveCount(1);
+        factory.FakeEmail.SentEmails[0].ToEmail.Should().Be(TestUser.Testesen.Email);
+        factory.FakeEmail.SentEmails[0].ResetToken.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldReturn200AndSendNoEmail_WhenEmailDoesNotExist()
+    {
+        var client = CreateV2Client();
+        factory.FakeEmail.Clear();
+
+        var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = "unknown@nobody.com" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.FakeEmail.SentEmails.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldReturn200AndSendNoEmail_WhenUserIsInactive()
+    {
+        var client = CreateV2Client();
+        factory.FakeEmail.Clear();
+
+        // Register an inactive user
+        var email = $"inactive-fp-{Guid.NewGuid():N}@user.com";
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Inactive FP User",
+            Email = email,
+            Password = "SecurePassword123!"
+        });
+
+        var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = email });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        factory.FakeEmail.SentEmails.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldReturn400_WhenEmailIsInvalid()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = "not-an-email" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShouldReturn200AndUpdatePassword_WhenTokenIsValid()
+    {
+        var client = CreateV2Client();
+        factory.FakeEmail.Clear();
+
+        // Register a dedicated user for this test to avoid mutating shared test users
+        var email = $"resetpw-{Guid.NewGuid():N}@user.com";
+        const string newPassword = "NewPassword999!";
+
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Reset PW User",
+            Email = email,
+            Password = "Original123!"
+        });
+
+        // Activate the user directly through Identity (newly registered users are inactive)
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+        appUser!.Inactive = false;
+        await userManager.UpdateAsync(appUser);
+
+        // Request a reset token
+        await client.PostAsJsonAsync("users/forgot-password", new { Email = email });
+        factory.FakeEmail.SentEmails.Should().HaveCount(1);
+        var token = factory.FakeEmail.SentEmails[0].ResetToken;
+
+        // Reset the password
+        var resetResponse = await client.PostAsJsonAsync("users/reset-password", new
+        {
+            Email = email,
+            Token = token,
+            NewPassword = newPassword
+        });
+
+        resetResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify the new password works
+        var loginResponse = await client.PostAsync("token", new FormUrlEncodedContent(new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "basic"),
+            new("username", email),
+            new("password", newPassword)
+        }));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShouldReturn400_WhenTokenIsInvalid()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsJsonAsync("users/reset-password", new
+        {
+            Email = TestUser.Testesen.Email,
+            Token = "invalid-token-value",
+            NewPassword = "NewPassword999!"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ShouldReturn400_WhenPasswordIsTooWeak()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsJsonAsync("users/reset-password", new
+        {
+            Email = TestUser.Testesen.Email,
+            Token = "sometoken",
+            NewPassword = "weak"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 }
