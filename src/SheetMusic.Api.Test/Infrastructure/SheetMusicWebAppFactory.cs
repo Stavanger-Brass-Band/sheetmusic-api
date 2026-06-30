@@ -9,6 +9,7 @@ using Moq;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Email;
 using SheetMusic.Api.Search;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
@@ -25,6 +26,7 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
     public ServiceProvider TestServices = null!;
     public Mock<IBlobClient> BlobMock = null!;
     public FakeIndexAdminService FakeIndexAdmin = null!;
+    public FakeEmailSender FakeEmail = null!;
     private readonly Guid sessionId;
 
     public SheetMusicWebAppFactory()
@@ -51,6 +53,17 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
             FakeIndexAdmin = new FakeIndexAdminService();
             services.TryRemoveService<IIndexAdminService>();
             services.AddSingleton<IIndexAdminService>(FakeIndexAdmin);
+
+            FakeEmail = new FakeEmailSender();
+            services.TryRemoveService<IEmailSender>();
+            services.AddSingleton<IEmailSender>(FakeEmail);
+
+            // Remove Resend services to avoid requiring an API key in tests
+            var resendDescriptors = services.Where(d =>
+                d.ServiceType.FullName != null &&
+                d.ServiceType.FullName.StartsWith("Resend")).ToList();
+            foreach (var descriptor in resendDescriptors)
+                services.Remove(descriptor);
 
             var authBuilder = services.AddAuthentication();
             authBuilder.AddScheme<IntgTestSchemeOptions, IntgTestAuthenticationHandler>(IntgTestAuthenticationHandler.AuthenticationScheme, opts => { });

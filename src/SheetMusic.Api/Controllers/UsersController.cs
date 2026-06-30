@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using SheetMusic.Api.Authorization;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
+using SheetMusic.Api.CQRS.Command;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using System;
@@ -26,7 +28,7 @@ namespace SheetMusic.Api.Controllers;
 [ApiVersion("2.0")]
 [Authorize(AuthPolicy.Admin)]
 [ApiController]
-public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration) : ControllerBase
+public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMediator mediator) : ControllerBase
 {
     /// <summary>
     /// Authenticate using Identity and receive a JWT token.
@@ -158,5 +160,27 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         {
             return BadRequest(new ProblemDetails { Title = "Unable to parse identifier" });
         }
+    }
+
+    /// <summary>
+    /// Request a password reset email. Always returns 200 to prevent user enumeration.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("users/forgot-password")]
+    public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordRequest request)
+    {
+        await mediator.Send(new RequestPasswordReset(request.Email));
+        return Ok();
+    }
+
+    /// <summary>
+    /// Reset a user's password using a token received via email.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("users/reset-password")]
+    public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordRequest request)
+    {
+        await mediator.Send(new ResetPassword(request.Email, request.Token, request.NewPassword));
+        return Ok();
     }
 }
