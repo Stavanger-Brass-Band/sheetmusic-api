@@ -51,18 +51,6 @@ jobs:
           name: sheetmusic-api
           path: ./publish
 
-      - name: Configure app settings (test)
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: sheet-music-api-test
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          app-settings-json: |
-            [
-              { "name": "Resend__ApiKey",         "value": "${{ secrets.RESEND_API_KEY }}", "slotSetting": false },
-              { "name": "Email__FromAddress",     "value": "noreply@stavanger-brassband.no", "slotSetting": false },
-              { "name": "Email__FrontendBaseUrl", "value": "https://sheetmusic-member.azurewebsites.net", "slotSetting": false }
-            ]
-
       - name: Deploy to Azure Web App (test)
         uses: azure/webapps-deploy@v3
         with:
@@ -83,18 +71,6 @@ jobs:
         with:
           name: sheetmusic-api
           path: ./publish
-
-      - name: Configure app settings (production)
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: sheet-music-api
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          app-settings-json: |
-            [
-              { "name": "Resend__ApiKey",         "value": "${{ secrets.RESEND_API_KEY }}", "slotSetting": false },
-              { "name": "Email__FromAddress",     "value": "noreply@stavanger-brassband.no", "slotSetting": false },
-              { "name": "Email__FrontendBaseUrl", "value": "https://medlem.stavanger-brassband.no", "slotSetting": false }
-            ]
 
       - name: Deploy to Azure Web App (production)
         uses: azure/webapps-deploy@v3
