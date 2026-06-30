@@ -35,9 +35,9 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.OpenApi" Version="2.4.1" />
+		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
 		<PackageReference Include="Resend" Version="0.5.1" />
-		<PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="10.1.7" />
+		<PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="10.2.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.7" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUi" Version="10.2.3" />
 	</ItemGroup>
