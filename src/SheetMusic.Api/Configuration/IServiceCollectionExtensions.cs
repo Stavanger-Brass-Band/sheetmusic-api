@@ -2,12 +2,14 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SheetMusic.Api.Authorization;
+using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -62,7 +64,19 @@ public static class IServiceCollectionExtensions
                     var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
                     if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
                     {
+                        // Try as ApplicationUser ID (v2 tokens)
                         var user = await userManager.FindByIdAsync(userId.ToString());
+
+                        // Fall back to Musician ID lookup (v1 tokens)
+                        if (user == null)
+                        {
+                            var dbContext = context.HttpContext.RequestServices.GetRequiredService<SheetMusicContext>();
+                            var musician = await dbContext.Musicians.FirstOrDefaultAsync(m => m.Id == userId);
+                            if (musician?.ApplicationUserId != null)
+                            {
+                                user = await userManager.FindByIdAsync(musician.ApplicationUserId.Value.ToString());
+                            }
+                        }
 
                         if (user == null || user.Inactive)
                         {

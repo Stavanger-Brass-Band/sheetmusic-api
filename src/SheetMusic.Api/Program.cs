@@ -45,6 +45,7 @@ builder.Services.AddSheetMusicVersioning();
 builder.Services.AddSheetMusicSwagger();
 
 builder.Services.AddSingleton<IBlobClient, BlobClient>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
 

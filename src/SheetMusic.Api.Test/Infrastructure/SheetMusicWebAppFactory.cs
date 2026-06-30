@@ -110,14 +110,21 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
         userManager.CreateAsync(appUser, testUser.Password).GetAwaiter().GetResult();
         userManager.AddToRoleAsync(appUser, role).GetAwaiter().GetResult();
 
+        // Seed legacy HMAC password hash for v1 compatibility
+        using var hmac = new System.Security.Cryptography.HMACSHA512();
+        var passwordSalt = hmac.Key;
+        var passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(testUser.Password));
+
 #pragma warning disable CS0612 // Type or member is obsolete
         db.Musicians.Add(new Musician
         {
-            Id = Guid.NewGuid(),
+            Id = testUser.Identifier,
             Name = testUser.Name,
             Email = testUser.Email,
             Inactive = false,
             UserGroupId = userGroupId,
+            PasswordHash = passwordHash,
+            PasswordSalt = passwordSalt,
             ApplicationUserId = appUser.Id
         });
 #pragma warning restore CS0612

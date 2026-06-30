@@ -15,6 +15,18 @@ public class ApiUser
         Inactive = user.Inactive;
     }
 
+#pragma warning disable CS0612
+    public ApiUser(Musician musician)
+    {
+        ArgumentNullException.ThrowIfNull(musician);
+
+        Id = musician.Id;
+        Name = musician.Name ?? null!;
+        Email = musician.Email ?? null!;
+        Inactive = musician.Inactive;
+    }
+#pragma warning restore CS0612
+
     public Guid Id { get; set; }
     public string Name { get; set; }
     public string Email { get; set; }
