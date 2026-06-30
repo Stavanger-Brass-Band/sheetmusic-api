@@ -4,6 +4,9 @@
         "dotnet add": true,
         "dotnet build": true,
         "dotnet list": true,
-        "gh": true
+        "gh": true,
+        "git add": true,
+        "git commit": true,
+        "git push": true
     }
 }
