@@ -1,6 +1,5 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -10,6 +9,7 @@ using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Repositories;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -21,29 +21,26 @@ using System.Threading.Tasks;
 namespace SheetMusic.Api.Controllers;
 
 /// <summary>
-/// User management endpoints using ASP.NET Core Identity.
+/// Legacy user endpoints using custom HMAC authentication. Deprecated — use API version 2.0.
 /// </summary>
-[ApiVersion("2.0")]
+[ApiVersion("1.0", Deprecated = true)]
 [Authorize(AuthPolicy.Admin)]
 [ApiController]
-public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration) : ControllerBase
+public class UsersV1Controller(IUserRepository userRepository, IConfiguration configuration) : ControllerBase
 {
     /// <summary>
-    /// Authenticate using Identity and receive a JWT token.
+    /// Authenticate using legacy HMAC password hash and receive a JWT token.
     /// </summary>
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]
     public async Task<IActionResult> AuthenticateAsync([FromForm] LoginRequest request)
     {
-        var user = await userManager.FindByEmailAsync(request.username);
+#pragma warning disable CS0612
+        var user = await userRepository.AuthenticateAsync(request.username, request.password);
+#pragma warning restore CS0612
 
-        if (user == null || user.Inactive)
-            return BadRequest(new { message = "Username or password is incorrect" });
-
-        var result = await signInManager.CheckPasswordSignInAsync(user, request.password, lockoutOnFailure: false);
-
-        if (!result.Succeeded)
+        if (user == null)
             return BadRequest(new { message = "Username or password is incorrect" });
 
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -69,33 +66,35 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     }
 
     /// <summary>
-    /// Register a new user. User is created as inactive and must be activated by an admin.
+    /// Register a new user using legacy password hashing.
     /// </summary>
     [AllowAnonymous]
     [HttpPost("users/register")]
     public async Task<IActionResult> RegisterAsync([FromBody] UserRequest request)
     {
-        var user = new ApplicationUser
+        if (!request.Id.HasValue)
         {
-            Id = request.Id ?? Guid.NewGuid(),
-            UserName = request.Email,
+            request.Id = Guid.NewGuid();
+        }
+
+#pragma warning disable CS0612
+        var user = new Musician
+        {
+            Id = request.Id.Value,
+            Name = request.Name,
             Email = request.Email,
-            DisplayName = request.Name,
+            UserGroupId = Guid.Parse("307E4C23-FFD0-4350-9CF0-F5A80097C4D9"),
             Inactive = true
         };
 
-        var result = await userManager.CreateAsync(user, request.Password);
-
-        if (!result.Succeeded)
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
-
-        await userManager.AddToRoleAsync(user, "Reader");
+        user = await userRepository.CreateAsync(user, request.Password);
 
         return new CreatedResult("users", new ApiUser(user));
+#pragma warning restore CS0612
     }
 
     /// <summary>
-    /// Update a user's password. Admins can update any user.
+    /// Update a user's password using legacy password hashing.
     /// </summary>
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
@@ -103,33 +102,32 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
             return BadRequest("Unable to find Name claim and identify user");
 
-        var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
-        var userToChange = await userManager.FindByIdAsync(identifier.ToString());
-
-        if (userToChange == null)
-            return NotFound();
+#pragma warning disable CS0612
+        var currentUser = await userRepository.GetByIdAsync(authenticatedUserId);
+        var isAdmin = currentUser.UserGroup?.Name?.ToLower() == "admin";
+        var userToChange = await userRepository.GetByIdAsync(identifier);
+#pragma warning restore CS0612
 
         if (authenticatedUserId != identifier && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
 
-        if (!string.IsNullOrWhiteSpace(request.Password))
-        {
-            var token = await userManager.GeneratePasswordResetTokenAsync(userToChange);
-            await userManager.ResetPasswordAsync(userToChange, token, request.Password);
-        }
+#pragma warning disable CS0612
+        await userRepository.UpdateAsync(userToChange, request.Password);
+#pragma warning restore CS0612
 
         return Ok();
     }
 
     /// <summary>
-    /// Get all users. Admin only.
+    /// Get all users.
     /// </summary>
     [HttpGet("users")]
     public IActionResult GetAll()
     {
-        var users = userManager.Users.ToList();
+#pragma warning disable CS0612
+        var users = userRepository.GetAll();
         var apiUsers = users.Select(u => new ApiUser(u));
+#pragma warning restore CS0612
 
         return Ok(apiUsers);
     }
@@ -147,12 +145,12 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
 
         if (Guid.TryParse(identifier, out var id))
         {
-            var user = await userManager.FindByIdAsync(id.ToString());
+#pragma warning disable CS0612
+            var user = await userRepository.GetByIdAsync(id);
+            var apiUser = new ApiUser(user);
+#pragma warning restore CS0612
 
-            if (user == null)
-                return NotFound();
-
-            return Ok(new ApiUser(user));
+            return Ok(apiUser);
         }
         else
         {

@@ -278,6 +278,76 @@
             <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
             <returns>200 if ok, 404 if not found, 500 if something bad happens</returns>
         </member>
+        <member name="T:SheetMusic.Api.Controllers.UsersController">
+            <summary>
+            User management endpoints using ASP.NET Core Identity.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.#ctor(Microsoft.AspNetCore.Identity.UserManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.AspNetCore.Identity.SignInManager{SheetMusic.Api.Database.Entities.ApplicationUser},Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            User management endpoints using ASP.NET Core Identity.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.AuthenticateAsync(SheetMusic.Api.Controllers.RequestModels.LoginRequest)">
+            <summary>
+            Authenticate using Identity and receive a JWT token.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.RegisterAsync(SheetMusic.Api.Controllers.RequestModels.UserRequest)">
+            <summary>
+            Register a new user. User is created as inactive and must be activated by an admin.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.UpdateUser(System.Guid,SheetMusic.Api.Controllers.RequestModels.UpdateUserRequest)">
+            <summary>
+            Update a user's password. Admins can update any user.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.GetAll">
+            <summary>
+            Get all users. Admin only.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersController.GetByIdAsync(System.String)">
+            <summary>
+            Get a user by ID or "me" for the current user.
+            </summary>
+        </member>
+        <member name="T:SheetMusic.Api.Controllers.UsersV1Controller">
+            <summary>
+            Legacy user endpoints using custom HMAC authentication. Deprecated — use API version 2.0.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.#ctor(SheetMusic.Api.Repositories.IUserRepository,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Legacy user endpoints using custom HMAC authentication. Deprecated — use API version 2.0.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.AuthenticateAsync(SheetMusic.Api.Controllers.RequestModels.LoginRequest)">
+            <summary>
+            Authenticate using legacy HMAC password hash and receive a JWT token.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.RegisterAsync(SheetMusic.Api.Controllers.RequestModels.UserRequest)">
+            <summary>
+            Register a new user using legacy password hashing.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.UpdateUser(System.Guid,SheetMusic.Api.Controllers.RequestModels.UpdateUserRequest)">
+            <summary>
+            Update a user's password using legacy password hashing.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.GetAll">
+            <summary>
+            Get all users.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Controllers.UsersV1Controller.GetByIdAsync(System.String)">
+            <summary>
+            Get a user by ID or "me" for the current user.
+            </summary>
+        </member>
         <member name="P:SheetMusic.Api.Controllers.ViewModels.ApiSet.Id">
             <summary>
             Identifier in DB
@@ -307,6 +377,18 @@
             <summary>
             Contains the sheet music set to project connection
             </summary>
+        </member>
+        <member name="T:SheetMusic.Api.Migrations.AddIdentityFramework">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:SheetMusic.Api.Migrations.AddIdentityFramework.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
         </member>
         <member name="M:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.EnsureProperParameterName(SheetMusic.Api.OData.Expression.ODataFieldMapping{`0})">
             <summary>

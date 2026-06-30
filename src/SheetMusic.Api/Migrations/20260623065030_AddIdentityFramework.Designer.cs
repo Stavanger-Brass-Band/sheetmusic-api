@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SheetMusic.Api.Database;
 
@@ -11,9 +12,11 @@ using SheetMusic.Api.Database;
 namespace SheetMusic.Api.Migrations
 {
     [DbContext(typeof(SheetMusicContext))]
-    partial class SheetMusicContextModelSnapshot : ModelSnapshot
+    [Migration("20260623065030_AddIdentityFramework")]
+    partial class AddIdentityFramework
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

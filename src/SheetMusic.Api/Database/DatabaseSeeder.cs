@@ -1,6 +1,6 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
-using SheetMusic.Api.Repositories;
 
 namespace SheetMusic.Api.Database;
 
@@ -10,32 +10,71 @@ public static class DatabaseSeeder
     {
         var db = services.GetRequiredService<SheetMusicContext>();
 
-        await SeedAdminUserAsync(db, services);
+        await SeedRolesAsync(services);
+        await SeedAdminUserAsync(services);
         await SeedPartsAsync(db);
         await SeedSetsAsync(db);
     }
 
-    private static async Task SeedAdminUserAsync(SheetMusicContext db, IServiceProvider services)
+    private static async Task SeedRolesAsync(IServiceProvider services)
     {
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+        foreach (var roleName in new[] { "Admin", "Reader" })
+        {
+            if (!await roleManager.RoleExistsAsync(roleName))
+            {
+                await roleManager.CreateAsync(new IdentityRole<Guid> { Name = roleName });
+            }
+        }
+    }
+
+    private static async Task SeedAdminUserAsync(IServiceProvider services)
+    {
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var db = services.GetRequiredService<SheetMusicContext>();
+
+        // Seed legacy UserGroups for backward compatibility
+#pragma warning disable CS0612 // Type or member is obsolete
         var adminGroup = await db.UserGroups.FirstOrDefaultAsync(g => g.Name == "Admin");
         if (adminGroup is null)
         {
             adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
             db.UserGroups.Add(adminGroup);
+
+            var readerGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Reader" };
+            db.UserGroups.Add(readerGroup);
             await db.SaveChangesAsync();
         }
+#pragma warning restore CS0612
 
-        if (!await db.Musicians.AnyAsync(m => m.UserGroupId == adminGroup.Id))
+        var adminUser = await userManager.FindByEmailAsync("admin@localhost");
+        if (adminUser is null)
         {
-            var userRepo = services.GetRequiredService<IUserRepository>();
-            await userRepo.CreateAsync(new Musician
+            adminUser = new ApplicationUser
+            {
+                UserName = "admin@localhost",
+                Email = "admin@localhost",
+                DisplayName = "Dev Admin",
+                Inactive = false,
+                EmailConfirmed = true
+            };
+
+            await userManager.CreateAsync(adminUser, "Admin123!");
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+
+#pragma warning disable CS0612
+            db.Musicians.Add(new Musician
             {
                 Id = Guid.NewGuid(),
                 Name = "Dev Admin",
                 Email = "admin@localhost",
                 Inactive = false,
-                UserGroupId = adminGroup.Id
-            }, "admin");
+                UserGroupId = adminGroup.Id,
+                ApplicationUserId = adminUser.Id
+            });
+#pragma warning restore CS0612
+            await db.SaveChangesAsync();
         }
     }
 

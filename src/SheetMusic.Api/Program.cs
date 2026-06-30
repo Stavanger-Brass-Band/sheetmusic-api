@@ -3,10 +3,12 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
@@ -17,6 +19,20 @@ builder.AddServiceDefaults();
 
 builder.Services.AddDbContext<SheetMusicContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SheetMusicContext")));
+
+builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+    {
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<SheetMusicContext>()
+    .AddDefaultTokenProviders();
 
 builder.Services.Configure<FormOptions>(x =>
 {
