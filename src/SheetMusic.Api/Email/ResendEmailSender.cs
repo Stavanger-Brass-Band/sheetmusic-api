@@ -41,7 +41,7 @@ public class ResendEmailSender(IResend resend, IConfiguration configuration, ILo
             message.HtmlBody = BuildHtmlBody(displayName, resetUrl);
             message.TextBody = BuildTextBody(displayName, resetUrl);
 
-            await resend.EmailSendAsync(message);
+            await resend.EmailSendAsync(message, cancellationToken);
         }
         catch (Exception ex)
         {

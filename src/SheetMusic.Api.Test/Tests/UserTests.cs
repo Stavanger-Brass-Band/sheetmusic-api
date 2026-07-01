@@ -39,6 +39,33 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V1_GetToken_ShouldReturn429_WhenRateLimitExceeded()
+    {
+        // Use a brand-new factory (own in-memory database and rate limiter state) with a low
+        // limit, so this test doesn't affect the shared factory/database used by other tests.
+        using var limitedFactory = new SheetMusicWebAppFactory().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("RateLimiting:Token:PermitLimit", "2");
+            builder.UseSetting("RateLimiting:Token:WindowSeconds", "60");
+        });
+
+        var client = limitedFactory.CreateClient();
+
+        var collection = new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "basic"),
+            new("username", TestUser.Testesen.Email),
+            new("password", TestUser.Testesen.Password)
+        };
+
+        await client.PostAsync("token", new FormUrlEncodedContent(collection));
+        await client.PostAsync("token", new FormUrlEncodedContent(collection));
+        var response = await client.PostAsync("token", new FormUrlEncodedContent(collection));
+
+        response.StatusCode.Should().Be((HttpStatusCode)429);
+    }
+
+    [Fact]
     public async Task V1_GetToken_WithWrongPassword_ShouldReturnBadRequest()
     {
         var client = factory.CreateClient();
@@ -409,6 +436,27 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = "not-an-email" });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ShouldReturn429_WhenRateLimitExceeded()
+    {
+        // Use a brand-new factory (own in-memory database and rate limiter state) with a low
+        // limit, so this test doesn't affect the shared factory/database used by other tests.
+        using var limitedFactory = new SheetMusicWebAppFactory().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("RateLimiting:ForgotPassword:PermitLimit", "2");
+            builder.UseSetting("RateLimiting:ForgotPassword:WindowSeconds", "60");
+        });
+
+        var client = limitedFactory.CreateClient();
+        client.DefaultRequestHeaders.Add("x-api-version", "2.0");
+
+        await client.PostAsJsonAsync("users/forgot-password", new { Email = "rate-limit-test@user.com" });
+        await client.PostAsJsonAsync("users/forgot-password", new { Email = "rate-limit-test@user.com" });
+        var response = await client.PostAsJsonAsync("users/forgot-password", new { Email = "rate-limit-test@user.com" });
+
+        response.StatusCode.Should().Be((HttpStatusCode)429);
     }
 
     [Fact]

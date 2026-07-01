@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using SheetMusic.Api.Authorization;
@@ -34,6 +35,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// Authenticate using Identity and receive a JWT token.
     /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Token)]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]
     public async Task<IActionResult> AuthenticateAsync([FromForm] LoginRequest request)
@@ -164,8 +166,10 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
 
     /// <summary>
     /// Request a password reset email. Always returns 200 to prevent user enumeration.
+    /// Rate limited per client IP to prevent abuse of the outbound email flow.
     /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.ForgotPassword)]
     [HttpPost("users/forgot-password")]
     public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordRequest request)
     {

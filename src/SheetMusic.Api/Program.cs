@@ -54,6 +54,7 @@ builder.Services.Configure<FormOptions>(x =>
 builder.Services.AddSheetMusicSecurity(builder.Configuration);
 builder.Services.AddSheetMusicVersioning();
 builder.Services.AddSheetMusicSwagger();
+builder.Services.AddSheetMusicRateLimiting(builder.Configuration);
 
 builder.Services.AddSingleton<IBlobClient, BlobClient>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -84,11 +85,13 @@ if (!builder.Configuration.GetValue<bool>("SkipMigrations"))
 
 app.UseMiddleware<ErrorHandlerMiddleware>();
 
+app.UseForwardedHeaders();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpsRedirection();
 app.UseCors("AllowMember");
+app.UseRateLimiter();
 
 var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
 
