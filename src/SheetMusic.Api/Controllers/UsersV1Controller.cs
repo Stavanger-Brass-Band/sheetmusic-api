@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using SheetMusic.Api.Authorization;
@@ -32,6 +33,7 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// Authenticate using legacy HMAC password hash and receive a JWT token.
     /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Token)]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]
     public async Task<IActionResult> AuthenticateAsync([FromForm] LoginRequest request)

@@ -1,7 +1,10 @@
 ﻿using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +22,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace SheetMusic.Api.Configuration;
 
@@ -163,4 +167,51 @@ public static class IServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddSheetMusicRateLimiting(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Azure App Service terminates client connections at its own front-end proxy, so the real client
+        // IP is only available via the X-Forwarded-For header rather than Connection.RemoteIpAddress.
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
+        var forgotPasswordPermitLimit = configuration.GetValue<int?>(ConfigKeys.RateLimitingForgotPasswordPermitLimit) ?? 10;
+        var forgotPasswordWindowSeconds = configuration.GetValue<int?>(ConfigKeys.RateLimitingForgotPasswordWindowSeconds) ?? 60;
+        var tokenPermitLimit = configuration.GetValue<int?>(ConfigKeys.RateLimitingTokenPermitLimit) ?? 20;
+        var tokenWindowSeconds = configuration.GetValue<int?>(ConfigKeys.RateLimitingTokenWindowSeconds) ?? 60;
+
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.AddPolicy(RateLimitPolicies.ForgotPassword, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientPartitionKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = forgotPasswordPermitLimit,
+                        Window = TimeSpan.FromSeconds(forgotPasswordWindowSeconds),
+                        QueueLimit = 0
+                    }));
+
+            options.AddPolicy(RateLimitPolicies.Token, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: GetClientPartitionKey(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = tokenPermitLimit,
+                        Window = TimeSpan.FromSeconds(tokenWindowSeconds),
+                        QueueLimit = 0
+                    }));
+        });
+
+        return services;
+    }
+
+    private static string GetClientPartitionKey(HttpContext httpContext) =>
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }
