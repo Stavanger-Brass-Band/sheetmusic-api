@@ -11,6 +11,7 @@ using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.CQRS.Command;
+using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using System;
@@ -27,7 +28,7 @@ namespace SheetMusic.Api.Controllers;
 /// User management endpoints using ASP.NET Core Identity.
 /// </summary>
 [ApiVersion("2.0")]
-[Authorize(AuthPolicy.Admin)]
+[Authorize]
 [ApiController]
 public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMediator mediator) : ControllerBase
 {
@@ -119,7 +120,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
             return NotFound();
 
         if (authenticatedUserId != identifier && !isAdmin)
-            return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
+            return Forbid();
 
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
@@ -133,17 +134,17 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Get all users. Admin only.
     /// </summary>
+    [Authorize(AuthPolicy.Admin)]
     [HttpGet("users")]
-    public IActionResult GetAll()
+    public async Task<IActionResult> GetAll()
     {
-        var users = userManager.Users.ToList();
-        var apiUsers = users.Select(u => new ApiUser(u));
+        var users = await mediator.Send(new GetUserCollection());
 
-        return Ok(apiUsers);
+        return Ok(users.Select(u => new ApiUser(u)));
     }
 
     /// <summary>
-    /// Get a user by ID or "me" for the current user.
+    /// Get a user by ID or "me" for the current user. Admins can view any user; other users may only view themselves.
     /// </summary>
     [HttpGet("users/{identifier}")]
     public async Task<IActionResult> GetByIdAsync(string identifier)
@@ -153,19 +154,79 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
             identifier = HttpContext?.User?.Identity?.Name ?? string.Empty;
         }
 
-        if (Guid.TryParse(identifier, out var id))
-        {
-            var user = await userManager.FindByIdAsync(id.ToString());
-
-            if (user == null)
-                return NotFound();
-
-            return Ok(new ApiUser(user));
-        }
-        else
-        {
+        if (!Guid.TryParse(identifier, out var id))
             return BadRequest(new ProblemDetails { Title = "Unable to parse identifier" });
+
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out var authenticatedUserId))
+            return BadRequest("Unable to find Name claim and identify user");
+
+        if (authenticatedUserId != id)
+        {
+            var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
+            var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+
+            if (!isAdmin)
+                return Forbid();
         }
+
+        var result = await mediator.Send(new GetUser(id));
+
+        return Ok(new ApiUserDetail(result.User, result.Roles));
+    }
+
+    /// <summary>
+    /// Activate a user, allowing them to log in. Admin only.
+    /// </summary>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("users/{id}/activate")]
+    public async Task<IActionResult> ActivateUserAsync(Guid id)
+    {
+        await mediator.Send(new ActivateUser(id));
+        return Ok();
+    }
+
+    /// <summary>
+    /// Deactivate a user, preventing them from logging in. Admin only.
+    /// </summary>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("users/{id}/deactivate")]
+    public async Task<IActionResult> DeactivateUserAsync(Guid id)
+    {
+        await mediator.Send(new DeactivateUser(id));
+        return Ok();
+    }
+
+    /// <summary>
+    /// Assign a role to a user. Admin only.
+    /// </summary>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("users/{id}/roles")]
+    public async Task<IActionResult> AssignRoleAsync(Guid id, [FromBody] AssignRoleRequest request)
+    {
+        await mediator.Send(new AssignRole(id, request.RoleName));
+        return Ok();
+    }
+
+    /// <summary>
+    /// Remove a role from a user. Admin only.
+    /// </summary>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpDelete("users/{id}/roles/{roleName}")]
+    public async Task<IActionResult> RemoveRoleAsync(Guid id, string roleName)
+    {
+        await mediator.Send(new RemoveRole(id, roleName));
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Delete a user. Defaults to a soft delete (deactivation). Pass <paramref name="hardDelete"/>=true to permanently remove the user. Admin only.
+    /// </summary>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpDelete("users/{id}")]
+    public async Task<IActionResult> DeleteUserAsync(Guid id, [FromQuery] bool hardDelete = false)
+    {
+        await mediator.Send(new DeleteUser(id, hardDelete));
+        return NoContent();
     }
 
     /// <summary>
