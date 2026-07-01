@@ -8,6 +8,8 @@
         "git add": true,
         "git commit": true,
         "git push": true,
-        "git checkout": true
+        "git fetch": true,
+        "git checkout": true,
+        "git pull": true
     }
 }
