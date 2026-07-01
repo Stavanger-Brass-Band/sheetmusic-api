@@ -1,9 +1,11 @@
-name: CI Build and Deploy to Test
+name: Build and Deploy
 
 on:
   push:
     branches:
       - main
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -53,5 +55,26 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: sheet-music-api-test
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  deploy-prod:
+    name: Deploy to production
+    needs: deploy-test
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: sheetmusic-api
+          path: ./publish
+
+      - name: Deploy to Azure Web App (production)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: sheet-music-api
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
