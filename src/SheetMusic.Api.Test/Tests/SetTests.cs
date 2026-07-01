@@ -84,6 +84,26 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task GetSetList_WithOrderByTitleDescending_ShouldReturnSetsOrderedByTitleDescending()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        await new SetDataBuilder(adminClient)
+            .WithSets(20)
+            .ProvisionAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.GetAsync("sheetmusic/sets?$orderby=title desc");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadAsStringAsync();
+        var items = JsonConvert.DeserializeObject<List<ApiSet>>(body);
+
+        items.Should().NotBeNull();
+        items.Should().BeInDescendingOrder(s => s.Title);
+    }
+
+    [Fact]
     public async Task GetPartsForSet_ShouldBeSuccessfull()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
