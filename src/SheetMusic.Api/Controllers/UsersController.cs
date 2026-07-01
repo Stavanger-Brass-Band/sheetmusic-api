@@ -43,7 +43,11 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         if (user == null || user.Inactive)
             return BadRequest(new { message = "Username or password is incorrect" });
 
-        var result = await signInManager.CheckPasswordSignInAsync(user, request.password, lockoutOnFailure: false);
+        // lockoutOnFailure: true increments the failed access count and locks the account after
+        // IdentityOptions.Lockout.MaxFailedAccessAttempts is reached. The response is intentionally
+        // identical to the generic invalid-credentials case to avoid leaking account lockout state
+        // to an unauthenticated caller.
+        var result = await signInManager.CheckPasswordSignInAsync(user, request.password, lockoutOnFailure: true);
 
         if (!result.Succeeded)
             return BadRequest(new { message = "Username or password is incorrect" });

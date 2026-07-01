@@ -490,4 +490,74 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    // --- Account lockout ---
+
+    private async Task<string> RegisterAndActivateUserAsync(HttpClient client, string password)
+    {
+        var email = $"lockout-{Guid.NewGuid():N}@user.com";
+
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Lockout Test User",
+            Email = email,
+            Password = password
+        });
+
+        // Activate the user directly through Identity (newly registered users are inactive)
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+        appUser!.Inactive = false;
+        await userManager.UpdateAsync(appUser);
+
+        return email;
+    }
+
+    private static FormUrlEncodedContent BuildLoginForm(string email, string password) => new(new List<KeyValuePair<string?, string?>>
+    {
+        new("grant_type", "basic"),
+        new("username", email),
+        new("password", password)
+    });
+
+    [Fact]
+    public async Task V2_GetToken_ShouldLockAccount_AfterMaxFailedAttempts()
+    {
+        var client = CreateV2Client();
+        const string correctPassword = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, correctPassword);
+
+        // IdentityOptions.Lockout.MaxFailedAccessAttempts is configured to 5 in Program.cs
+        for (var i = 0; i < 5; i++)
+        {
+            var failedResponse = await client.PostAsync("token", BuildLoginForm(email, "wrong-password"));
+            failedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        // Even with the correct password, the account should now be locked out.
+        // The response intentionally uses the same generic message as invalid credentials
+        // to avoid leaking lockout state to an unauthenticated caller.
+        var response = await client.PostAsync("token", BuildLoginForm(email, correctPassword));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_GetToken_ShouldNotLockAccount_BeforeMaxFailedAttemptsReached()
+    {
+        var client = CreateV2Client();
+        const string correctPassword = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, correctPassword);
+
+        for (var i = 0; i < 4; i++)
+        {
+            await client.PostAsync("token", BuildLoginForm(email, "wrong-password"));
+        }
+
+        var response = await client.PostAsync("token", BuildLoginForm(email, correctPassword));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 }
