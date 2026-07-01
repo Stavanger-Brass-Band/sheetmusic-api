@@ -53,7 +53,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
                 }).ToList()
                 : null
         })
-        .OrderBy(s => s.ArchiveNumber)
         .ToList();
 
         return new OkObjectResult(transformed);
