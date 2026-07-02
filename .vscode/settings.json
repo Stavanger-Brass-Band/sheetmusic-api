@@ -10,6 +10,7 @@
         "git push": true,
         "git fetch": true,
         "git checkout": true,
-        "git pull": true
+        "git pull": true,
+        "git remote": true
     }
 }

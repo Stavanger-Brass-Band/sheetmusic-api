@@ -2,7 +2,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var sql = builder.AddSqlServer("sql")
     .WithLifetime(ContainerLifetime.Persistent)
-    .WithDataVolume();
+    .WithDataVolume()
+    .WithHostPort(32001);
 
 var db = sql.AddDatabase("SheetMusicContext");
 
