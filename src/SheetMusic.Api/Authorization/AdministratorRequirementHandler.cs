@@ -1,15 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using System;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Authorization;
 
-public class AdministratorRequirementHandler(UserManager<ApplicationUser> userManager, SheetMusicContext dbContext, IMemoryCache memoryCache) : AuthorizationHandler<AdministratorRequirement>
+public class AdministratorRequirementHandler(UserManager<ApplicationUser> userManager, LegacyAuthResolver authResolver, IMemoryCache memoryCache) : AuthorizationHandler<AdministratorRequirement>
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdministratorRequirement requirement)
     {
@@ -29,20 +27,24 @@ public class AdministratorRequirementHandler(UserManager<ApplicationUser> userMa
             return;
         }
 
-        // Try as ApplicationUser ID first (v2 tokens)
-        var user = await userManager.FindByIdAsync(userId.ToString()!);
+        var resolved = await authResolver.ResolveAsync(userId);
 
-        // Fall back to Musician ID lookup (v1 tokens)
-        if (user == null)
+        if (resolved is null)
         {
-            var musician = await dbContext.Musicians.FirstOrDefaultAsync(m => m.Id == userId);
-            if (musician?.ApplicationUserId != null)
-            {
-                user = await userManager.FindByIdAsync(musician.ApplicationUserId.Value.ToString());
-            }
+            isAdmin = false;
         }
-
-        isAdmin = user != null && await userManager.IsInRoleAsync(user, requirement.AdminGroupName);
+        else if (resolved.User != null)
+        {
+            isAdmin = await userManager.IsInRoleAsync(resolved.User, requirement.AdminGroupName);
+        }
+        else
+        {
+            // Legacy musician never linked to an ApplicationUser - fall back to its own UserGroup
+#pragma warning disable CS0612 // Type or member is obsolete
+            isAdmin = !resolved.LegacyMusician!.Inactive
+                && string.Equals(resolved.LegacyMusician.UserGroup?.Name, requirement.AdminGroupName, StringComparison.OrdinalIgnoreCase);
+#pragma warning restore CS0612
+        }
 
         if (isAdmin)
             context.Succeed(requirement);
@@ -50,3 +52,4 @@ public class AdministratorRequirementHandler(UserManager<ApplicationUser> userMa
         memoryCache.Set(cacheKey, isAdmin, TimeSpan.FromMinutes(30));
     }
 }
+

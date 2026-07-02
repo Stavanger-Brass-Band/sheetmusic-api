@@ -65,24 +65,12 @@ public static class IServiceCollectionExtensions
                         return;
                     }
 
-                    var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
                     if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
                     {
-                        // Try as ApplicationUser ID (v2 tokens)
-                        var user = await userManager.FindByIdAsync(userId.ToString());
+                        var resolver = context.HttpContext.RequestServices.GetRequiredService<LegacyAuthResolver>();
+                        var resolved = await resolver.ResolveAsync(userId);
 
-                        // Fall back to Musician ID lookup (v1 tokens)
-                        if (user == null)
-                        {
-                            var dbContext = context.HttpContext.RequestServices.GetRequiredService<SheetMusicContext>();
-                            var musician = await dbContext.Musicians.FirstOrDefaultAsync(m => m.Id == userId);
-                            if (musician?.ApplicationUserId != null)
-                            {
-                                user = await userManager.FindByIdAsync(musician.ApplicationUserId.Value.ToString());
-                            }
-                        }
-
-                        if (user == null || user.Inactive)
+                        if (resolved is null || resolved.IsInactive)
                         {
                             context.Fail("Unauthorized");
                         }
@@ -109,6 +97,7 @@ public static class IServiceCollectionExtensions
             options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
         });
         services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
+        services.AddScoped<LegacyAuthResolver>();
 
         return services;
     }
