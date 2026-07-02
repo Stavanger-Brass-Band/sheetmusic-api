@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
@@ -63,12 +65,16 @@ public static class DatabaseSeeder
             await userManager.CreateAsync(adminUser, "Admin123!");
             await userManager.AddToRoleAsync(adminUser, "Admin");
 
+            CreatePasswordHash("Admin123!", out byte[] passwordHash, out byte[] passwordSalt);
+
 #pragma warning disable CS0612
             db.Musicians.Add(new Musician
             {
                 Id = Guid.NewGuid(),
                 Name = "Dev Admin",
                 Email = "admin@localhost",
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
                 Inactive = false,
                 UserGroupId = adminGroup.Id,
                 ApplicationUserId = adminUser.Id
@@ -76,6 +82,13 @@ public static class DatabaseSeeder
 #pragma warning restore CS0612
             await db.SaveChangesAsync();
         }
+    }
+
+    private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+    {
+        using var hmac = new HMACSHA512();
+        passwordSalt = hmac.Key;
+        passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
     }
 
     private static async Task SeedPartsAsync(SheetMusicContext db)

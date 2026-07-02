@@ -4,6 +4,28 @@
         <name>SheetMusic.Api</name>
     </assembly>
     <members>
+        <member name="T:SheetMusic.Api.Authorization.LegacyAuthResolver">
+             <summary>
+             Resolves the identity behind a JWT "sub"/Name claim, which can be either an
+             <see cref="T:SheetMusic.Api.Database.Entities.ApplicationUser"/> ID (v2 tokens) or a legacy <see cref="T:SheetMusic.Api.Database.Entities.Musician"/> ID (v1 tokens).
+            
+             Legacy musicians may or may not be linked to an <see cref="T:SheetMusic.Api.Database.Entities.ApplicationUser"/> via
+             <see cref="P:SheetMusic.Api.Database.Entities.Musician.ApplicationUserId"/>. Musicians that predate the Identity migration are
+             never linked, so callers must be able to make authn/authz decisions directly off the legacy
+             <see cref="T:SheetMusic.Api.Database.Entities.Musician"/> record in that case.
+             </summary>
+        </member>
+        <member name="M:SheetMusic.Api.Authorization.LegacyAuthResolver.#ctor(Microsoft.AspNetCore.Identity.UserManager{SheetMusic.Api.Database.Entities.ApplicationUser},SheetMusic.Api.Database.SheetMusicContext)">
+             <summary>
+             Resolves the identity behind a JWT "sub"/Name claim, which can be either an
+             <see cref="T:SheetMusic.Api.Database.Entities.ApplicationUser"/> ID (v2 tokens) or a legacy <see cref="T:SheetMusic.Api.Database.Entities.Musician"/> ID (v1 tokens).
+            
+             Legacy musicians may or may not be linked to an <see cref="T:SheetMusic.Api.Database.Entities.ApplicationUser"/> via
+             <see cref="P:SheetMusic.Api.Database.Entities.Musician.ApplicationUserId"/>. Musicians that predate the Identity migration are
+             never linked, so callers must be able to make authn/authz decisions directly off the legacy
+             <see cref="T:SheetMusic.Api.Database.Entities.Musician"/> record in that case.
+             </summary>
+        </member>
         <member name="T:SheetMusic.Api.Configuration.ConfigureSwaggerOptions">
             <summary>
             Configures the Swagger generation options.
@@ -28,6 +50,11 @@
         </member>
         <member name="M:SheetMusic.Api.Configuration.ConfigureSwaggerOptions.Configure(Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions)">
             <inheritdoc />
+        </member>
+        <member name="T:SheetMusic.Api.Configuration.RateLimitPolicies">
+            <summary>
+            Named rate limiting policies applied to anonymous, resource-sensitive endpoints.
+            </summary>
         </member>
         <member name="T:SheetMusic.Api.Configuration.SwaggerDefaultValues">
             <summary>
@@ -316,6 +343,7 @@
         <member name="M:SheetMusic.Api.Controllers.UsersController.ForgotPasswordAsync(SheetMusic.Api.Controllers.RequestModels.ForgotPasswordRequest)">
             <summary>
             Request a password reset email. Always returns 200 to prevent user enumeration.
+            Rate limited per client IP to prevent abuse of the outbound email flow.
             </summary>
         </member>
         <member name="M:SheetMusic.Api.Controllers.UsersController.ResetPasswordAsync(SheetMusic.Api.Controllers.RequestModels.ResetPasswordRequest)">
@@ -414,6 +442,13 @@
         <member name="M:SheetMusic.Api.OData.Expression.ODataFilterExpressionBuilder`1.RenameParameterVisitor.#ctor(System.Linq.Expressions.ParameterExpression)">
             <summary>
             Renames the expression root to provided expression.
+            </summary>
+        </member>
+        <member name="M:SheetMusic.Api.OData.ODataQueryParamsExtensions.ApplyODataOrderBy``1(System.Linq.IQueryable{``0},SheetMusic.Api.OData.MVC.ODataQueryParams,System.Action{SheetMusic.Api.OData.Expression.ODataFieldMapping{``0}})">
+            <summary>
+            Applies the ordering requested via <c>$orderby</c> to the query, using the same field mapping
+            convention as <see cref="M:SheetMusic.Api.OData.ODataQueryParamsExtensions.ApplyODataFilters``1(System.Linq.IQueryable{``0},SheetMusic.Api.OData.MVC.ODataQueryParams,System.Action{SheetMusic.Api.OData.Expression.ODataFieldMapping{``0}})"/>. Multiple order-by fields are applied in the
+            order they were supplied.
             </summary>
         </member>
         <member name="T:Program">
