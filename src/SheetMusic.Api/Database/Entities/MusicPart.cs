@@ -1,8 +1,7 @@
-﻿using SheetMusic.Api.Database.Entities;
 using System;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Parts.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class MusicPart
 {
@@ -15,4 +14,3 @@ public class MusicPart
     public List<MusicianMusicPart> MusicianMusicParts { get; set; } = null!;
     public List<MusicPartAlias> Aliases { get; set; } = null!;
 }
-

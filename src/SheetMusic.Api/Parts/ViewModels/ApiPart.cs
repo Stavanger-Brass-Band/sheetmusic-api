@@ -1,4 +1,4 @@
-﻿using SheetMusic.Api.Parts.Entities;
+﻿using SheetMusic.Api.Database.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;

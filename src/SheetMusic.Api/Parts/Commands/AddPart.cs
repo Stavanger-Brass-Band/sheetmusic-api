@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Parts.Entities;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Parts.Errors;
 using System;
 using System.Linq;

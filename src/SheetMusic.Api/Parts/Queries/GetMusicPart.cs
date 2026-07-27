@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Parts.Entities;
+using SheetMusic.Api.Database.Entities;
 using System;
 using System.Linq;
 using System.Threading;

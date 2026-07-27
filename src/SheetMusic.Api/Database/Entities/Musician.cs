@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using SheetMusic.Api.Parts.Entities;
 
 namespace SheetMusic.Api.Database.Entities;
 

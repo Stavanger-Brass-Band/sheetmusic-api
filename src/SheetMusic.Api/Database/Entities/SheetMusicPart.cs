@@ -1,5 +1,4 @@
 ﻿using System;
-using SheetMusic.Api.Parts.Entities;
 
 namespace SheetMusic.Api.Database.Entities;
 

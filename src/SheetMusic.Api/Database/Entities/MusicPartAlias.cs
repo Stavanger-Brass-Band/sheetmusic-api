@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SheetMusic.Api.Parts.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class MusicPartAlias
 {

@@ -4,7 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Parts.Entities;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Search;
 using System;
 using System.Linq;
