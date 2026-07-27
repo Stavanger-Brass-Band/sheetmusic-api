@@ -4,14 +4,14 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts.Entities;
 using SheetMusic.Api.Search;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Queries;
+namespace SheetMusic.Api.Parts.Queries;
 
 public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart?>
 {

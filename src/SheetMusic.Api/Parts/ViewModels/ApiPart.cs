@@ -1,9 +1,9 @@
-﻿using SheetMusic.Api.Database.Entities;
+﻿using SheetMusic.Api.Parts.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SheetMusic.Api.Controllers.ViewModels;
+namespace SheetMusic.Api.Parts.ViewModels;
 
 public class ApiPart(MusicPart part)
 {

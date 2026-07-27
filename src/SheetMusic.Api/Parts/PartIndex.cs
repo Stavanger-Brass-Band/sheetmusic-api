@@ -1,7 +1,7 @@
 ﻿using Azure.Search.Documents.Indexes;
 using System.Text.Json.Serialization;
 
-namespace SheetMusic.Api.Search;
+namespace SheetMusic.Api.Parts;
 
 public class PartIndex
 {

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts.Entities;
 
 namespace SheetMusic.Api.Database;
 

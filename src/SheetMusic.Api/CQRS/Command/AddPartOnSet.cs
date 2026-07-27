@@ -4,6 +4,7 @@ using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Parts.Queries;
 using System;
 using System.IO;
 using System.Threading;

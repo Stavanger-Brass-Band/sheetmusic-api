@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Parts.Queries;
 using System.Threading;
 using System.Threading.Tasks;
 

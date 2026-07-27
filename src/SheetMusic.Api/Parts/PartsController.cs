@@ -1,18 +1,17 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SheetMusic.Api.Controllers.RequestModels;
-using SheetMusic.Api.Controllers.ViewModels;
-using SheetMusic.Api.CQRS.Command;
-using SheetMusic.Api.CQRS.Queries;
-using SheetMusic.Api.CQRS.Query;
-using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
+using SheetMusic.Api.Parts.Commands;
+using SheetMusic.Api.Parts.Errors;
+using SheetMusic.Api.Parts.Queries;
+using SheetMusic.Api.Parts.RequestModels;
+using SheetMusic.Api.Parts.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Controllers;
+namespace SheetMusic.Api.Parts;
 
 /// <summary>
 /// This controller contains endpoints for manipulating Parts resources. 

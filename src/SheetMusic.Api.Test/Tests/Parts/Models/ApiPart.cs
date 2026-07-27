@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Test.Models;
+namespace SheetMusic.Api.Test.Tests.Parts.Models;
 
 public class ApiPart
 {

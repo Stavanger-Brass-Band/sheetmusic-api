@@ -6,7 +6,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command;
+namespace SheetMusic.Api.Parts.Commands;
 
 public class UpdatePart(Guid partId, string name, int sortOrder, bool indexable) : IRequest
 {

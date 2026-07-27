@@ -1,7 +1,8 @@
-﻿using System;
+﻿using SheetMusic.Api.Database.Entities;
+using System;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Database.Entities;
+namespace SheetMusic.Api.Parts.Entities;
 
 public class MusicPart
 {

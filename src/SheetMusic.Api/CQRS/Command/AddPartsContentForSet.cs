@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Parts.Commands;
+using SheetMusic.Api.Parts.Queries;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;

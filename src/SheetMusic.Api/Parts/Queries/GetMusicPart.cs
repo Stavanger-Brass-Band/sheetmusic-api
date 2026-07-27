@@ -1,13 +1,13 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts.Entities;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query;
+namespace SheetMusic.Api.Parts.Queries;
 
 public class GetMusicPart(string partIdentifier) : IRequest<MusicPart?>
 {
