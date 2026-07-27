@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Moq;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Parts.ViewModels;
@@ -19,7 +19,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests;
+namespace SheetMusic.Api.Test.Sets;
 
 [Collection(Collections.Set)]
 public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>

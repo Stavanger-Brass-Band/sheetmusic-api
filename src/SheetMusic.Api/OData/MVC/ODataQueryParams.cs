@@ -27,7 +27,7 @@ public class ODataQueryParams
     public List<string> Expand { get; set; } = new List<string>();
 
     public bool HasFilter => Filter != null;
-    public bool HasSearch => !string.IsNullOrEmpty(Search);
+    public bool HasSearch => !string.IsNullOrWhiteSpace(Search);
     public bool IsEmpty => Top == null && Skip == null && !OrderBy.Any() && Filter == null && string.IsNullOrWhiteSpace(Search);
 }
 

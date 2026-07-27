@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
+using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.Constants;
 using System;
 using System.Collections.Generic;
@@ -23,55 +24,91 @@ public class ODataParamResolver : IModelBinder
         };
 
         if (param.Top < 1)
-            throw new InvalidOperationException("Top must be at least 1 row");
+            throw new InvalidQueryParametersError("$top must be at least 1 row");
+
+        if (param.Skip < 0)
+            throw new InvalidQueryParametersError("$skip cannot be negative");
 
         var filter = GetStringParam(bindingContext, "$filter");
         var order = GetStringParam(bindingContext, "$orderby");
-
         var expand = GetStringParam(bindingContext, "$expand");
 
         if (expand != null)
-        {
-            try
-            {
-                param.Expand = new List<string>(expand.Split(','));
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Invalid expand clause", ex);
-            }
-        }
+            param.Expand = ParseExpand(expand);
 
-        if (order != null)
-        {
-            try
-            {
-                var orderoptions = order.Split(',')
-                    .Select(t => t.Trim().Split(' ')).Select(t => new ODataOrderByOption()
-                    {
-                        Field = t[0].Trim(),
-                        Direction = t.Length == 1 ? SortDirection.asc : t[1].Trim() == "asc" ? SortDirection.asc : SortDirection.desc
-                    });
-                param.OrderBy = orderoptions.ToList();
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException("Invalid order by clause", ex);
-            }
-        }
-        else
-        {
-            param.OrderBy = new List<ODataOrderByOption>();
-        }
+        param.OrderBy = order != null ? ParseOrderBy(order) : new List<ODataOrderByOption>();
 
         if (filter != null)
-            param.Filter = ODataParser.Parse(filter);
+            param.Filter = ParseFilter(filter);
 
         bindingContext.Result = ModelBindingResult.Success(param);
 
         return Task.CompletedTask;
     }
 
+    private static List<string> ParseExpand(string expand)
+    {
+        if (string.IsNullOrWhiteSpace(expand))
+            throw new InvalidQueryParametersError("$expand cannot be empty");
+
+        var options = expand.Split(',').Select(o => o.Trim()).ToList();
+
+        if (options.Any(string.IsNullOrEmpty))
+            throw new InvalidQueryParametersError($"Invalid $expand clause '{expand}'");
+
+        return options;
+    }
+
+    private static List<ODataOrderByOption> ParseOrderBy(string order)
+    {
+        if (string.IsNullOrWhiteSpace(order))
+            throw new InvalidQueryParametersError("$orderby cannot be empty");
+
+        return order.Split(',')
+            .Select(clause => ParseOrderByClause(clause, order))
+            .ToList();
+    }
+
+    private static ODataOrderByOption ParseOrderByClause(string clause, string fullClause)
+    {
+        var tokens = clause.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (tokens.Length is 0 or > 2)
+            throw new InvalidQueryParametersError($"Invalid $orderby clause '{fullClause}'. Expected format: 'field [asc|desc]'");
+
+        var direction = SortDirection.asc;
+
+        if (tokens.Length == 2)
+        {
+            if (string.Equals(tokens[1], "asc", StringComparison.OrdinalIgnoreCase))
+                direction = SortDirection.asc;
+            else if (string.Equals(tokens[1], "desc", StringComparison.OrdinalIgnoreCase))
+                direction = SortDirection.desc;
+            else
+                throw new InvalidQueryParametersError($"Invalid sort direction '{tokens[1]}' in $orderby clause '{fullClause}'. Must be 'asc' or 'desc'");
+        }
+
+        return new ODataOrderByOption
+        {
+            Field = tokens[0],
+            Direction = direction
+        };
+    }
+
+    private static ODataExpression ParseFilter(string filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+            throw new InvalidQueryParametersError("$filter cannot be empty");
+
+        try
+        {
+            return ODataParser.Parse(filter);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidQueryParametersError($"Invalid $filter clause '{filter}'", ex);
+        }
+    }
 
     private static string? GetStringParam(ModelBindingContext bindingContext, string fieldName)
     {
@@ -87,14 +124,18 @@ public class ODataParamResolver : IModelBinder
     private static int? GetIntParam(ModelBindingContext bindingContext, string fieldName)
     {
         var valueProviderResult = bindingContext.ValueProvider.GetValue(fieldName);
-        if (valueProviderResult != ValueProviderResult.None)
-        {
-            var value = valueProviderResult.FirstValue;
-            if (int.TryParse(value, out var fvalue))
-                return fvalue;
-        }
-        return null;
-    }
+        if (valueProviderResult == ValueProviderResult.None)
+            return null;
 
+        var value = valueProviderResult.FirstValue;
+
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidQueryParametersError($"{fieldName} cannot be empty");
+
+        if (!int.TryParse(value, out var parsed))
+            throw new InvalidQueryParametersError($"{fieldName} must be a whole number, but was '{value}'");
+
+        return parsed;
+    }
 }
 
