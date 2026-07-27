@@ -125,6 +125,34 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task CreateProject_ShouldPersistComments_WhenProvided()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Project with comments - {Guid.NewGuid():N}",
+            Comments = "This is a project comment",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+
+        var response = await adminClient.PostAsJsonAsync("projects", project);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadAsStringAsync();
+        var createdProject = JsonConvert.DeserializeObject<ApiProject>(body);
+        createdProject.Should().NotBeNull();
+        createdProject!.Comments.Should().Be(project.Comments);
+
+        var getResponse = await adminClient.GetAsync($"projects/{project.Name}");
+        var getBody = await getResponse.Content.ReadAsStringAsync();
+        var fetchedProject = JsonConvert.DeserializeObject<ApiProject>(getBody);
+        fetchedProject.Should().NotBeNull();
+        fetchedProject!.Comments.Should().Be(project.Comments);
+    }
+
+    [Fact]
     public async Task AssignSetToProject_ShouldBeSuccessful_WhenAdmin()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);

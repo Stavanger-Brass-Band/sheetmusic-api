@@ -58,6 +58,9 @@ ASP.NET Core 8.0 Web API for managing sheet music collections. Uses CQRS, Mediat
 - `SheetMusicWebAppFactory` for integration tests
 - Test naming: `{Method}_{ExpectedBehavior}_{Condition}`
 - Auth: `factory.CreateClientWithTestToken(TestUser.Administrator)`
+- **Mandatory**: every code change (new endpoint, new field, bug fix, behavior change) must add or update a test in the same change. Do not defer tests as a "suggestion" - implement them.
+- When adding a field to a request/view model, update or add a test asserting it round-trips through the relevant endpoint(s).
+- Test-only view models live in `SheetMusic.Api.Test/Models` and must be kept in sync with the corresponding `Api{Entity}` ViewModel in the main project.
 
 ## File Organization
 ```
@@ -80,7 +83,7 @@ SheetMusic.Api/
 - Specific exceptions with proper status codes
 - XML docs on all public APIs
 - FluentValidation for input
-- Integration tests for endpoints
+- Tests are mandatory for every code change, not optional - add or update them alongside the implementation
 
 ## Generated XML Documentation Files
 - `SheetMusic.Api.xml` (and similarly named `.xml` files in other project folders) are compiler-generated from XML doc comments via `<GenerateDocumentationFile>true</GenerateDocumentationFile>` in the `.csproj`
