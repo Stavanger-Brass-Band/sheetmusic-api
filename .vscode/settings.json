@@ -1,4 +1,5 @@
 {
+    "window.title": "${activeRepositoryBranchName}",
     "chat.tools.terminal.autoApprove": {
         "dotnet test": true,
         "dotnet add": true,
