@@ -1,14 +1,15 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Projects.Errors;
+using SheetMusic.Api.Projects.RequestModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Commands;
 
 /// <summary>
 /// Updates the sort order of the sets assigned to a project. The order of <see cref="SetCollectionRequest.SetIdentifiers"/>

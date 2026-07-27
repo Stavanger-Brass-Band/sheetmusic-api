@@ -1,11 +1,12 @@
 using MediatR;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Projects.RequestModels;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Commands;
 
 public class AddProject(NewProjectRequest request) : IRequest<Project>
 {

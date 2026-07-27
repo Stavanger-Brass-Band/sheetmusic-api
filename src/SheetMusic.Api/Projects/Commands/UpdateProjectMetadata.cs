@@ -1,9 +1,11 @@
 using MediatR;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Projects.Queries;
+using SheetMusic.Api.Projects.RequestModels;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Commands;
 
 public class UpdateProjectMetadata(string identifier, UpdateProjectRequest request) : IRequest
 {

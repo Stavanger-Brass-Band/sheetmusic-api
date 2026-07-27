@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Commands;
 
 public class ConnectSetToProject(Guid projectId, Guid setId) : IRequest
 {

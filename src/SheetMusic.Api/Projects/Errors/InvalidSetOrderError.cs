@@ -2,7 +2,7 @@ using System;
 using System.Net;
 using SheetMusic.Api.Errors;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Errors;
 
 /// <summary>
 /// Thrown when the set identifiers provided for reordering do not exactly match the sets currently assigned to the project

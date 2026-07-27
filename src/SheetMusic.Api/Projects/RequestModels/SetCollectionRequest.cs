@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Controllers.RequestModels;
+namespace SheetMusic.Api.Projects.RequestModels;
 
 public class SetCollectionRequest
 {

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.Queries;
 
 public class GetProjectCollection(ODataQueryParams? queryParams) : IRequest<List<Project>>
 {
