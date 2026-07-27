@@ -6,30 +6,24 @@ using System.Text.RegularExpressions;
 
 namespace SheetMusic.Api.OData;
 
-public class ODataParser
+public partial class ODataParser
 {
-    static List<string> operations = new List<string>() { "eq", "neq", "gt", "lt", "ge", "le", "=", "==", "!=", ">", ">=", "<", "<=", "in" };
-    static List<string> logicalOperators = new List<string>() { "and", "or", "&&", "||" };
+    static readonly List<string> operations = ["eq", "neq", "ne", "gt", "lt", "ge", "le", "=", "==", "!=", ">", ">=", "<", "<=", "in"];
+    static readonly List<string> logicalOperators = ["and", "or", "&&", "||"];
 
-    static Regex logicalGroupingPattern = new Regex($@"(\([^()]+(?:{string.Join("|", operations)})[^()]+\)|\([^()]+(?:{string.Join("|", logicalOperators)})[^()]+\))",
+    static readonly Regex logicalGroupingPattern = new($@"(\([^()]+(?:{string.Join("|", operations)})[^()]+\)|\([^()]+(?:{string.Join("|", logicalOperators)})[^()]+\))",
         RegexOptions.IgnoreCase);
 
-    private List<string[]> collectionValues = new List<string[]>();
-    private List<string> collections = new List<string>();
-    private List<string> logicalExpressions = new List<string>();
-    private List<string> values = new List<string>();
+    private readonly List<string[]> collectionValues = [];
+    private readonly List<string> collections = [];
+    private readonly List<string> logicalExpressions = [];
+    private readonly List<string> values = [];
 
     private readonly string originalFilter;
 
     private ODataParser(string filter)
     {
         originalFilter = filter;
-
-        ValidateFilter();
-    }
-
-    private void ValidateFilter()
-    {
     }
 
     private ODataExpression Parse()
@@ -38,16 +32,16 @@ public class ODataParser
         processedFilter = TrimSingleExpressionGrouping(processedFilter);
 
         // look for collections
-        processedFilter = Regex.Replace(processedFilter, @"(\((?:[,\s]*'[^']+')+\))", match =>
+        processedFilter = CollectionPattern().Replace(processedFilter, match =>
         {
             collections.Add(match.Value);
             collectionValues.Add(match.Groups[1].Value.Split(',').Select(s => s.Trim('\'')).ToArray());
             return $"__COLLECTION|{collections.Count - 1}";
         });
-        processedFilter = Regex.Replace(processedFilter, /*@"'([^']+)'"*/ @"([""'])(?:(?=(\\?))\2.)*?\1", match =>
+        processedFilter = QuotedValuePattern().Replace(processedFilter, match =>
         {
             var value = match.Groups[0].Value;
-            values.Add(value.Substring(1, value.Length - 2));
+            values.Add(value[1..^1]);
             return $"__VALUE|{values.Count - 1}";
         });
 
@@ -76,11 +70,11 @@ public class ODataParser
     private ODataExpression ProcessFilterA(string filter)
     {
         var trimmedFilter = TrimUselessGrouping(filter);
-        var tokens = Regex.Split(trimmedFilter, @"\band\b|\bor\b|\b&&\b|\b\|\|\b", RegexOptions.IgnoreCase)
+        var tokens = LogicalSplitPattern().Split(trimmedFilter)
             .Select(t => t.Trim())
             .ToArray();
 
-        var operatorMatches = Regex.Matches(trimmedFilter, $@"\s(and|or|&&|\|\|)\s", RegexOptions.IgnoreCase);
+        var operatorMatches = LogicalOperatorMatchPattern().Matches(trimmedFilter);
         var operators = operatorMatches.Cast<Match>().Select(m => m.Groups[1].Value).ToArray();
 
 
@@ -110,7 +104,7 @@ public class ODataParser
     }
 
 
-    private ODataExpression CreateExpression(string filter)
+    private ODataFilterExpression CreateExpression(string filter)
     {
         if (string.IsNullOrEmpty(filter))
             throw new InvalidOperationException("Filter cannot be empty");
@@ -140,7 +134,7 @@ public class ODataParser
             var collection = collections[collectionIndex];
             value = collection;
 
-            var collectionItemMatch = Regex.Matches(collection, "'([^']+)'");
+            var collectionItemMatch = CollectionItemPattern().Matches(collection);
             var items = collectionItemMatch.Cast<Match>().Select(g => g.Groups[1].Value).ToList();
 
             expression.IsCollection = true;
@@ -167,59 +161,48 @@ public class ODataParser
         return grp;
     }
 
-    private static FilterOperation ResolveOperation(string operation)
+    private static FilterOperation ResolveOperation(string operation) => operation.ToLower() switch
     {
-        switch (operation.ToLower())
-        {
-            case "eq": case "=": case "==": return FilterOperation.Eq;
-            case "lt": case "<": return FilterOperation.Lt;
-            case "lteq": case "<=": return FilterOperation.Lteq;
-            case "gt": case ">": return FilterOperation.Gt;
-            case "gteq": case ">=": return FilterOperation.Gteq;
-            case "not": case "!=": return FilterOperation.Not;
-            case "in": return FilterOperation.In;
-            default:
-                throw new ArgumentException("Invalid filter operation: " + operation);
-        }
-    }
+        "eq" or "=" or "==" => FilterOperation.Eq,
+        "lt" or "<" => FilterOperation.Lt,
+        "le" or "lteq" or "<=" => FilterOperation.Lteq,
+        "gt" or ">" => FilterOperation.Gt,
+        "ge" or "gteq" or ">=" => FilterOperation.Gteq,
+        "ne" or "neq" or "not" or "!=" => FilterOperation.Not,
+        "in" => FilterOperation.In,
+        _ => throw new ArgumentException("Invalid filter operation: " + operation),
+    };
 
-    private LogicalOperator ResolveLogicalOperator(string logicalOperator)
+    private static LogicalOperator ResolveLogicalOperator(string logicalOperator) => logicalOperator.ToLower() switch
     {
-        switch (logicalOperator.ToLower())
-        {
-            case "and": case "&&": return LogicalOperator.And;
-            case "or": case "||": return LogicalOperator.Or;
-            default:
-                throw new InvalidOperationException("Invalid logical operator: " + logicalOperator);
-        }
-    }
-
+        "and" or "&&" => LogicalOperator.And,
+        "or" or "||" => LogicalOperator.Or,
+        _ => throw new InvalidOperationException("Invalid logical operator: " + logicalOperator),
+    };
 
     private static string TrimSingleExpressionGrouping(string filter)
     {
-        var operatorList = string.Join("|", operations);
-        var expression = @"\([^()]+(?:eq|neq|=|!=|gt|>|lt|<|ge|>=|le|<=)[^()]+\)";
-        return Regex.Replace(filter, expression, match =>
+        return SingleExpressionGroupingPattern().Replace(filter, match =>
         {
             // Remove '' as this could contain and/or, and can't find any clean way of checking for this in a regex.
-            var cleaned = Regex.Replace(match.Value, @"'[^']+'", "removed");
+            var cleaned = QuotedTextPattern().Replace(match.Value, "removed");
 
-            if (Regex.IsMatch(cleaned, @"\s(and|or)\s"))
+            if (AndOrWhitespacePattern().IsMatch(cleaned))
                 return match.Value;
 
-            return match.Value.Substring(1, match.Value.Length - 2);
+            return match.Value[1..^1];
         });
     }
     private static string TrimUselessGrouping(string filter)
     {
-        if (Regex.IsMatch(filter, @"^\(.*\)$")) //filter.StartsWith("(") && filter.EndsWith(")"))
+        if (WrappingParenthesesPattern().IsMatch(filter))
         {
-            if (!Regex.IsMatch(filter.Substring(1, filter.Length - 2), "[()]"))
+            if (!ParenthesisCharPattern().IsMatch(filter.AsSpan(1, filter.Length - 2)))
                 // No other parenthesis in the body, we can trim the start and end
-                return filter.Substring(1, filter.Length - 2);
+                return filter[1..^1];
 
             var depth = 1;
-            foreach (var character in filter.Substring(1))
+            foreach (var character in filter[1..])
             {
                 switch (character)
                 {
@@ -233,9 +216,39 @@ public class ODataParser
             }
 
             // Trim start and end - we did not reach equality, meaning the starting ( spans the whole expression.
-            return filter.Substring(1, filter.Length - 2);
+            return filter[1..^1];
         }
 
         return filter;
     }
+
+    [GeneratedRegex(@"(\((?:[,\s]*'[^']+')+\))")]
+    private static partial Regex CollectionPattern();
+
+    [GeneratedRegex(@"([""'])(?:(?=(\\?))\2.)*?\1")]
+    private static partial Regex QuotedValuePattern();
+
+    [GeneratedRegex(@"\band\b|\bor\b|\b&&\b|\b\|\|\b", RegexOptions.IgnoreCase)]
+    private static partial Regex LogicalSplitPattern();
+
+    [GeneratedRegex(@"\s(and|or|&&|\|\|)\s", RegexOptions.IgnoreCase)]
+    private static partial Regex LogicalOperatorMatchPattern();
+
+    [GeneratedRegex("'([^']+)'")]
+    private static partial Regex CollectionItemPattern();
+
+    [GeneratedRegex(@"\([^()]+(?:eq|neq|ne|=|!=|gt|>|lt|<|ge|>=|le|<=)[^()]+\)")]
+    private static partial Regex SingleExpressionGroupingPattern();
+
+    [GeneratedRegex(@"'[^']+'")]
+    private static partial Regex QuotedTextPattern();
+
+    [GeneratedRegex(@"\s(and|or)\s")]
+    private static partial Regex AndOrWhitespacePattern();
+
+    [GeneratedRegex(@"^\(.*\)$")]
+    private static partial Regex WrappingParenthesesPattern();
+
+    [GeneratedRegex("[()]")]
+    private static partial Regex ParenthesisCharPattern();
 }
