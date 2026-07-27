@@ -9,4 +9,6 @@ public class NewProjectRequest
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate { get; set; }
+
+    public string? Comments { get; set; }
 }

@@ -1,5 +1,4 @@
 ﻿using FluentAssertions;
-using Newtonsoft.Json;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -125,8 +124,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await adminClient.GetAsync("parts");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var parts = JsonConvert.DeserializeObject<List<ApiPart>>(body);
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
         parts.Should().NotBeNull();
         parts!.Count.Should().BeGreaterThanOrEqualTo(3);
     }
@@ -158,8 +156,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await adminClient.GetAsync($"parts/{part.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var result = JsonConvert.DeserializeObject<ApiPart>(body);
+        var result = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
         result!.Id.Should().Be(part.Id);
         result.Name.Should().Be(part.Name);
     }

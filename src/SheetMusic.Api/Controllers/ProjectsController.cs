@@ -53,7 +53,8 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
         {
             Name = request.Name,
             StartDate = request.StartDate,
-            EndDate = request.EndDate
+            EndDate = request.EndDate,
+            Comments = request.Comments
         };
 
         project = await projectRepository.AddNewProjectAsync(project);

@@ -1,10 +1,10 @@
 ﻿using FluentAssertions;
-using Newtonsoft.Json;
 using SheetMusic.Api.Test.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Utility;
@@ -35,8 +35,7 @@ public class PartDataBuilder(HttpClient httpClient)
         {
             var response = await httpClient.PostAsJsonAsync($"parts", item);
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var body = await response.Content.ReadAsStringAsync();
-            var apiPart = JsonConvert.DeserializeObject<ApiPart>(body);
+            var apiPart = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
             AssertPropsAreEqual(item, apiPart);
             createdItems.Add(apiPart!);
         }
