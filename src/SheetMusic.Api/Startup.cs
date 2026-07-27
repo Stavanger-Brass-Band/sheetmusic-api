@@ -13,8 +13,8 @@ using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Errors;
-using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
+using SheetMusic.Api.Users;
 using System.Reflection;
 
 namespace SheetMusic;

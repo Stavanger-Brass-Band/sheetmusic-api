@@ -17,10 +17,20 @@ internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptio
     {
         try
         {
-            var claims = GatherTestUserClaims();
+            var testUser = ResolveTestUser();
+
+            if (testUser is null)
+                return Task.FromResult(AuthenticateResult.NoResult());
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, testUser.Identifier.ToString()),
+                new(ClaimTypes.Email, testUser.Email ?? "")
+            };
+
             var testIdentity = new ClaimsIdentity(claims, AuthenticationScheme);
-            var testUser = new ClaimsPrincipal(testIdentity);
-            var ticket = new AuthenticationTicket(testUser, new AuthenticationProperties(), AuthenticationScheme);
+            var principal = new ClaimsPrincipal(testIdentity);
+            var ticket = new AuthenticationTicket(principal, new AuthenticationProperties(), AuthenticationScheme);
 
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
@@ -30,25 +40,12 @@ internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptio
         }
     }
 
-    private List<Claim> GatherTestUserClaims()
+    private TestUser? ResolveTestUser()
     {
-        TestUser? testUser;
-
         try
         {
-            var token = Request.Headers["Authorization"].ToString();
-            testUser = AuthTokenUtilities.UnwrapAuthToken<TestUser>(token);
-
-            if (testUser is null)
-                return new List<Claim>();
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, testUser.Identifier.ToString()),
-                new Claim(ClaimTypes.Email, testUser.Email ?? "")
-            };
-
-            return claims;
+            var token = Request.Headers.Authorization.ToString();
+            return AuthTokenUtilities.UnwrapAuthToken<TestUser>(token);
         }
         catch (Exception ex)
         {

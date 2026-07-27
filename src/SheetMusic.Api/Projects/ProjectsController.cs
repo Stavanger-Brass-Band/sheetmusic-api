@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SheetMusic.Api.Authorization;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.OData.MVC;
@@ -11,6 +10,7 @@ using SheetMusic.Api.Projects.RequestModels;
 using SheetMusic.Api.Projects.ViewModels;
 using System;
 using System.Collections.Generic;
+using SheetMusic.Api.Users.Authorization;
 using System.Linq;
 using System.Threading.Tasks;
 

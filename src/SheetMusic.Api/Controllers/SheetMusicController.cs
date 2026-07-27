@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using SheetMusic.Api.Authorization;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
@@ -12,6 +11,7 @@ using SheetMusic.Api.CQRS.Command;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
+using SheetMusic.Api.Users.Authorization;
 using SheetMusic.Api.Utilities;
 using System;
 using System.Collections.Generic;
@@ -29,6 +29,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 {
     private const long MaxFileSize = 300000000L; //300 MB
 
+    private const string SupportedSetExpand = "parts";
+
     /// <summary>
     /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided
     /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
@@ -40,6 +42,15 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     [HttpGet("sets")]
     public async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category)
     {
+        var unsupportedExpands = queryParams.Expand
+            .Where(e => !string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (unsupportedExpands.Count > 0)
+            throw new InvalidQueryParametersError($"Unsupported $expand value(s): {string.Join(", ", unsupportedExpands)}. Supported values: {SupportedSetExpand}");
+
+        var expandParts = queryParams.Expand.Any(e => string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase));
+
         Guid? categoryId = null;
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -58,7 +69,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         {
             ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
             PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
-            Parts = queryParams.Expand.Contains("parts") ?
+            Parts = expandParts ?
                 s.Parts.Select(p => new ApiSheetMusicPart(p)
                 {
                     PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",

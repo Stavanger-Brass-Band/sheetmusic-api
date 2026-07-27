@@ -1,4 +1,5 @@
-﻿using SheetMusic.Api.OData.Constants;
+﻿using SheetMusic.Api.Errors;
+using SheetMusic.Api.OData.Constants;
 using SheetMusic.Api.OData.Expression;
 using SheetMusic.Api.OData.MVC;
 using System;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace SheetMusic.Api.OData;
+namespace SheetMusic.Api.OData.Extensions;
 
 public static class ODataQueryParamsExtensions
 {
@@ -23,8 +24,15 @@ public static class ODataQueryParamsExtensions
 
     public static IQueryable<T> ApplyODataFilters<T>(this IQueryable<T> items, ODataQueryParams queryParams, Action<ODataFieldMapping<T>> mapFields)
     {
-        var builder = new ODataFilterExpressionBuilder<T>(queryParams.Filter, mapFields);
-        return items.Where(builder.FilterLambda);
+        try
+        {
+            var builder = new ODataFilterExpressionBuilder<T>(queryParams.Filter, mapFields);
+            return items.Where(builder.FilterLambda);
+        }
+        catch (Exception ex) when (ex is not ExceptionBase)
+        {
+            throw new InvalidQueryParametersError($"Invalid $filter clause: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
@@ -43,7 +51,17 @@ public static class ODataQueryParamsExtensions
         IOrderedQueryable<T>? ordered = null;
         foreach (var option in queryParams.OrderBy)
         {
-            var keySelector = fieldMapping.GetMapping(option.Field);
+            LambdaExpression keySelector;
+
+            try
+            {
+                keySelector = fieldMapping.GetMapping(option.Field);
+            }
+            catch (Exception ex) when (ex is not ExceptionBase)
+            {
+                throw new InvalidQueryParametersError($"Invalid $orderby clause: {ex.Message}", ex);
+            }
+
             ordered = ordered is null
                 ? InvokeOrderMethod(items, keySelector, option.Direction == SortDirection.desc ? nameof(Queryable.OrderByDescending) : nameof(Queryable.OrderBy))
                 : InvokeOrderMethod(ordered, keySelector, option.Direction == SortDirection.desc ? nameof(Queryable.ThenByDescending) : nameof(Queryable.ThenBy));
