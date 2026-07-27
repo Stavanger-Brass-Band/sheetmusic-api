@@ -12,7 +12,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests;
+namespace SheetMusic.Api.Test.Tests.Projects;
 
 [Collection(Collections.Project)]
 public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
