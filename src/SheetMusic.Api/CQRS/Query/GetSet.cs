@@ -24,12 +24,14 @@ public class GetSet(string setIdentifier) : IRequest<SheetMusicSet?>
             {
                 result = await db.SheetMusicSets
                     .Include(s => s.Parts).ThenInclude(p => p.Part)
+                    .Include(s => s.Categories).ThenInclude(c => c.Category)
                     .FirstOrDefaultAsync(set => set.Id == guid, cancellationToken: cancellationToken);
             }
             else if (int.TryParse(request.SetIdentifier, out var archiveNumber))
             {
                 result = await db.SheetMusicSets
                     .Include(s => s.Parts).ThenInclude(p => p.Part)
+                    .Include(s => s.Categories).ThenInclude(c => c.Category)
                     .FirstOrDefaultAsync(set => set.ArchiveNumber == archiveNumber, cancellationToken: cancellationToken);
             }
             else
@@ -37,6 +39,7 @@ public class GetSet(string setIdentifier) : IRequest<SheetMusicSet?>
                 //ignore casing when comparing on title
                 result = await db.SheetMusicSets
                     .Include(s => s.Parts).ThenInclude(p => p.Part)
+                    .Include(s => s.Categories).ThenInclude(c => c.Category)
                     .SingleOrDefaultAsync(set => set.Title.ToLower() == request.SetIdentifier.ToLower(), cancellationToken: cancellationToken);
             }
 

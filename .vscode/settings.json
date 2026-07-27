@@ -11,6 +11,8 @@
         "git fetch": true,
         "git checkout": true,
         "git pull": true,
-        "git remote": true
+        "git remote": true,
+        "dotnet tool": true,
+        "dotnet ef": true
     }
 }

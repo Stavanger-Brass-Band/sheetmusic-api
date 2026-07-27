@@ -25,6 +25,7 @@ public class ApiSet
         HasBeenScanned = set.Parts?.Any() ?? false;
         BorrowedFrom = set.BorrowedFrom;
         BorrowedDateTime = set.BorrowedDateTime;
+        Categories = set.Categories?.Where(c => c.Category != null).Select(c => new ApiCategory(c.Category)).ToList() ?? new List<ApiCategory>();
     }
 
     /// <summary>
@@ -63,4 +64,9 @@ public class ApiSet
     /// A list of parts for the set, if included
     /// </summary>
     public List<ApiSheetMusicPart>? Parts { get; set; }
+
+    /// <summary>
+    /// The categories assigned to this set
+    /// </summary>
+    public List<ApiCategory> Categories { get; set; } = new List<ApiCategory>();
 }
