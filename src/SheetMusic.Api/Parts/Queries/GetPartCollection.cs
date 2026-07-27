@@ -1,14 +1,14 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.OData;
 using SheetMusic.Api.OData.MVC;
+using SheetMusic.Api.Database.Entities;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query;
+namespace SheetMusic.Api.Parts.Queries;
 
 public class GetPartCollection(ODataQueryParams queryParams) : IRequest<List<MusicPart>>
 {

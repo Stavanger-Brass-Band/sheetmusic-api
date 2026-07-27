@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
-using SheetMusic.Api.Test.Models;
+using SheetMusic.Api.Parts.RequestModels;
+using SheetMusic.Api.Parts.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -11,7 +12,7 @@ namespace SheetMusic.Api.Test.Utility;
 
 public class PartDataBuilder(HttpClient httpClient)
 {
-    public List<PutPartModel> PartRequests { get; private set; } = new List<PutPartModel>();
+    public List<PartRequest> PartRequests { get; private set; } = new List<PartRequest>();
 
     public async Task<ApiPart> ProvisionSinglePartAsync()
     {
@@ -43,12 +44,12 @@ public class PartDataBuilder(HttpClient httpClient)
         return createdItems;
     }
 
-    public PutPartModel? GetPartInput(string partName)
+    public PartRequest? GetPartInput(string partName)
     {
         return PartRequests.FirstOrDefault(p => p.Name == partName);
     }
 
-    private static void AssertPropsAreEqual(PutPartModel item, ApiPart? apiPart)
+    private static void AssertPropsAreEqual(PartRequest item, ApiPart? apiPart)
     {
         apiPart.Should().NotBeNull();
         apiPart?.Name.Should().Be(item.Name);

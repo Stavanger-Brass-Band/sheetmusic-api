@@ -1,4 +1,5 @@
 using Azure.Search.Documents;
+using SheetMusic.Api.Parts;
 using SheetMusic.Api.Search;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

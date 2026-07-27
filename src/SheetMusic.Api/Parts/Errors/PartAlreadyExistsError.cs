@@ -1,6 +1,7 @@
-﻿using System.Net;
+﻿using SheetMusic.Api.Errors;
+using System.Net;
 
-namespace SheetMusic.Api.Errors;
+namespace SheetMusic.Api.Parts.Errors;
 
 public class PartAlreadyExistsError(string partName) : ExceptionBase($"Part '{partName}' already exists")
 {

@@ -2,13 +2,13 @@
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
-using SheetMusic.Api.Errors;
+using SheetMusic.Api.Parts.Errors;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command;
+namespace SheetMusic.Api.Parts.Commands;
 
 public class AddAliasToPart(Guid partId, string alias) : IRequest
 {

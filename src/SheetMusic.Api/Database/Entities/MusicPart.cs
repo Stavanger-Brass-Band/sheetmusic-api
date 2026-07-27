@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SheetMusic.Api.Database.Entities;
@@ -14,4 +14,3 @@ public class MusicPart
     public List<MusicianMusicPart> MusicianMusicParts { get; set; } = null!;
     public List<MusicPartAlias> Aliases { get; set; } = null!;
 }
-

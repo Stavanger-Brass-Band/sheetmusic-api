@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 
-namespace SheetMusic.Api.Controllers.RequestModels;
+namespace SheetMusic.Api.Parts.RequestModels;
 
 public class PartRequest
 {

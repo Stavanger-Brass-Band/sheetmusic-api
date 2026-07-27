@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query;
+namespace SheetMusic.Api.Parts.Queries;
 
 public class GetMusicPart(string partIdentifier) : IRequest<MusicPart?>
 {

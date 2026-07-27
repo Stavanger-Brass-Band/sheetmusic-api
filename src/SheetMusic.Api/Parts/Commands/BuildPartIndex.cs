@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command;
+namespace SheetMusic.Api.Parts.Commands;
 
 public class BuildPartIndex : IRequest
 {

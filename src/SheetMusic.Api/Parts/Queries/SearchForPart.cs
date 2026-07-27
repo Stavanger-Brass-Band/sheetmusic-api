@@ -11,7 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Queries;
+namespace SheetMusic.Api.Parts.Queries;
 
 public class SearchForPart(params string[] searchFragments) : IRequest<MusicPart?>
 {
