@@ -13,9 +13,10 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.CQRS.Query;
 
-public class GetSets(ODataQueryParams queryParams) : IRequest<List<SheetMusicSet>>
+public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null) : IRequest<List<SheetMusicSet>>
 {
     public ODataQueryParams QueryParams { get; } = queryParams;
+    public Guid? CategoryId { get; } = categoryId;
 
     public class Handler(SheetMusicContext db) : IRequestHandler<GetSets, List<SheetMusicSet>>
     {
@@ -46,6 +47,9 @@ public class GetSets(ODataQueryParams queryParams) : IRequest<List<SheetMusicSet
                     (set.Composer != null && set.Composer.Contains(term)));
             }
 
+            if (request.CategoryId.HasValue)
+                baseQuery = baseQuery.Where(set => set.Categories.Any(c => c.CategoryId == request.CategoryId.Value));
+
             baseQuery = request.QueryParams.OrderBy.Any()
                 ? baseQuery.ApplyODataOrderBy(request.QueryParams, FieldMapping)
                 : baseQuery.OrderBy(s => s.ArchiveNumber);
@@ -59,6 +63,8 @@ public class GetSets(ODataQueryParams queryParams) : IRequest<List<SheetMusicSet
             return await baseQuery
                 .Include(s => s.Parts)
                     .ThenInclude(p => p.Part)
+                .Include(s => s.Categories)
+                    .ThenInclude(c => c.Category)
                 .ToListAsync(cancellationToken);
         }
     }

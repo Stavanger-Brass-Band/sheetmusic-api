@@ -34,12 +34,25 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
     /// </summary>
     /// <param name="queryParams">Optional. OData support for $filter</param>
+    /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
     /// <returns>Sets matching criteria</returns>
     [Produces("application/json", Type = typeof(List<ApiSet>))]
     [HttpGet("sets")]
-    public async Task<IActionResult> GetSetList(ODataQueryParams queryParams)
+    public async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category)
     {
-        var matchingSets = await mediator.Send(new GetSets(queryParams));
+        Guid? categoryId = null;
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var matchedCategory = await mediator.Send(new GetCategory(category));
+
+            if (matchedCategory is null)
+                return NotFound(new ProblemDetails { Detail = $"Category '{category}' was not found" });
+
+            categoryId = matchedCategory.Id;
+        }
+
+        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId));
 
         var transformed = matchingSets.Select(s => new ApiSet(s)
         {
@@ -181,6 +194,63 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             throw new Exception("Set was null when retrieving after update");
 
         return new ApiSet(set);
+    }
+
+    /// <summary>
+    /// Gets the categories assigned to set with <paramref name="setIdentifier"/>
+    /// </summary>
+    /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <returns>List of categories assigned to the set</returns>
+    [Produces("application/json", Type = typeof(List<ApiCategory>))]
+    [HttpGet("sets/{setIdentifier}/categories")]
+    public async Task<IActionResult> GetCategoriesForSet(string setIdentifier)
+    {
+        var set = await mediator.Send(new GetSet(setIdentifier));
+
+        if (set is null)
+            return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
+        var categories = set.Categories.Where(c => c.Category != null).Select(c => new ApiCategory(c.Category)).ToList();
+
+        return new OkObjectResult(categories);
+    }
+
+    /// <summary>
+    /// Assigns a category to set with <paramref name="setIdentifier"/>
+    /// </summary>
+    /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="request">The category to assign, identified by guid or name</param>
+    /// <returns>The updated list of categories assigned to the set</returns>
+    [Produces("application/json", Type = typeof(List<ApiCategory>))]
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPost("sets/{setIdentifier}/categories")]
+    public async Task<IActionResult> AssignCategoryToSet(string setIdentifier, AssignCategoryRequest request)
+    {
+        await mediator.Send(new AssignCategoryToSet(setIdentifier, request.CategoryIdentifier));
+
+        var set = await mediator.Send(new GetSet(setIdentifier));
+
+        if (set is null)
+            throw new NotFoundError(setIdentifier, "Set was not found");
+
+        var categories = set.Categories.Where(c => c.Category != null).Select(c => new ApiCategory(c.Category)).ToList();
+
+        return new OkObjectResult(categories);
+    }
+
+    /// <summary>
+    /// Removes a category from set with <paramref name="setIdentifier"/>
+    /// </summary>
+    /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="categoryIdentifier">A value uniquely identifying category. Either guid or name</param>
+    /// <returns>204 if successfull, 404 if set, category or the assignment was not found</returns>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpDelete("sets/{setIdentifier}/categories/{categoryIdentifier}")]
+    public async Task<ActionResult> RemoveCategoryFromSet(string setIdentifier, string categoryIdentifier)
+    {
+        await mediator.Send(new RemoveCategoryFromSet(setIdentifier, categoryIdentifier));
+
+        return NoContent();
     }
 
     /// <summary>

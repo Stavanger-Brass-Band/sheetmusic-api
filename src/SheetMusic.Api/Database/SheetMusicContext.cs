@@ -26,6 +26,7 @@ public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : Id
         modelBuilder.Entity<SheetMusicCategory>()
             .HasOne(e => e.SheetMusicSet)
             .WithMany(e => e.Categories)
+            .HasForeignKey(e => e.SheetMusicSetId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ApplicationUser>()

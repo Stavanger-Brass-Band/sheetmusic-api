@@ -16,6 +16,7 @@ public static class DatabaseSeeder
         await SeedAdminUserAsync(services);
         await SeedPartsAsync(db);
         await SeedSetsAsync(db);
+        await SeedCategoriesAsync(db);
     }
 
     private static async Task SeedRolesAsync(IServiceProvider services)
@@ -151,6 +152,24 @@ public static class DatabaseSeeder
             new SheetMusicPart { Id = Guid.NewGuid(), SetId = sets[0].Id, MusicPartId = conductor.Id }
         );
 
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SeedCategoriesAsync(SheetMusicContext db)
+    {
+        if (await db.Categories.AnyAsync())
+            return;
+
+        var categories = new[]
+        {
+            new Category { Id = Guid.NewGuid(), Name = "March" },
+            new Category { Id = Guid.NewGuid(), Name = "Hymn" },
+            new Category { Id = Guid.NewGuid(), Name = "Concert" },
+            new Category { Id = Guid.NewGuid(), Name = "Christmas" },
+            new Category { Id = Guid.NewGuid(), Name = "Test Piece" },
+        };
+
+        db.Categories.AddRange(categories);
         await db.SaveChangesAsync();
     }
 }
