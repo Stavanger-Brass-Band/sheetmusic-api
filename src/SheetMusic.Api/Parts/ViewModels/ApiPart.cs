@@ -5,15 +5,31 @@ using System.Linq;
 
 namespace SheetMusic.Api.Parts.ViewModels;
 
-public class ApiPart(MusicPart part)
+public class ApiPart
 {
-    public Guid Id { get; set; } = part.Id;
+    /// <summary>
+    /// Parameterless constructor required for JSON deserialization (e.g. in integration tests).
+    /// </summary>
+    public ApiPart()
+    {
+    }
 
-    public string Name { get; set; } = part.Name;
+    public ApiPart(MusicPart part)
+    {
+        Id = part.Id;
+        Name = part.Name;
+        SortOrder = part.SortOrder;
+        Indexable = part.Indexable;
+        Aliases = part.Aliases?.Where(a => a.Enabled).Select(a => a.Alias).ToList() ?? new List<string>();
+    }
 
-    public int SortOrder { get; set; } = part.SortOrder;
+    public Guid Id { get; set; }
 
-    public bool Indexable { get; set; } = part.Indexable;
+    public string Name { get; set; } = null!;
 
-    public List<string> Aliases { get; set; } = part.Aliases?.Where(a => a.Enabled).Select(a => a.Alias).ToList() ?? new List<string>();
+    public int SortOrder { get; set; }
+
+    public bool Indexable { get; set; }
+
+    public List<string> Aliases { get; set; } = new List<string>();
 }

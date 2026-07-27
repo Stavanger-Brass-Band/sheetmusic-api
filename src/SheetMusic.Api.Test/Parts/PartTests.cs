@@ -1,8 +1,8 @@
 ﻿using FluentAssertions;
+using SheetMusic.Api.Parts.ViewModels;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Parts.Models;
 using SheetMusic.Api.Test.Utility;
 using System;
 using System.Collections.Generic;

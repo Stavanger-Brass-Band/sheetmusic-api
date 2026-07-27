@@ -1,6 +1,6 @@
 ﻿using Bogus;
+using SheetMusic.Api.Parts.RequestModels;
 using SheetMusic.Api.Test.Models;
-using SheetMusic.Api.Test.Parts.Models;
 using System;
 
 namespace SheetMusic.Api.Test.Utility;
@@ -22,9 +22,9 @@ internal static class FakerFactory
         return faker;
     }
 
-    internal static Faker<PutPartModel> CreatePartFaker()
+    internal static Faker<PartRequest> CreatePartFaker()
     {
-        var faker = new Faker<PutPartModel>(Norwegian)
+        var faker = new Faker<PartRequest>(Norwegian)
             .RuleFor(p => p.Name, f => $"{f.Lorem.Word()}-{f.UniqueIndex}")
             .RuleFor(p => p.SortOrder, f => f.Random.Int(1, 99))
             .RuleFor(p => p.Indexable, f => f.Random.Bool());
