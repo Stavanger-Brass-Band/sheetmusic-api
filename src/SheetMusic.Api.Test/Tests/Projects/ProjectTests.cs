@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using SheetMusic.Api.Projects.ViewModels;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
