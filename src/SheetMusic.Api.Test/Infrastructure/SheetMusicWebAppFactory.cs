@@ -38,6 +38,15 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
     {
         builder.UseSetting("SkipMigrations", "true");
 
+        // This factory instance is shared across all tests in a collection, so the rate limiter
+        // partition (keyed by client IP) accumulates requests across every test method. Use a
+        // generous limit here so unrelated tests don't trip 429s; tests that specifically verify
+        // rate limiting behaviour spin up their own isolated factory with a low limit instead.
+        builder.UseSetting("RateLimiting:Token:PermitLimit", "1000");
+        builder.UseSetting("RateLimiting:Token:WindowSeconds", "60");
+        builder.UseSetting("RateLimiting:ForgotPassword:PermitLimit", "1000");
+        builder.UseSetting("RateLimiting:ForgotPassword:WindowSeconds", "60");
+
         builder.ConfigureTestServices(services =>
         {
             BlobMock = new Mock<IBlobClient>();

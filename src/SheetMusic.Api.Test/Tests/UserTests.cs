@@ -319,10 +319,18 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task V2_GetUser_AsMe_ShouldGiveForbidden_WhenNonAdministrator()
+    public async Task V2_GetUser_AsMe_ShouldBeSuccessful_WhenNonAdministrator()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Testesen);
         var response = await client.GetAsync("users/me");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task V2_GetUser_ById_ShouldBeForbidden_WhenNonAdminRequestsAnotherUser()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.GetAsync($"users/{TestUser.Administrator.Identifier}");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
@@ -376,6 +384,196 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Password = "HackerPassword1!"
         });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // --- User management: activate / deactivate / roles / delete ---
+
+    private static async Task<(Guid Id, string Email)> RegisterInactiveUserAsync(HttpClient client, string namePrefix)
+    {
+        var id = Guid.NewGuid();
+        var email = $"{namePrefix}-{Guid.NewGuid():N}@user.com";
+
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = id,
+            Name = namePrefix,
+            Email = email,
+            Password = "SecurePassword123!"
+        });
+
+        return (id, email);
+    }
+
+    [Fact]
+    public async Task V2_ActivateUser_ShouldAllowLogin_WhenAdmin()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, email) = await RegisterInactiveUserAsync(anonymousClient, "activate");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var activateResponse = await adminClient.PutAsJsonAsync($"users/{id}/activate", new { });
+        activateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var loginResponse = await anonymousClient.PostAsync("token", BuildLoginForm(email, "SecurePassword123!"));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task V2_ActivateUser_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "activate-forbidden");
+
+        var readerClient = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await readerClient.PutAsJsonAsync($"users/{id}/activate", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_ActivateUser_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await client.PutAsJsonAsync($"users/{Guid.NewGuid()}/activate", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task V2_DeactivateUser_ShouldPreventLogin_WhenAdmin()
+    {
+        var anonymousClient = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(anonymousClient, password);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var deactivateResponse = await adminClient.PutAsJsonAsync($"users/{appUser!.Id}/deactivate", new { });
+        deactivateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var loginResponse = await anonymousClient.PostAsync("token", BuildLoginForm(email, password));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_DeactivateUser_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Administrator.Identifier}/deactivate", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_AssignRole_ShouldAddRoleToUser_WhenAdmin()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "assign-role");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.PutAsJsonAsync($"users/{id}/roles", new { RoleName = "Admin" });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByIdAsync(id.ToString());
+        (await userManager.IsInRoleAsync(user!, "Admin")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task V2_AssignRole_ShouldReturnNotFound_WhenRoleDoesNotExist()
+    {
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/roles", new { RoleName = "NonExistentRole" });
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task V2_AssignRole_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/roles", new { RoleName = "Admin" });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_RemoveRole_ShouldRemoveRoleFromUser_WhenAdmin()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "remove-role");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        await adminClient.PutAsJsonAsync($"users/{id}/roles", new { RoleName = "Admin" });
+
+        var response = await adminClient.DeleteAsync($"users/{id}/roles/Admin");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByIdAsync(id.ToString());
+        (await userManager.IsInRoleAsync(user!, "Admin")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task V2_RemoveRole_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}/roles/Reader");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_DeleteUser_ShouldSoftDelete_ByDefault()
+    {
+        var anonymousClient = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(anonymousClient, password);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.DeleteAsync($"users/{appUser!.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var loginResponse = await anonymousClient.PostAsync("token", BuildLoginForm(email, password));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var stillExists = await userManager.FindByIdAsync(appUser.Id.ToString());
+        stillExists.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task V2_DeleteUser_ShouldHardDelete_WhenRequested()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "hard-delete");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.DeleteAsync($"users/{id}?hardDelete=true");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var deletedUser = await userManager.FindByIdAsync(id.ToString());
+        deletedUser.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task V2_DeleteUser_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_DeleteUser_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await client.DeleteAsync($"users/{Guid.NewGuid()}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     // --- Forgot password / Password reset ---
