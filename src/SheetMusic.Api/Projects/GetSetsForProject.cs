@@ -21,6 +21,7 @@ public class GetSetsForProject(Guid projectId) : IRequest<List<SheetMusicSet>>
             var query = from project in db.Projects
                         from setConnection in project.SetConnections
                         where project.Id == request.ProjectId
+                        orderby setConnection.SortOrder
                         select setConnection.Set;
 
             return await query.ToListAsync(cancellationToken);

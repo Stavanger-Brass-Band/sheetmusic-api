@@ -71,6 +71,19 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     }
 
     [Authorize(AuthPolicy.Admin)]
+    [HttpPut("projects/{projectIdentifier}/sets/order")]
+    public async Task<IActionResult> UpdateSetOrderForProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
+    {
+        var project = await mediator.Send(new GetProject(projectIdentifier));
+
+        await mediator.Send(new UpdateSetOrderForProject(project.Id, request));
+
+        var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
+
+        return new OkObjectResult(setsForProject.Select(s => new ApiSet(s)));
+    }
+
+    [Authorize(AuthPolicy.Admin)]
     [HttpDelete("projects/{projectIdentifier}/sets/")]
     public async Task<IActionResult> UnassignSetFromProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
