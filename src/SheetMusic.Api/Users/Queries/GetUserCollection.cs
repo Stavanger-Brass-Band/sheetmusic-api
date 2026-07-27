@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using SheetMusic.Api.Users.Entities;
+using SheetMusic.Api.Database.Entities;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;

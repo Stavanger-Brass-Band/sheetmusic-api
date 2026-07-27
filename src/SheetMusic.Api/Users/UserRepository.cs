@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
-using SheetMusic.Api.Users.Entities;
 using SheetMusic.Api.Users.Errors;
 using System;
 using System.Collections.Generic;

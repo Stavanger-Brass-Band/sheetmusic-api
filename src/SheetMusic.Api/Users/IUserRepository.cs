@@ -1,4 +1,4 @@
-﻿using SheetMusic.Api.Users.Entities;
+﻿using SheetMusic.Api.Database.Entities;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;

@@ -1,10 +1,10 @@
 ﻿using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Users.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +14,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests.Users;
+namespace SheetMusic.Api.Test.Users;
 
 [CollectionDefinition(Collections.User)]
 public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>

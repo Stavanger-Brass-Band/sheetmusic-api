@@ -1,9 +1,8 @@
-﻿using SheetMusic.Api.Database.Entities;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SheetMusic.Api.Users.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class Musician
 {

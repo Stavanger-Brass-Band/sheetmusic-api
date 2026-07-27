@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace SheetMusic.Api.Users.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class ApplicationUser : IdentityUser<Guid>
 {

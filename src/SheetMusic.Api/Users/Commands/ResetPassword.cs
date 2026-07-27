@@ -1,6 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
-using SheetMusic.Api.Users.Entities;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Users.Errors;
 using System.Threading;
 using System.Threading.Tasks;

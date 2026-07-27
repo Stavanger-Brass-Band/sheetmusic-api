@@ -9,11 +9,11 @@ using Resend;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Search;
 using SheetMusic.Api.Users;
-using SheetMusic.Api.Users.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 

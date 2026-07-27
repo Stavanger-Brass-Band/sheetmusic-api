@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Users.Authorization;
-using SheetMusic.Api.Users.Entities;
 using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests.Users;
+namespace SheetMusic.Api.Test.Users;
 
 /// <summary>
 /// Regression tests for the v1 auth bug where legacy <see cref="Musician"/> records that were

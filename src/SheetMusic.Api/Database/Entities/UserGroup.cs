@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SheetMusic.Api.Users.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class UserGroup
 {

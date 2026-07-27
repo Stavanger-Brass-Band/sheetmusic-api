@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
-using SheetMusic.Api.Users.Entities;
+using SheetMusic.Api.Database.Entities;
 using System;
 using System.Threading.Tasks;
 

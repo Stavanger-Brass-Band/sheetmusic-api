@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
-using SheetMusic.Api.Users.Entities;
+using SheetMusic.Api.Database.Entities;
 using System;
 using System.Threading.Tasks;
 

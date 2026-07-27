@@ -1,4 +1,4 @@
-namespace SheetMusic.Api.Users.Entities;
+namespace SheetMusic.Api.Database.Entities;
 
 public class RefreshToken
 {
