@@ -1,6 +1,6 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Text;
+using System.Text.Json;
 
 namespace SheetMusic.Api.Test.Infrastructure.Authentication;
 
@@ -19,7 +19,7 @@ public static class AuthTokenUtilities
 
         var tokenPart = bearerToken.Split(' ')[1];
         var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(tokenPart));
-        var deserialized = JsonConvert.DeserializeObject<T>(decoded);
+        var deserialized = JsonSerializer.Deserialize<T>(decoded);
 
         return deserialized;
     }
@@ -33,7 +33,7 @@ public static class AuthTokenUtilities
     /// <returns>Serialized, encoded string ready for authorization header</returns>
     public static string WrapAuthToken<T>(T tokenClass) where T : class
     {
-        var serialized = JsonConvert.SerializeObject(tokenClass);
+        var serialized = JsonSerializer.Serialize(tokenClass);
         var tokenBytes = Encoding.UTF8.GetBytes(serialized);
         var tokenString = Convert.ToBase64String(tokenBytes);
 

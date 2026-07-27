@@ -1,5 +1,4 @@
 ﻿using FluentAssertions;
-using Newtonsoft.Json;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -8,6 +7,7 @@ using SheetMusic.Api.Test.Utility;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -140,14 +140,12 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var response = await adminClient.PostAsJsonAsync("projects", project);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var createdProject = JsonConvert.DeserializeObject<ApiProject>(body);
+        var createdProject = await response.Content.ReadFromJsonAsync<ApiProject>(JsonDefaults.Options);
         createdProject.Should().NotBeNull();
         createdProject!.Comments.Should().Be(project.Comments);
 
         var getResponse = await adminClient.GetAsync($"projects/{project.Name}");
-        var getBody = await getResponse.Content.ReadAsStringAsync();
-        var fetchedProject = JsonConvert.DeserializeObject<ApiProject>(getBody);
+        var fetchedProject = await getResponse.Content.ReadFromJsonAsync<ApiProject>(JsonDefaults.Options);
         fetchedProject.Should().NotBeNull();
         fetchedProject!.Comments.Should().Be(project.Comments);
     }
@@ -211,8 +209,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var response = await adminClient.GetAsync($"projects/{project.Name}/sets");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var sets = JsonConvert.DeserializeObject<List<ApiSet>>(body);
+        var sets = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         sets.Should().NotBeNull();
         sets!.Should().Contain(s => s.Id == testSet.Id);
     }
@@ -241,8 +238,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var setsResponse = await adminClient.GetAsync($"projects/{project.Name}/sets");
-        var body = await setsResponse.Content.ReadAsStringAsync();
-        var sets = JsonConvert.DeserializeObject<List<ApiSet>>(body);
+        var sets = await setsResponse.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         sets.Should().NotContain(s => s.Id == testSet.Id);
     }
 }

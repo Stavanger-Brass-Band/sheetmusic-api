@@ -1,6 +1,5 @@
 ﻿using FluentAssertions;
 using Moq;
-using Newtonsoft.Json;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -13,7 +12,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -74,8 +75,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var response = await client.GetAsync($"sheetmusic/sets");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var items = JsonConvert.DeserializeObject<List<ApiSet>>(body);
+        var items = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
 
         foreach (var testSet in testData)
         {
@@ -96,8 +96,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var response = await client.GetAsync("sheetmusic/sets?$orderby=title desc");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var items = JsonConvert.DeserializeObject<List<ApiSet>>(body);
+        var items = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
 
         items.Should().NotBeNull();
         items.Should().BeInDescendingOrder(s => s.Title);
@@ -122,8 +121,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var partsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
         partsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await partsResponse.Content.ReadAsStringAsync();
-        var items = JsonConvert.DeserializeObject<ApiSet>(body);
+        var items = await partsResponse.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
 
         foreach (var part in testParts)
         {
@@ -214,7 +212,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var body = await partsResponse.Content.ReadAsStringAsync();
         Debug.Write(body);
 
-        var set = JsonConvert.DeserializeObject<ApiSet>(body);
+        var set = JsonSerializer.Deserialize<ApiSet>(body, JsonDefaults.Options);
         set.Should().NotBeNull();
         set?.Parts.Should().NotBeEmpty();
         set?.Parts?.Count.Should().Be(partCount);
@@ -271,8 +269,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var response = await adminClient.GetAsync($"sheetmusic/sets/{set.Id}/parts/{part.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadAsStringAsync();
-        var setPart = JsonConvert.DeserializeObject<ApiSetPart>(body);
+        var setPart = await response.Content.ReadFromJsonAsync<ApiSetPart>(JsonDefaults.Options);
 
         return setPart;
     }

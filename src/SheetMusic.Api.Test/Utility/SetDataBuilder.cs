@@ -1,11 +1,11 @@
 ﻿using FluentAssertions;
-using Newtonsoft.Json;
 using SheetMusic.Api.Test.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Test.Utility;
@@ -42,8 +42,7 @@ internal class SetDataBuilder
         {
             var response = await httpClient.PostAsJsonAsync($"sheetmusic/sets", set);
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var body = await response.Content.ReadAsStringAsync();
-            var apiSet = JsonConvert.DeserializeObject<ApiSet>(body);
+            var apiSet = await response.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
             apiSet.Should().NotBeNull();
             apiSet!.OriginatingId = set.OriginatingId;
             AssertPropsAreEqual(set, apiSet);
