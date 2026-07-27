@@ -79,7 +79,7 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
             request.Id = Guid.NewGuid();
         }
 
-#pragma warning disable CS0612
+#pragma warning disable CS0612, CS0618
         var user = new Musician
         {
             Id = request.Id.Value,
@@ -92,7 +92,7 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
         user = await userRepository.CreateAsync(user, request.Password);
 
         return new CreatedResult("users", new ApiUser(user));
-#pragma warning restore CS0612
+#pragma warning restore CS0612, CS0618
     }
 
     /// <summary>
@@ -104,11 +104,11 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
             return BadRequest("Unable to find Name claim and identify user");
 
-#pragma warning disable CS0612
+#pragma warning disable CS0612, CS0618
         var currentUser = await userRepository.GetByIdAsync(authenticatedUserId);
         var isAdmin = currentUser.UserGroup?.Name?.ToLower() == "admin";
         var userToChange = await userRepository.GetByIdAsync(identifier);
-#pragma warning restore CS0612
+#pragma warning restore CS0612, CS0618
 
         if (authenticatedUserId != identifier && !isAdmin)
             return BadRequest(new { message = "Cannot update other users than yourself unless you are admin" });
