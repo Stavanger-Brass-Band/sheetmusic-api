@@ -5,7 +5,7 @@ using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Models;
-using SheetMusic.Api.Test.Tests.Parts.Models;
+using SheetMusic.Api.Test.Parts.Models;
 using SheetMusic.Api.Test.Utility;
 using System.Collections.Generic;
 using System.Diagnostics;

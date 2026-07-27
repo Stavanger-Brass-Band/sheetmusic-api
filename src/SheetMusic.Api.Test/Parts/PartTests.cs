@@ -2,7 +2,7 @@
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Tests.Parts.Models;
+using SheetMusic.Api.Test.Parts.Models;
 using SheetMusic.Api.Test.Utility;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace SheetMusic.Api.Test.Tests.Parts;
+namespace SheetMusic.Api.Test.Parts;
 
 [Collection(Collections.Part)]
 public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
