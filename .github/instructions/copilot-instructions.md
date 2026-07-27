@@ -9,6 +9,16 @@ ASP.NET Core 8.0 Web API for managing sheet music collections. Uses CQRS, Mediat
 
 ## Architecture
 
+### Domain-oriented folders (vertical slices)
+- Source is organized by **domain**, not by artifact type
+- Each domain owns its controller, commands, queries, request models, view models, entities and errors
+- Domains: `Projects/`, `Sets/`, `Parts/`, `Users/`, plus `Shared/` for cross-cutting infrastructure
+- Namespaces follow folders: `SheetMusic.Api.Projects.Commands`, `SheetMusic.Api.Users.Entities`, etc.
+- Put a type in `Shared/` only if more than one domain uses it; otherwise it belongs in the owning domain
+- Avoid new domain-to-domain dependencies (existing `Sets` <-> `Parts` coupling is accepted)
+
+> Migration in progress: tracked by issue #192. Some folders may still use the legacy artifact-type layout (`Controllers/`, `CQRS/`, `Database/Entities/`, `Repositories/`). New code goes in the domain layout; when touching legacy files, follow the layout that file currently lives in unless the move is part of the tracked refactor.
+
 ### CQRS with MediatR
 - All business logic uses CQRS pattern with MediatR
 - Commands modify state (e.g., `AddPart`, `UpdateSetMetadata`)
@@ -34,11 +44,11 @@ ASP.NET Core 8.0 Web API for managing sheet music collections. Uses CQRS, Mediat
 - `LangVersion` latest
 
 ### Naming
-- Controllers: `{Entity}Controller`
-- Request models: `{Entity}Request` (in `Controllers/RequestModels/`)
-- View models: `Api{Entity}` (in `Controllers/ViewModels/`)
-- Commands: Verb-first (e.g., `AddPart`, `DeleteSet`)
-- Queries: `Get{Entity}` (e.g., `GetPartCollection`)
+- Controllers: `{Entity}Controller` (in `{Domain}/`)
+- Request models: `{Entity}Request` (in `{Domain}/RequestModels/`)
+- View models: `Api{Entity}` (in `{Domain}/ViewModels/`)
+- Commands: Verb-first (e.g., `AddPart`, `DeleteSet`) in `{Domain}/Commands/`
+- Queries: `Get{Entity}` (e.g., `GetPartCollection`) in `{Domain}/Queries/`
 
 ### Controllers
 - Mark with `[ApiController]`, `[Produces("application/json")]`
@@ -65,16 +75,31 @@ ASP.NET Core 8.0 Web API for managing sheet music collections. Uses CQRS, Mediat
 ## File Organization
 ```
 SheetMusic.Api/
-├── Controllers/          # API controllers
-│   ├── RequestModels/   # Input DTOs + Validators
-│   └── ViewModels/      # Output DTOs (Api-prefixed)
-├── CQRS/
-│   ├── Command/         # State-changing operations
-│   └── Query/           # Read operations
-├── Database/Entities/   # EF Core entities
-├── Errors/              # Custom exceptions
-└── Repositories/        # Data access
+├── Projects/                # Project, ProjectSheetMusicSet
+│   ├── ProjectsController.cs
+│   ├── Commands/            # State-changing operations
+│   ├── Queries/             # Read operations
+│   ├── RequestModels/       # Input DTOs + nested Validators
+│   ├── ViewModels/          # Output DTOs (Api-prefixed)
+│   ├── Entities/            # EF Core entities owned by the domain
+│   └── Errors/              # Domain-specific exceptions
+├── Sets/                    # SheetMusicSet, SheetMusicPart, Category
+├── Parts/                   # MusicPart, MusicPartAlias, part search index
+├── Users/                   # ApplicationUser, RefreshToken, Musician, Authorization/
+└── Shared/                  # Cross-cutting infrastructure only
+    ├── Database/            # SheetMusicContext, DatabaseSeeder, Migrations
+    ├── Errors/              # ExceptionBase, ErrorHandlerMiddleware, generic errors
+    ├── BlobStorage/
+    ├── Search/              # Index infrastructure
+    ├── Email/
+    ├── OData/
+    ├── Configuration/
+    └── Utilities/
 ```
+
+Tests mirror the domain layout: `SheetMusic.Api.Test/Tests/{Domain}/`.
+
+EF Core migrations are **not** split per domain - they stay in a single ordered folder under `Shared/Database/Migrations`.
 
 ## Key Principles
 - Controllers delegate to MediatR only

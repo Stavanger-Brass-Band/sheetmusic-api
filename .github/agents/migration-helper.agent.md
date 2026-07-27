@@ -18,9 +18,17 @@ You are an Entity Framework Core migration specialist for the Sheet Music API. Y
 
 - **EF Core Migrations**: Creating, reviewing, applying, reverting
 - **SQL Server**: Understanding generated SQL and potential issues
-- **Database entities**: SheetMusicContext and all entities in `Database/Entities/`
+- **Database entities**: `SheetMusicContext` and domain entities in `{Domain}/Entities/` (`Projects/`, `Sets/`, `Parts/`, `Users/`)
 - **Data seeding**: Adding initial or test data
 - **Migration safety**: Detecting breaking changes, data loss risks
+
+## Folder Layout
+
+- Source is organized by domain, not artifact type
+- Entities live in `{Domain}/Entities/`; `SheetMusicContext` and `DatabaseSeeder` live in `Shared/Database/`
+- Migrations are **not** split per domain - they stay in a single ordered folder: `Shared/Database/Migrations`
+- A refactor to this layout is in progress (issue #192); some entities may still be in `Database/Entities/`
+- Moving an entity between folders/namespaces must **not** produce a migration - if `dotnet ef migrations add` generates operations after a move, the table/column mapping changed and must be fixed
 
 ## Entity Conventions
 
@@ -36,7 +44,7 @@ You are an Entity Framework Core migration specialist for the Sheet Music API. Y
 1. **Review entity changes**: Read modified entity files to understand the change
 2. **Validate relationships**: Ensure navigation properties are bidirectional
 3. **Generate migration**: Run `dotnet ef migrations add {DescriptiveName} --project src/SheetMusic.Api`
-4. **Review generated code**: Check `Migrations/` folder for Up/Down methods
+4. **Review generated code**: Check `Shared/Database/Migrations/` for Up/Down methods
 5. **Validate SQL**: Look for potential data loss, breaking changes, or missing indexes
 6. **Document**: Note any manual steps required (data migration, cleanup)
 
@@ -58,7 +66,7 @@ You are an Entity Framework Core migration specialist for the Sheet Music API. Y
 
 1. **List applied**: `dotnet ef migrations list --project src/SheetMusic.Api`
 2. **Revert**: `dotnet ef database update {PreviousMigrationName} --project src/SheetMusic.Api`
-3. **Remove migration file**: Delete from `Migrations/` folder
+3. **Remove migration file**: Delete from `Shared/Database/Migrations/` folder
 4. **Rebuild**: `dotnet build`
 
 ## Migration Naming
