@@ -44,6 +44,37 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task UpdateProject_ShouldPersistComments_WhenProvided()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Update comments test - {Guid.NewGuid():N}",
+            Comments = "Original comment",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+
+        await client.PostAsJsonAsync("projects", project);
+
+        var response = await client.PutAsJsonAsync($"projects/{project.Name}",
+            new
+            {
+                project.Name,
+                Comments = "Updated comment",
+                project.StartDate,
+                project.EndDate
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var updatedProject = await response.Content.ReadFromJsonAsync<ApiProject>(JsonDefaults.Options);
+        updatedProject.Should().NotBeNull();
+        updatedProject!.Comments.Should().Be("Updated comment");
+    }
+
+    [Fact]
     public async Task UpdateProject_ShouldBeForbidden_WhenUserIsReader()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -212,6 +243,35 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var sets = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         sets.Should().NotBeNull();
         sets!.Should().Contain(s => s.Id == testSet.Id);
+    }
+
+    [Fact]
+    public async Task DeleteProject_ShouldRemoveProject_WhenExists()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Delete project test - {Guid.NewGuid():N}",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+        await adminClient.PostAsJsonAsync("projects", project);
+
+        var response = await adminClient.DeleteAsync($"projects/{project.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await adminClient.GetAsync($"projects/{project.Name}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteProject_ShouldReturnNotFound_WhenProjectDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.DeleteAsync($"projects/{Guid.NewGuid()}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

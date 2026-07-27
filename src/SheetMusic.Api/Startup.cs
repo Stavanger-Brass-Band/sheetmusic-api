@@ -40,7 +40,6 @@ public class Startup(IConfiguration configuration)
 
         services.AddSingleton<IBlobClient, BlobClient>();
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
         services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining(typeof(Startup)));
