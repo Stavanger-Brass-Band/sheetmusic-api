@@ -1,4 +1,4 @@
-﻿using SheetMusic.Api.Database.Entities;
+﻿using SheetMusic.Api.Users.Entities;
 using System;
 
 namespace SheetMusic.Api.Test.Infrastructure.Authentication;

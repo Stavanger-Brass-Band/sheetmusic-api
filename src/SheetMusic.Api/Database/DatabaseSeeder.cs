@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Users.Entities;
 
 namespace SheetMusic.Api.Database;
 
