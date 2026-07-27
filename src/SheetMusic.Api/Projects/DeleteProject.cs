@@ -1,10 +1,9 @@
 using MediatR;
-using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.Database;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Command;
+namespace SheetMusic.Api.Projects;
 
 public class DeleteProject(string projectIdentifier) : IRequest
 {

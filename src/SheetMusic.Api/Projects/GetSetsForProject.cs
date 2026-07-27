@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.CQRS.Query;
+namespace SheetMusic.Api.Projects;
 
 public class GetSetsForProject(Guid projectId) : IRequest<List<SheetMusicSet>>
 {
