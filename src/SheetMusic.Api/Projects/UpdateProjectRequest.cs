@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 
-namespace SheetMusic.Api.Controllers.RequestModels;
+namespace SheetMusic.Api.Projects;
 
 public class UpdateProjectRequest
 {

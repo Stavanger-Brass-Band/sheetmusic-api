@@ -12,6 +12,7 @@
         "git fetch": true,
         "git checkout": true,
         "git pull": true,
-        "git remote": true
+        "git remote": true,
+        "Test-Path": true
     }
 }

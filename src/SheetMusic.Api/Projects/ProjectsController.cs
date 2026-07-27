@@ -1,28 +1,24 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SheetMusic.Api.Authorization;
 using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
-using SheetMusic.Api.CQRS.Command;
 using SheetMusic.Api.CQRS.Query;
-using SheetMusic.Api.Database.Entities;
-using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
-using SheetMusic.Api.Repositories;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SheetMusic.Api.Controllers;
+namespace SheetMusic.Api.Projects;
 
 [Authorize]
 [ApiController]
-public class ProjectsController(IProjectRepository projectRepository, IMediator mediator) : ControllerBase
+public class ProjectsController(IMediator mediator) : ControllerBase
 {
     [HttpGet("projects")]
     public async Task<IActionResult> GetProjects([FromQuery] ODataQueryParams? query)
     {
-        var projects = await projectRepository.GetProjectsAsync(query);
+        var projects = await mediator.Send(new GetProjectCollection(query));
 
         return new OkObjectResult(projects.Select(p => new ApiProject(p)));
     }
@@ -30,7 +26,7 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
     [HttpGet("projects/{projectIdentifier}")]
     public async Task<IActionResult> GetProject(string projectIdentifier)
     {
-        var project = await projectRepository.ResolveByIdentifierAsync(projectIdentifier);
+        var project = await mediator.Send(new GetProject(projectIdentifier));
 
         return new OkObjectResult(new ApiProject(project));
     }
@@ -39,8 +35,8 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
 
     public async Task<IActionResult> GetSetsForProject(string projectIdentifier)
     {
-        var project = await projectRepository.ResolveByIdentifierAsync(projectIdentifier);
-        var sets = await projectRepository.GetSetsForProjectAsync(project.Id);
+        var project = await mediator.Send(new GetProject(projectIdentifier));
+        var sets = await mediator.Send(new GetSetsForProject(project.Id));
 
         return new OkObjectResult(sets.Select(s => new ApiSet(s)));
     }
@@ -49,15 +45,7 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
     [HttpPost("projects")]
     public async Task<IActionResult> CreateNewProject([FromBody] NewProjectRequest request)
     {
-        var project = new Project
-        {
-            Name = request.Name,
-            StartDate = request.StartDate,
-            EndDate = request.EndDate,
-            Comments = request.Comments
-        };
-
-        project = await projectRepository.AddNewProjectAsync(project);
+        var project = await mediator.Send(new AddProject(request));
 
         return new OkObjectResult(new ApiProject(project));
     }
@@ -66,7 +54,7 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
     [HttpPost("projects/{projectIdentifier}/sets")]
     public async Task<IActionResult> AssignSetToProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
-        var project = await projectRepository.ResolveByIdentifierAsync(projectIdentifier);
+        var project = await mediator.Send(new GetProject(projectIdentifier));
 
         foreach (var setId in request.SetIdentifiers)
         {
@@ -74,10 +62,10 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
 
             if (set is null) continue;
 
-            await projectRepository.ConnectSetWithProjectAsync(project.Id, set.Id);
+            await mediator.Send(new ConnectSetToProject(project.Id, set.Id));
         }
 
-        var setsForProject = await projectRepository.GetSetsForProjectAsync(project.Id);
+        var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
 
         return new CreatedResult($"projects/{projectIdentifier}/sets", setsForProject.Select(s => new ApiSet(s)));
     }
@@ -86,7 +74,7 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
     [HttpDelete("projects/{projectIdentifier}/sets/")]
     public async Task<IActionResult> UnassignSetFromProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
-        var project = await projectRepository.ResolveByIdentifierAsync(projectIdentifier);
+        var project = await mediator.Send(new GetProject(projectIdentifier));
 
         foreach (var setId in request.SetIdentifiers)
         {
@@ -94,10 +82,10 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
 
             if (set is null) continue;
 
-            await projectRepository.DisconnectSetFromProjectAsync(project.Id, set.Id);
+            await mediator.Send(new DisconnectSetFromProject(project.Id, set.Id));
         }
 
-        var setsForProject = await projectRepository.GetSetsForProjectAsync(project.Id);
+        var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
 
         return new OkObjectResult(setsForProject.Select(s => new ApiSet(s)));
     }
@@ -106,14 +94,7 @@ public class ProjectsController(IProjectRepository projectRepository, IMediator 
     [HttpDelete("projects/{projectIdentifier}")]
     public async Task<ActionResult> DeleteProject(string projectIdentifier)
     {
-        try
-        {
-            await projectRepository.DeleteProjectAsync(projectIdentifier);
-        }
-        catch (NotFoundError)
-        {
-            return NotFound();
-        }
+        await mediator.Send(new DeleteProject(projectIdentifier));
 
         return NoContent();
     }
