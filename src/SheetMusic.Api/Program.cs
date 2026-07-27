@@ -58,7 +58,6 @@ builder.Services.AddSheetMusicRateLimiting(builder.Configuration);
 
 builder.Services.AddSingleton<IBlobClient, BlobClient>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
 builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<Program>());

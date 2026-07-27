@@ -19,6 +19,7 @@ public class UpdateProjectMetadata(string identifier, UpdateProjectRequest reque
             var project = await mediator.Send(new GetProject(command.identifier));
 
             project.Name = command.request.Name;
+            project.Comments = command.request.Comments;
             project.StartDate = command.request.StartDate;
             project.EndDate = command.request.EndDate;
 
