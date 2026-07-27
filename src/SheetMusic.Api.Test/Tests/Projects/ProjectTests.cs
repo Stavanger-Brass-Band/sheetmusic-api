@@ -248,13 +248,13 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task UpdateSetOrderForProject_ShouldReorderSets_WhenAdmin()
+    public async Task AssignSetToProject_ShouldReorderExistingSets_WhenCalledAgainWithNewOrder()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
         var project = new
         {
-            Name = $"Update set order test - {Guid.NewGuid():N}",
+            Name = $"Reorder sets test - {Guid.NewGuid():N}",
             StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
             EndDate = DateTimeOffset.UtcNow.AddMonths(1)
         };
@@ -266,9 +266,9 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
 
         var reversedOrder = testSets.Select(s => s.Id.ToString()).Reverse().ToList();
 
-        var response = await adminClient.PutAsJsonAsync($"projects/{project.Name}/sets/order",
+        var response = await adminClient.PostAsJsonAsync($"projects/{project.Name}/sets",
             new { SetIdentifiers = reversedOrder });
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var orderedSets = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         orderedSets.Should().NotBeNull();
@@ -280,44 +280,31 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task UpdateSetOrderForProject_ShouldBeForbidden_WhenReader()
+    public async Task AssignSetToProject_ShouldAppendNewSet_WithoutDisturbingExistingOrder()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
         var project = new
         {
-            Name = $"Update set order forbidden - {Guid.NewGuid():N}",
+            Name = $"Append set test - {Guid.NewGuid():N}",
             StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
             EndDate = DateTimeOffset.UtcNow.AddMonths(1)
         };
         await adminClient.PostAsJsonAsync("projects", project);
 
-        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
-        var response = await client.PutAsJsonAsync($"projects/{project.Name}/sets/order",
-            new { SetIdentifiers = new List<string> { Guid.NewGuid().ToString() } });
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task UpdateSetOrderForProject_ShouldReturnBadRequest_WhenSetIdentifiersDoNotMatchAssignedSets()
-    {
-        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-        var project = new
-        {
-            Name = $"Update set order invalid - {Guid.NewGuid():N}",
-            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
-            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
-        };
-        await adminClient.PostAsJsonAsync("projects", project);
-
-        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var testSets = await new SetDataBuilder(adminClient).WithSets(2).ProvisionAsync();
         await adminClient.PostAsJsonAsync($"projects/{project.Name}/sets",
-            new { SetIdentifiers = new List<string> { testSet.Id.ToString() } });
+            new { SetIdentifiers = testSets.Select(s => s.Id.ToString()) });
 
-        var response = await adminClient.PutAsJsonAsync($"projects/{project.Name}/sets/order",
-            new { SetIdentifiers = new List<string> { Guid.NewGuid().ToString() } });
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var additionalSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        await adminClient.PostAsJsonAsync($"projects/{project.Name}/sets",
+            new { SetIdentifiers = new List<string> { additionalSet.Id.ToString() } });
+
+        var expectedOrder = testSets.Select(s => s.Id.ToString()).Append(additionalSet.Id.ToString()).ToList();
+
+        var getResponse = await adminClient.GetAsync($"projects/{project.Name}/sets");
+        var sets = await getResponse.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
+        sets!.Select(s => s.Id.ToString()).Should().ContainInOrder(expectedOrder);
     }
 
     [Fact]

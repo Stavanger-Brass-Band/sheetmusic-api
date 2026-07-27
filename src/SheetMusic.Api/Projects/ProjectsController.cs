@@ -9,6 +9,8 @@ using SheetMusic.Api.Projects.Commands;
 using SheetMusic.Api.Projects.Queries;
 using SheetMusic.Api.Projects.RequestModels;
 using SheetMusic.Api.Projects.ViewModels;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -53,37 +55,33 @@ public class ProjectsController(IMediator mediator) : ControllerBase
         return new OkObjectResult(new ApiProject(project));
     }
 
+    /// <summary>
+    /// Assigns the given sets to a project. The order of <see cref="SetCollectionRequest.SetIdentifiers"/> determines
+    /// the sort order of those sets - sets already assigned to the project are moved to match their position in the
+    /// list, so this endpoint also covers reordering the sets currently assigned to a project.
+    /// </summary>
     [Authorize(AuthPolicy.Admin)]
     [HttpPost("projects/{projectIdentifier}/sets")]
     public async Task<IActionResult> AssignSetToProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
         var project = await mediator.Send(new GetProject(projectIdentifier));
 
-        foreach (var setId in request.SetIdentifiers)
+        var setIds = new List<Guid>();
+
+        foreach (var setIdentifier in request.SetIdentifiers)
         {
-            var set = await mediator.Send(new GetSet(setId));
+            var set = await mediator.Send(new GetSet(setIdentifier));
 
             if (set is null) continue;
 
-            await mediator.Send(new ConnectSetToProject(project.Id, set.Id));
+            setIds.Add(set.Id);
         }
+
+        await mediator.Send(new AssignSetsToProject(project.Id, setIds));
 
         var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
 
         return new CreatedResult($"projects/{projectIdentifier}/sets", setsForProject.Select(s => new ApiSet(s)));
-    }
-
-    [Authorize(AuthPolicy.Admin)]
-    [HttpPut("projects/{projectIdentifier}/sets/order")]
-    public async Task<IActionResult> UpdateSetOrderForProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
-    {
-        var project = await mediator.Send(new GetProject(projectIdentifier));
-
-        await mediator.Send(new UpdateSetOrderForProject(project.Id, request));
-
-        var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
-
-        return new OkObjectResult(setsForProject.Select(s => new ApiSet(s)));
     }
 
     [Authorize(AuthPolicy.Admin)]
