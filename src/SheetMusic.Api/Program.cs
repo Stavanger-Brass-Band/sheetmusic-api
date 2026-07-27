@@ -12,8 +12,8 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
-using SheetMusic.Api.Repositories;
 using SheetMusic.Api.Search;
+using SheetMusic.Api.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
