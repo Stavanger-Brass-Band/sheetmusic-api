@@ -1,7 +1,7 @@
 using SheetMusic.Api.Database.Entities;
 using System;
 
-namespace SheetMusic.Api.Projects;
+namespace SheetMusic.Api.Projects.ViewModels;
 
 public class ApiProject(Project project)
 {

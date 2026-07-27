@@ -2,10 +2,13 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SheetMusic.Api.Authorization;
-using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.OData.MVC;
+using SheetMusic.Api.Projects.Commands;
+using SheetMusic.Api.Projects.Queries;
+using SheetMusic.Api.Projects.RequestModels;
+using SheetMusic.Api.Projects.ViewModels;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -68,6 +71,19 @@ public class ProjectsController(IMediator mediator) : ControllerBase
         var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
 
         return new CreatedResult($"projects/{projectIdentifier}/sets", setsForProject.Select(s => new ApiSet(s)));
+    }
+
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("projects/{projectIdentifier}/sets/order")]
+    public async Task<IActionResult> UpdateSetOrderForProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
+    {
+        var project = await mediator.Send(new GetProject(projectIdentifier));
+
+        await mediator.Send(new UpdateSetOrderForProject(project.Id, request));
+
+        var setsForProject = await mediator.Send(new GetSetsForProject(project.Id));
+
+        return new OkObjectResult(setsForProject.Select(s => new ApiSet(s)));
     }
 
     [Authorize(AuthPolicy.Admin)]
