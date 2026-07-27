@@ -81,3 +81,9 @@ SheetMusic.Api/
 - XML docs on all public APIs
 - FluentValidation for input
 - Integration tests for endpoints
+
+## Generated XML Documentation Files
+- `SheetMusic.Api.xml` (and similarly named `.xml` files in other project folders) are compiler-generated from XML doc comments via `<GenerateDocumentationFile>true</GenerateDocumentationFile>` in the `.csproj`
+- This applies to all build configurations (Debug and Release), so the file is always regenerated into `bin`/`obj` during any build, including cloud/CI builds
+- They are loaded at runtime via `IncludeXmlComments` to populate Swagger/OpenAPI descriptions
+- These files are pure build artifacts - do not commit them, and do not remove them from `.gitignore`

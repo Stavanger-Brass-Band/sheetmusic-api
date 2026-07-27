@@ -7,16 +7,10 @@
 		<UserSecretsId>59fb632e-4969-4656-b02c-fb769ed180b3</UserSecretsId>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<DocumentationFile>SheetMusic.Api.xml</DocumentationFile>
+	<PropertyGroup>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>1701;1702;1591</NoWarn>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<Content Include="SheetMusic.Api.xml">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Asp.Versioning.Abstractions" Version="10.0.0" />
