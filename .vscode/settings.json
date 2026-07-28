@@ -1,22 +1,23 @@
 {
     "window.title": "${activeRepositoryBranchName}",
     "chat.tools.terminal.autoApprove": {
-        "dotnet test": true,
         "dotnet add": true,
         "dotnet build": true,
-        "dotnet list": true,
-        "gh": true,
-        "git add": true,
-        "git commit": true,
-        "git push": true,
-        "git fetch": true,
-        "git checkout": true,
-        "git pull": true,
-        "git remote": true,
-        "dotnet tool": true,
         "dotnet ef": true,
-        "Test-Path": true,
+        "dotnet list": true,
+        "dotnet test": true,
+        "dotnet tool": true,
+        "gh": true,
         "Get-Process": true,
-        "git rebase": true
+        "git add": true,
+        "git checkout": true,
+        "git commit": true,
+        "git fetch": true,
+        "git pull": true,
+        "git push": true,
+        "git rebase": true,
+        "git remote": true,
+        "Test-Path": true,
+        "git merge-base": true
     }
 }
