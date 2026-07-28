@@ -74,6 +74,44 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
+    public async Task GetCategoryList_ShouldReturn401_WhenUnauthenticated()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("categories");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task AddNewCategory_ShouldReturn401_WhenUnauthenticated()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("categories", new { Name = $"Category-{Guid.NewGuid()}" });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateCategory_ShouldReturn401_WhenUnauthenticated()
+    {
+        var category = await SeedCategoryAsync();
+        var client = factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync($"categories/{category.Id}", new { Name = "New name" });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteCategory_ShouldReturn401_WhenUnauthenticated()
+    {
+        var category = await SeedCategoryAsync();
+        var client = factory.CreateClient();
+
+        var response = await client.DeleteAsync($"categories/{category.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task AssignCategoryToSet_ShouldBeSuccessful()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -143,6 +181,41 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
+    public async Task AssignCategoryToSet_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var category = await SeedCategoryAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync($"sheetmusic/sets/{testSet.Id}/categories", new { CategoryIdentifier = category.Id.ToString() });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.GetAsync("sheetmusic/sets/nonexistent-set-xyz/categories");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForSet_ShouldReturnEmptyList_WhenNoCategoriesAssigned()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.GetAsync($"sheetmusic/sets/{testSet.Id}/categories");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var categories = await response.Content.ReadFromJsonAsync<List<ApiCategory>>(JsonDefaults.Options);
+        categories.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task RemoveCategoryFromSet_ShouldBeSuccessful()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -181,6 +254,39 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
         var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.Id}/categories/{category.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task RemoveCategoryFromSet_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var category = await SeedCategoryAsync();
+        await adminClient.PostAsJsonAsync($"sheetmusic/sets/{testSet.Id}/categories", new { CategoryIdentifier = category.Id.ToString() });
+
+        var client = factory.CreateClient();
+        var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.Id}/categories/{category.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task RemoveCategoryFromSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var category = await SeedCategoryAsync();
+
+        var response = await adminClient.DeleteAsync($"sheetmusic/sets/nonexistent-set-xyz/categories/{category.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoveCategoryFromSet_ShouldReturn404_WhenCategoryDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.Id}/categories/nonexistent-category-xyz");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

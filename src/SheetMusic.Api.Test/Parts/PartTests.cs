@@ -26,6 +26,24 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task CreatePart_ShouldReturn401_WhenUnauthenticated()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync($"parts", new { Name = "Test", SortOrder = 1, Indexable = false });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreatePart_ShouldReturnBadRequest_WhenNameMissing()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PostAsJsonAsync("parts", new { Name = "", SortOrder = 1, Indexable = false });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task CreatePart_ShouldBeSuccessfull_WhenAdmin()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -40,6 +58,32 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
 
         var response = await adminClient.GetAsync($"parts/{part.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetPart_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.GetAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetPart_ShouldReturnPart_WhenFoundByAlias()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        await adminClient.PostAsJsonAsync($"parts/{part.Id}/aliases?alias=the-alias", new { });
+
+        var response = await adminClient.GetAsync("parts/the-alias");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        result!.Id.Should().Be(part.Id);
     }
 
     [Fact]
@@ -61,6 +105,28 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task UpdatePart_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.PutAsJsonAsync($"parts/{part.Id}", new { Name = "changed", SortOrder = 1, Indexable = false });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdatePart_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.PutAsJsonAsync($"parts/{part.Id}", new { Name = "changed", SortOrder = 1, Indexable = false });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task AddAlias_ShouldAddSuccessfully()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -69,6 +135,28 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
 
         var response = await adminClient.PostAsJsonAsync($"parts/{part.Id}/aliases?alias=testing", new { });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AddAlias_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.PostAsJsonAsync($"parts/{part.Id}/aliases?alias=testing", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AddAlias_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync($"parts/{part.Id}/aliases?alias=testing", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -86,6 +174,18 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task RemoveAlias_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        await adminClient.PostAsJsonAsync($"parts/{part.Id}/aliases?alias=testing", new { });
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"parts/{part.Id}/aliases/testing");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task DeletePart_ShouldDeleteSuccessfully()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -97,11 +197,90 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task DeletePart_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeletePart_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.DeleteAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task SearchForPart_ShouldReturn404_WhenNoMatch()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
         var response = await adminClient.GetAsync("parts/index?searchTerm=nonexistent");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task SearchForPart_ShouldReturnMatch_WhenPartNameMatches()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var partName = $"searchable-part-{Guid.NewGuid():N}";
+        var createResponse = await adminClient.PostAsJsonAsync("parts", new { Name = partName, SortOrder = 1, Indexable = true });
+        var part = await createResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+
+        var buildResponse = await adminClient.PostAsync("parts/index", null);
+        buildResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var response = await adminClient.GetAsync($"parts/index?searchTerm={partName}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        result!.Id.Should().Be(part!.Id);
+        result.Name.Should().Be(partName);
+    }
+
+    [Fact]
+    public async Task SearchForPart_ShouldReturnMatch_WhenSearchingByAlias()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var partName = $"aliased-part-{Guid.NewGuid():N}";
+        var createResponse = await adminClient.PostAsJsonAsync("parts", new { Name = partName, SortOrder = 1, Indexable = true });
+        var part = await createResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+
+        await adminClient.PostAsJsonAsync($"parts/{part!.Id}/aliases?alias=the-search-alias", new { });
+
+        var buildResponse = await adminClient.PostAsync("parts/index", null);
+        buildResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var response = await adminClient.GetAsync("parts/index?searchTerm=the-search-alias");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        result!.Id.Should().Be(part.Id);
+    }
+
+    [Fact]
+    public async Task SearchForPart_ShouldReturn404_WhenPartExistsButIsNotIndexable()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var partBuilder = new PartDataBuilder(adminClient);
+        var part = await partBuilder.ProvisionSinglePartAsync();
+
+        var input = partBuilder.GetPartInput(part.Name);
+        if (input is null)
+            throw new Exception("Input model not found for newly created entity");
+
+        input.Indexable = false;
+        await adminClient.PutAsJsonAsync($"parts/{part.Id}", input); // triggers an index rebuild
+
+        var response = await adminClient.GetAsync($"parts/index?searchTerm={part.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 

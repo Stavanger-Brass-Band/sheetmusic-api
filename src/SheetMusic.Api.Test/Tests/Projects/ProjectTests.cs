@@ -106,12 +106,37 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task UpdateProject_ShouldReturn404_WhenProjectDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PutAsJsonAsync($"projects/{Guid.NewGuid()}",
+            new
+            {
+                Name = "Does not exist",
+                StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+                EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetProjects_ShouldBeSuccessful_WhenAuthenticated()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.GetAsync("projects");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetProjects_ShouldReturn401_WhenUnauthenticated()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("projects");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -133,12 +158,30 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task GetProject_ShouldReturn404_WhenProjectDoesNotExist()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.GetAsync($"projects/{Guid.NewGuid()}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task CreateProject_ShouldBeForbidden_WhenReader()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.PostAsJsonAsync("projects", new { Name = "Should fail", StartDate = DateTimeOffset.UtcNow, EndDate = DateTimeOffset.UtcNow.AddDays(1) });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CreateProject_ShouldReturn401_WhenUnauthenticated()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("projects", new { Name = "Should fail", StartDate = DateTimeOffset.UtcNow, EndDate = DateTimeOffset.UtcNow.AddDays(1) });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -223,6 +266,17 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task AssignSetToProject_ShouldReturn404_WhenProjectDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var response = await adminClient.PostAsJsonAsync($"projects/{Guid.NewGuid()}/sets",
+            new { SetIdentifiers = new List<string> { testSet.Id.ToString() } });
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetSetsForProject_ShouldReturnSets_WhenAssigned()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -245,6 +299,26 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var sets = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         sets.Should().NotBeNull();
         sets!.Should().Contain(s => s.Id == testSet.Id);
+    }
+
+    [Fact]
+    public async Task GetSetsForProject_ShouldReturnEmptyList_WhenNoSetsAssigned()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Empty sets test - {Guid.NewGuid():N}",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+        await adminClient.PostAsJsonAsync("projects", project);
+
+        var response = await adminClient.GetAsync($"projects/{project.Name}/sets");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var sets = await response.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
+        sets.Should().BeEmpty();
     }
 
     [Fact]
@@ -337,6 +411,24 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
+    public async Task DeleteProject_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Delete project forbidden test - {Guid.NewGuid():N}",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+        await adminClient.PostAsJsonAsync("projects", project);
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.DeleteAsync($"projects/{project.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task UnassignSetFromProject_ShouldRemoveSet_WhenAdmin()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -362,5 +454,42 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var setsResponse = await adminClient.GetAsync($"projects/{project.Name}/sets");
         var sets = await setsResponse.Content.ReadFromJsonAsync<List<ApiSet>>(JsonDefaults.Options);
         sets.Should().NotContain(s => s.Id == testSet.Id);
+    }
+
+    [Fact]
+    public async Task UnassignSetFromProject_ShouldBeForbidden_WhenReader()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Unassign set forbidden test - {Guid.NewGuid():N}",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+        await adminClient.PostAsJsonAsync("projects", project);
+
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        await adminClient.PostAsJsonAsync($"projects/{project.Name}/sets",
+            new { SetIdentifiers = new List<string> { testSet.Id.ToString() } });
+
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+        var response = await client.SendAsync(new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, $"projects/{project.Name}/sets/")
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new { SetIdentifiers = new List<string> { testSet.Id.ToString() } })
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UnassignSetFromProject_ShouldReturn404_WhenProjectDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.SendAsync(new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, $"projects/{Guid.NewGuid()}/sets/")
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new { SetIdentifiers = new List<string> { Guid.NewGuid().ToString() } })
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }
