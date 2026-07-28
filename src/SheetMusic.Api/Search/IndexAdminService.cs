@@ -32,7 +32,7 @@ public class IndexAdminService(IConfiguration config) : IIndexAdminService
     public async Task ClearIndexAsync<T>()
     {
         var indexClient = new SearchIndexClient(Endpoint, new AzureKeyCredential(AdminKey));
-        await indexClient.DeleteIndexAsync(GetIndexName<T>());
+        await indexClient.DeleteIndexAsync(GetIndexName<T>(), default(MatchConditions));
     }
 
     public SearchClient GetQueryClient<T>()
