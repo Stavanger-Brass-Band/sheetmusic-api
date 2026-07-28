@@ -14,7 +14,9 @@
         "git pull": true,
         "git remote": true,
         "dotnet tool": true,
-        "dotnet ef": true
-        "Test-Path": true
+        "dotnet ef": true,
+        "Test-Path": true,
+        "Get-Process": true,
+        "git rebase": true
     }
 }
