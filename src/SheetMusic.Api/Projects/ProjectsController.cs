@@ -1,13 +1,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SheetMusic.Api.Controllers.ViewModels;
-using SheetMusic.Api.CQRS.Query;
 using SheetMusic.Api.OData.MVC;
 using SheetMusic.Api.Projects.Commands;
 using SheetMusic.Api.Projects.Queries;
 using SheetMusic.Api.Projects.RequestModels;
 using SheetMusic.Api.Projects.ViewModels;
+using SheetMusic.Api.Sets.Queries;
+using SheetMusic.Api.Sets.ViewModels;
 using System;
 using System.Collections.Generic;
 using SheetMusic.Api.Users.Authorization;

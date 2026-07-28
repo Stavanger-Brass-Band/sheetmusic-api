@@ -1,6 +1,6 @@
 ﻿using Bogus;
 using SheetMusic.Api.Parts.RequestModels;
-using SheetMusic.Api.Test.Models;
+using SheetMusic.Api.Test.Sets.Models;
 using System;
 
 namespace SheetMusic.Api.Test.Utility;
