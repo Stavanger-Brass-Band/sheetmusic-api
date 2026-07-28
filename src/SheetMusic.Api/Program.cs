@@ -102,6 +102,13 @@ app.MapScalarApiReference(options =>
 {
     options.Title = "SheetMusic API";
     options.AddDocuments(provider.ApiVersionDescriptions.Select(description => description.GroupName));
+
+    // Preselects the oauth2 scheme (password flow against /token, see OAuthSecuritySchemeTransformer) so the
+    // Authentication panel opens ready for a user to type their own username/password and try it out interactively.
+    // Persisting the resulting token means it survives page reloads instead of being lost every refresh.
+    options.AddPreferredSecuritySchemes("oauth2")
+        .AddPasswordFlow("oauth2", flow => flow.ClientId = "sheetmusic-api")
+        .WithPersistentAuthentication();
 });
 
 app.MapControllers();
