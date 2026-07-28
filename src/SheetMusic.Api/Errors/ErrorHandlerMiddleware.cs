@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Errors;
@@ -50,6 +50,6 @@ public class ErrorHandlerMiddleware(RequestDelegate next, ILogger<ErrorHandlerMi
         context.Response.Clear();
         context.Response.StatusCode = error.Status ?? (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync(JsonConvert.SerializeObject(error));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(error));
     }
 }

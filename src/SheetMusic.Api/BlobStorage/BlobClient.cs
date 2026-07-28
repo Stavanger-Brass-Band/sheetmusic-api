@@ -1,5 +1,4 @@
-﻿using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
+﻿using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Errors;
@@ -13,13 +12,9 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
 {
     private const string ContainerName = "sheet-music";
 
-    private CloudBlobContainer GetContainer()
+    private BlobContainerClient GetContainer()
     {
-        var storageAccount = CloudStorageAccount.Parse(configuration.GetConnectionString("AzureStorageConnectionString"));
-        var blobClient = storageAccount.CreateCloudBlobClient();
-        var container = blobClient.GetContainerReference(ContainerName);
-
-        return container;
+        return new BlobContainerClient(configuration.GetConnectionString("AzureStorageConnectionString"), ContainerName);
     }
 
     public async Task EnsureContainerExistsAsync()
@@ -33,7 +28,7 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
         var blob = GetBlob(identifier);
 
         using var memoryStream = new MemoryStream();
-        await blob.DownloadToStreamAsync(memoryStream);
+        await blob.DownloadToAsync(memoryStream);
         await memoryStream.FlushAsync();
         return memoryStream.ToArray();
     }
@@ -50,7 +45,7 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
         try
         {
             var blob = GetBlob(identifier);
-            await blob.UploadFromStreamAsync(contentStream);
+            await blob.UploadAsync(contentStream, overwrite: true);
         }
         catch (Exception ex)
         {
@@ -58,21 +53,19 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
         }
     }
 
-    private CloudBlockBlob GetBlob(PartRelatedToSet identifier)
+    private Azure.Storage.Blobs.BlobClient GetBlob(PartRelatedToSet identifier)
     {
         var container = GetContainer();
-        return container.GetBlockBlobReference(identifier.BlobPath);
+        return container.GetBlobClient(identifier.BlobPath);
     }
 
     public async Task DeleteSetContentAsync(Guid id)
     {
         var container = GetContainer();
-        var parts = await container.GetDirectoryReference(id.ToString()).ListBlobsSegmentedAsync(new BlobContinuationToken());
 
-        foreach (var part in parts.Results)
+        await foreach (var blobItem in container.GetBlobsAsync(prefix: $"{id}/"))
         {
-            var blobPart = part as CloudBlockBlob;
-            blobPart?.DeleteIfExistsAsync();
+            await container.DeleteBlobIfExistsAsync(blobItem.Name);
         }
     }
 
@@ -80,7 +73,13 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
     {
         var blob = GetBlob(identifier);
 
-        return await blob.ExistsAsync() && blob.Properties.Length > 0;
+        if (!await blob.ExistsAsync())
+        {
+            return false;
+        }
+
+        var properties = await blob.GetPropertiesAsync();
+        return properties.Value.ContentLength > 0;
     }
 
     public async Task DeletePartContentAsync(PartRelatedToSet identifier)
@@ -89,3 +88,4 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
         await blob.DeleteIfExistsAsync();
     }
 }
+
