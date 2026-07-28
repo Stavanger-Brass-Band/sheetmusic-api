@@ -318,6 +318,53 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task GetPartList_WithExpandAliases_ShouldIncludeAliases()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var alias = $"expand-alias-{Guid.NewGuid():N}";
+
+        await adminClient.PostAsJsonAsync($"parts/{part.Id}/aliases?alias={alias}", new { });
+
+        var response = await adminClient.GetAsync($"parts?$filter={Uri.EscapeDataString($"name eq '{part.Name}'")}&$expand=aliases");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts.Should().ContainSingle();
+        parts![0].Aliases.Should().Contain(alias);
+    }
+
+    [Fact]
+    public async Task GetPartList_WithoutExpand_ShouldNotIncludeAliases()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var alias = $"no-expand-alias-{Guid.NewGuid():N}";
+
+        await adminClient.PostAsJsonAsync($"parts/{part.Id}/aliases?alias={alias}", new { });
+
+        var response = await adminClient.GetAsync($"parts?$filter={Uri.EscapeDataString($"name eq '{part.Name}'")}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts.Should().ContainSingle();
+        parts![0].Aliases.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("$expand=parts")]
+    [InlineData("$expand=aliases,unknown")]
+    [InlineData("$expand=aliases,")]
+    [InlineData("$expand=")]
+    public async Task GetPartList_WithInvalidExpand_ShouldReturnBadRequest(string clause)
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync($"parts?{clause}");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetPart_ShouldReturn404_WhenPartDoesNotExist()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);

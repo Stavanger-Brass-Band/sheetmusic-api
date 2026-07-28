@@ -1,12 +1,14 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
 using SheetMusic.Api.Parts.Commands;
 using SheetMusic.Api.Parts.Errors;
 using SheetMusic.Api.Parts.Queries;
 using SheetMusic.Api.Parts.RequestModels;
 using SheetMusic.Api.Parts.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +26,7 @@ namespace SheetMusic.Api.Parts;
 [Produces("application/json")]
 public class PartsController(IMediator mediator) : ControllerBase
 {
+    private const string SupportedPartExpand = "aliases";
 
     /// <summary>
     /// Rebuild the part index manually. 
@@ -44,15 +47,24 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Gets a list of all Parts. OData filtering is supported, e.g. $filter=name eq 'partitur'.
+    /// Use $expand=aliases to include the enabled aliases of each part.
     /// Requires Administrator privileges.
     /// </summary>
     /// <param name="queryParams">The OData query paramateres specified</param>
     /// <response code="200">A list of parts matching filter, or all parts. Empty list if no matching results</response>
+    /// <response code="400">If an unsupported $expand value is provided</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [HttpGet("parts")]
     public async Task<ActionResult<List<ApiPart>>> GetPartList([FromQuery] ODataQueryParams queryParams)
     {
+        var unsupportedExpands = queryParams.Expand
+            .Where(e => !string.Equals(e, SupportedPartExpand, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (unsupportedExpands.Count > 0)
+            throw new InvalidQueryParametersError($"Unsupported $expand value(s): {string.Join(", ", unsupportedExpands)}. Supported values: {SupportedPartExpand}");
+
         var results = await mediator.Send(new GetPartCollection(queryParams));
         var apiModels = results.Select(p => new ApiPart(p));
 
