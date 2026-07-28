@@ -1,4 +1,5 @@
 ﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Errors;
@@ -63,7 +64,7 @@ public class BlobClient(IConfiguration configuration) : IBlobClient
     {
         var container = GetContainer();
 
-        await foreach (var blobItem in container.GetBlobsAsync(prefix: $"{id}/"))
+        await foreach (var blobItem in container.GetBlobsAsync(new GetBlobsOptions { Prefix = $"{id}/" }))
         {
             await container.DeleteBlobIfExistsAsync(blobItem.Name);
         }
