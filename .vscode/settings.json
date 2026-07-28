@@ -17,6 +17,7 @@
         "git push": true,
         "git rebase": true,
         "git remote": true,
-        "Test-Path": true
+        "Test-Path": true,
+        "git merge-base": true
     }
 }
