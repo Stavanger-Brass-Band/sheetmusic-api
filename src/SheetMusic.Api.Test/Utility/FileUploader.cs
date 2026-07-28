@@ -32,6 +32,18 @@ public static class FileUploader
         }
     }
 
+    public static async Task<HttpResponseMessage> UploadOneFileAndGetResponse(string path, HttpClient client, string endpoint)
+    {
+        using var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
+        var content = new StreamContent(fileStream);
+        content.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "file", FileName = Path.GetFileName(path) };
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+        using var formData = new MultipartFormDataContent();
+        formData.Add(content);
+        return await client.PostAsync(endpoint, formData);
+    }
+
     public static async Task UploadFromStream(Stream stream, HttpClient client, string endpoint)
     {
         var content = new StreamContent(stream);
@@ -51,5 +63,16 @@ public static class FileUploader
         {
             Console.WriteLine("Completed successfully");
         }
+    }
+
+    public static async Task<HttpResponseMessage> UploadOneFileAndGetResponseFromStream(Stream stream, HttpClient client, string endpoint)
+    {
+        var content = new StreamContent(stream);
+        content.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "file", FileName = Path.GetTempFileName() };
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+        using var formData = new MultipartFormDataContent();
+        formData.Add(content);
+        return await client.PostAsync(endpoint, formData);
     }
 }

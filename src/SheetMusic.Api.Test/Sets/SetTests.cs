@@ -7,6 +7,7 @@ using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -37,6 +38,17 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task GetSingleSet_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.GetAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task UpdateSet_ShouldBeForbidden_ForReaderUser()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -61,6 +73,35 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var response = await adminClient.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
         var body = response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UpdateSet_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testBuilder = new SetDataBuilder(adminClient);
+        var testSet = await testBuilder.ProvisionSingleSetAsync();
+        var inputSet = testBuilder.GetRequestSet(testSet.OriginatingId);
+
+        var client = factory.CreateClient();
+        var response = await client.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task AddNewSet_ShouldReturnConflict_WhenArchiveNumberAlreadyInUse()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var response = await adminClient.PostAsJsonAsync("sheetmusic/sets", new
+        {
+            Title = $"Duplicate archive number set - {Guid.NewGuid()}",
+            Composer = "Test",
+            ArchiveNumber = testSet.ArchiveNumber
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
@@ -149,6 +190,17 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task DeletePartOnSet_ShouldReturn404_WhenRelationshipDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var response = await adminClient.DeleteAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetSinglePartOnSet_ShouldBeSuccessfull()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -160,6 +212,26 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         setPart.Should().NotBeNull();
         setPart!.SetId.Should().Be(testSet.Id);
         setPart.MusicPartId.Should().Be(part.Id);
+    }
+
+    [Fact]
+    public async Task GetSinglePartOnSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var response = await adminClient.GetAsync($"sheetmusic/sets/nonexistent-set-xyz/parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetSinglePartOnSet_ShouldReturn404_WhenPartDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts/nonexistent-part-xyz");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -178,6 +250,26 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task DeleteSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.DeleteAsync("sheetmusic/sets/nonexistent-set-xyz");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteSet_ShouldReturn401_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var client = factory.CreateClient();
+        var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetSinglePartFile_ShouldBeSuccessfull()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -191,6 +283,67 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
 
         var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task UploadPartsForSet_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var parts = await new PartDataBuilder(adminClient).WithParts(1).ProvisionAsync();
+
+        using var memoryStream = new MemoryStream();
+        using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+        {
+            var entry = zip.CreateEntry($"{parts[0].Name}.pdf");
+            using var entryStream = entry.Open();
+            await entryStream.WriteAsync(Encoding.UTF8.GetBytes("content"));
+        }
+        await memoryStream.FlushAsync();
+        memoryStream.Position = 0;
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(memoryStream, adminClient, "sheetmusic/sets/nonexistent-set-xyz");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AddPartContent_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+        await File.WriteAllTextAsync(path, "content");
+
+        var response = await FileUploader.UploadOneFileAndGetResponse(path, adminClient, $"sheetmusic/sets/nonexistent-set-xyz/parts/{part.Name}/content?api-version=2.0");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AddPartContent_ShouldReturn404_WhenPartDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var path = $"{Path.GetTempPath()}nonexistent-part.pdf";
+        await File.WriteAllTextAsync(path, "content");
+
+        var response = await FileUploader.UploadOneFileAndGetResponse(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/nonexistent-part-xyz/content?api-version=2.0");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AddPartContent_ShouldReturnConflict_WhenPartAlreadyAddedToSet()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        await AddPartToSetAsync(testSet, part);
+
+        var path = $"{Path.GetTempPath()}{part.Name}-duplicate.pdf";
+        await File.WriteAllTextAsync(path, "content");
+
+        var response = await FileUploader.UploadOneFileAndGetResponse(path, adminClient, $"sheetmusic/sets/{testSet.Id}/parts/{part.Name}/content?api-version=2.0");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
@@ -382,6 +535,15 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
 
         var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken=invalid");
         response.StatusCode.Should().NotBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetPartsAsZip_ShouldReturn404_WhenSetDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.GetAsync("sheetmusic/sets/nonexistent-set-xyz/zip?downloadToken=irrelevant");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
