@@ -1,29 +1,24 @@
-﻿using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
-using System.Text.Json.Nodes;
-using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
+using System.Text.Json.Nodes;
 
 namespace SheetMusic.Api.Configuration;
 
 /// <summary>
-/// Represents the Swagger/Swashbuckle operation filter used to document the implicit API version parameter.
+/// Fills in parameter descriptions and default values from <see cref="Microsoft.AspNetCore.Mvc.ApiExplorer.ApiParameterDescription"/>
+/// that the native OpenAPI generator leaves blank, and locks the implicit <c>api-version</c> parameter down to
+/// the single value supported by each operation.
 /// </summary>
-/// <remarks>This <see cref="IOperationFilter"/> is only required due to bugs in the <see cref="SwaggerGenerator"/>.
-/// Once they are fixed and published, this class can be removed.</remarks>
-public class SwaggerDefaultValues : IOperationFilter
+public class OpenApiDefaultValuesTransformer : IOpenApiOperationTransformer
 {
-    /// <summary>
-    /// Applies the filter to the specified operation using the given context.
-    /// </summary>
-    /// <param name="operation">The operation to apply the filter to.</param>
-    /// <param name="context">The current operation filter context.</param>
-    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    /// <inheritdoc />
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
     {
-        var apiDescription = context.ApiDescription;
+        var apiDescription = context.Description;
 
         if (operation.Parameters == null)
-            return;
+            return Task.CompletedTask;
 
         foreach (var parameter in operation.Parameters.OfType<OpenApiParameter>())
         {
@@ -46,5 +41,7 @@ public class SwaggerDefaultValues : IOperationFilter
 
             parameter.Required |= description.IsRequired;
         }
+
+        return Task.CompletedTask;
     }
 }

@@ -1,19 +1,20 @@
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 using SheetMusic.Api.OData.MVC;
-using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 
 namespace SheetMusic.Api.Configuration;
 
 /// <summary>
 /// <see cref="ODataQueryParams"/> is bound by <see cref="ODataParamResolver"/> from flat, string based query
-/// parameters such as <c>$orderby=title desc</c>. ApiExplorer however sees it as a complex type and documents
-/// it either as a single object shaped parameter or as one parameter per property, neither of which the binder
-/// reads. Swagger UI consequently sends serialized JSON (for example <c>$orderBy=[{"field":"title","direction":0}]</c>),
-/// which is rejected as an invalid clause. This filter replaces those parameters with the ones actually supported.
+/// parameters such as <c>$orderby=title desc</c>. The native OpenAPI generator however sees it as a complex
+/// type and documents it either as a single object shaped parameter or as one parameter per property, neither
+/// of which the binder reads. Clients would consequently send serialized JSON (for example
+/// <c>$orderBy=[{"field":"title","direction":0}]</c>), which is rejected as an invalid clause. This transformer
+/// replaces those parameters with the ones actually supported.
 /// </summary>
-public class SwaggerODataQueryParams : IOperationFilter
+public class ODataQueryParamsTransformer : IOpenApiOperationTransformer
 {
     private static readonly (string Name, string Description, JsonSchemaType Type)[] ODataParameters =
     [
@@ -25,18 +26,19 @@ public class SwaggerODataQueryParams : IOperationFilter
         ("$expand", "Comma separated list of related collections to include, for example \"parts\".", JsonSchemaType.String)
     ];
 
-    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    /// <inheritdoc />
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
     {
         if (operation.Parameters == null)
-            return;
+            return Task.CompletedTask;
 
-        var generatedNames = context.ApiDescription.ParameterDescriptions
+        var generatedNames = context.Description.ParameterDescriptions
             .Where(IsODataQueryParam)
             .Select(p => p.Name)
             .ToHashSet();
 
         if (generatedNames.Count == 0)
-            return;
+            return Task.CompletedTask;
 
         foreach (var parameter in operation.Parameters.Where(p => generatedNames.Contains(p.Name!)).ToList())
             operation.Parameters.Remove(parameter);
@@ -52,6 +54,8 @@ public class SwaggerODataQueryParams : IOperationFilter
                 Schema = new OpenApiSchema { Type = type }
             });
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
