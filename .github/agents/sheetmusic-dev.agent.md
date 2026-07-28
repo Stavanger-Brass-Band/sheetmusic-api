@@ -5,16 +5,6 @@ tools: [execute/runNotebookCell, execute/executionSubagent, execute/getTerminalO
 argument-hint: "What feature or endpoint do you want to add?"
 agents: ["Code Reviewer"]
 user-invocable: true
-hooks:
-  PostToolUse:
-    - type: command
-      windows: "dotnet format src/SheetMusic.Api/SheetMusic.Api.csproj"
-      command: "dotnet format src/SheetMusic.Api/SheetMusic.Api.csproj"
-      timeout: 30
-    - type: command
-      windows: "dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --no-build --verbosity minimal"
-      command: "dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --no-build --verbosity minimal"
-      timeout: 60
 ---
 
 You are an expert developer specializing in the Sheet Music API codebase. Your role is to implement new features, endpoints, and entities following the established architectural patterns.

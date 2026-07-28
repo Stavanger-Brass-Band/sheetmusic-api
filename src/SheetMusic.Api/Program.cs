@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Resend;
+using Scalar.AspNetCore;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
@@ -14,6 +15,7 @@ using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Search;
 using SheetMusic.Api.Users;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,7 +55,7 @@ builder.Services.Configure<FormOptions>(x =>
 
 builder.Services.AddSheetMusicSecurity(builder.Configuration);
 builder.Services.AddSheetMusicVersioning();
-builder.Services.AddSheetMusicSwagger();
+builder.Services.AddSheetMusicOpenApi();
 builder.Services.AddSheetMusicRateLimiting(builder.Configuration);
 
 builder.Services.AddSingleton<IBlobClient, BlobClient>();
@@ -94,19 +96,19 @@ app.UseRateLimiter();
 
 var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
 
-app.UseSwagger(options =>
-{
-    options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1;
-});
-app.UseSwaggerUI(options =>
-{
-    options.DisplayRequestDuration();
+app.MapOpenApi();
 
-    foreach (var description in provider.ApiVersionDescriptions)
-    {
-        options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
-    }
-    options.OAuthAppName("SheetMusic API");
+app.MapScalarApiReference(options =>
+{
+    options.Title = "SheetMusic API";
+    options.AddDocuments(provider.ApiVersionDescriptions.Select(description => description.GroupName));
+
+    // Preselects the oauth2 scheme (password flow against /token, see OAuthSecuritySchemeTransformer) so the
+    // Authentication panel opens ready for a user to type their own username/password and try it out interactively.
+    // Persisting the resulting token means it survives page reloads instead of being lost every refresh.
+    options.AddPreferredSecuritySchemes("oauth2")
+        .AddPasswordFlow("oauth2", flow => flow.ClientId = "sheetmusic-api")
+        .EnablePersistentAuthentication();
 });
 
 app.MapControllers();
@@ -115,3 +117,10 @@ app.MapHealthChecks("/health");
 app.MapDefaultEndpoints();
 
 app.Run();
+
+/// <summary>
+/// Exposes the top-level statement entry point as a public partial class so
+/// <c>WebApplicationFactory&lt;Program&gt;</c> can boot this application for integration tests.
+/// </summary>
+public partial class Program;
+

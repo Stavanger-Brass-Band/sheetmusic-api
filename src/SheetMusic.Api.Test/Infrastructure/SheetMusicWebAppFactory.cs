@@ -22,7 +22,7 @@ using System.Text;
 
 namespace SheetMusic.Api.Test.Infrastructure;
 
-public class SheetMusicWebAppFactory : WebApplicationFactory<Startup>
+public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
 {
     public ServiceProvider TestServices = null!;
     public Mock<IBlobClient> BlobMock = null!;

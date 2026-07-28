@@ -13,11 +13,11 @@ namespace SheetMusic.Api.Test.Sets;
 /// <summary>
 /// The OData query parameters are bound from flat strings, but ApiExplorer sees <c>ODataQueryParams</c> as a
 /// complex type. Left alone it documents either an object shaped parameter or one parameter per property,
-/// making Swagger UI send serialized JSON such as <c>$orderBy=[{"field":"title","direction":0}]</c> instead
+/// making clients send serialized JSON such as <c>$orderBy=[{"field":"title","direction":0}]</c> instead
 /// of the OData syntax the binder expects.
 /// </summary>
 [Collection(Collections.SetList)]
-public class ODataSwaggerDocumentationTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
+public class ODataOpenApiDocumentationTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
     private static readonly string[] ExpectedParameters = ["$search", "$filter", "$orderby", "$top", "$skip", "$expand"];
 
@@ -30,9 +30,9 @@ public class ODataSwaggerDocumentationTests(SheetMusicWebAppFactory factory) : I
     [InlineData("1.0", "/categories", null)]
     [InlineData("1.0", "/parts", null)]
     [InlineData("1.0", "/projects", null)]
-    public async Task SwaggerDocument_ShouldExposeFlatODataQueryParameters(string apiVersion, string path, string? unrelatedParameter)
+    public async Task OpenApiDocument_ShouldExposeFlatODataQueryParameters(string apiVersion, string path, string? unrelatedParameter)
     {
-        using var document = await GetSwaggerDocumentAsync(apiVersion);
+        using var document = await GetOpenApiDocumentAsync(apiVersion);
 
         var parameters = document.RootElement
             .GetProperty("paths")
@@ -61,9 +61,9 @@ public class ODataSwaggerDocumentationTests(SheetMusicWebAppFactory factory) : I
     [Theory]
     [InlineData("1.0")]
     [InlineData("2.0")]
-    public async Task SwaggerDocument_ShouldNeverDocumentODataQueryParamsAsAnObject(string apiVersion)
+    public async Task OpenApiDocument_ShouldNeverDocumentODataQueryParamsAsAnObject(string apiVersion)
     {
-        using var document = await GetSwaggerDocumentAsync(apiVersion);
+        using var document = await GetOpenApiDocumentAsync(apiVersion);
 
         var offenders = new List<string>();
 
@@ -87,10 +87,10 @@ public class ODataSwaggerDocumentationTests(SheetMusicWebAppFactory factory) : I
         offenders.Should().BeEmpty();
     }
 
-    private async Task<JsonDocument> GetSwaggerDocumentAsync(string apiVersion)
+    private async Task<JsonDocument> GetOpenApiDocumentAsync(string apiVersion)
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
-        return JsonDocument.Parse(await client.GetStringAsync($"swagger/{apiVersion}/swagger.json"));
+        return JsonDocument.Parse(await client.GetStringAsync($"openapi/{apiVersion}.json"));
     }
 }
