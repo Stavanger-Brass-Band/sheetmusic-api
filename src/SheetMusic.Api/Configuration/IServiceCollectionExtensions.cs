@@ -109,6 +109,7 @@ public static class IServiceCollectionExtensions
         {
             setup.OperationFilter<SwaggerDefaultValues>();
             setup.OperationFilter<SwaggerHideVersionHeader>();
+            setup.OperationFilter<SwaggerODataQueryParams>();
 
             setup.AddSecurityDefinition("oauth2",
                 new OpenApiSecurityScheme

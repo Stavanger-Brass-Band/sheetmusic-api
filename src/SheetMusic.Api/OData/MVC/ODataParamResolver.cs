@@ -64,9 +64,7 @@ public class ODataParamResolver : IModelBinder
         if (string.IsNullOrWhiteSpace(order))
             throw new InvalidQueryParametersError("$orderby cannot be empty");
 
-        return order.Split(',')
-            .Select(clause => ParseOrderByClause(clause, order))
-            .ToList();
+        return [.. order.Split(',').Select(clause => ParseOrderByClause(clause, order))];
     }
 
     private static ODataOrderByOption ParseOrderByClause(string clause, string fullClause)
@@ -74,7 +72,10 @@ public class ODataParamResolver : IModelBinder
         var tokens = clause.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (tokens.Length is 0 or > 2)
-            throw new InvalidQueryParametersError($"Invalid $orderby clause '{fullClause}'. Expected format: 'field [asc|desc]'");
+            throw new InvalidQueryParametersError(InvalidOrderByMessage(fullClause));
+
+        if (!IsFieldName(tokens[0]))
+            throw new InvalidQueryParametersError(InvalidOrderByMessage(fullClause));
 
         var direction = SortDirection.asc;
 
@@ -94,6 +95,17 @@ public class ODataParamResolver : IModelBinder
             Direction = direction
         };
     }
+
+    /// <summary>
+    /// <c>$orderby</c> uses OData syntax, not JSON. Without this check a serialized object such as
+    /// <c>[{"field":"title","direction":0}]</c> is split on its commas into fragments that are accepted as
+    /// field names here, and only fail much later with a confusing "could not locate mapping" message.
+    /// </summary>
+    private static bool IsFieldName(string token) =>
+        char.IsLetter(token[0]) && token.All(c => char.IsLetterOrDigit(c) || c == '_');
+
+    private static string InvalidOrderByMessage(string fullClause) =>
+        $"Invalid $orderby clause '{fullClause}'. Expected comma separated clauses on the format 'field [asc|desc]', for example 'title desc'";
 
     private static ODataExpression ParseFilter(string filter)
     {
