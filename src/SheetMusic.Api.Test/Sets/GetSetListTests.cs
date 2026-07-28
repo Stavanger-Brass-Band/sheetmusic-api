@@ -495,6 +495,23 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         await AssertBadRequestAsync(client, $"?{clause}");
     }
 
+    /// <summary>
+    /// <c>$orderby</c> is OData syntax, never JSON. A serialized sort option contains commas, so without
+    /// field name validation it was split into several fragments that were happily accepted as sort clauses.
+    /// </summary>
+    [Theory]
+    [InlineData("""[{"field":"title","direction":0}]""")]
+    [InlineData("""{"field":"title","direction":0}""")]
+    public async Task GetSetList_WithJsonSerialisedOrderBy_ShouldReturnBadRequestWithProblemDetails(string json)
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var problem = await AssertBadRequestAsync(client, $"?$orderby={Uri.EscapeDataString(json)}");
+
+        problem.Detail.Should().Contain("$orderby", "the JSON must be rejected while parsing, not by the field mapping");
+        problem.Detail.Should().NotContain("mapping");
+    }
+
     #endregion
 
     #region $top and $skip
@@ -772,7 +789,7 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         return items!;
     }
 
-    private static async Task AssertBadRequestAsync(HttpClient client, string query)
+    private static async Task<ProblemResponse> AssertBadRequestAsync(HttpClient client, string query)
     {
         var response = await client.GetAsync($"sheetmusic/sets{query}");
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest, "invalid consumer input must never produce a 500");
@@ -781,6 +798,8 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         problem.Should().NotBeNull();
         problem!.Status.Should().Be((int)HttpStatusCode.BadRequest);
         problem.Detail.Should().NotBeNullOrWhiteSpace();
+
+        return problem;
     }
 
     private async Task<List<ApiSet>> GetCorpusAsync()
