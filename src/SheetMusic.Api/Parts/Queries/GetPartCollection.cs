@@ -5,7 +5,9 @@ using SheetMusic.Api.OData;
 using SheetMusic.Api.OData.Extensions;
 using SheetMusic.Api.OData.MVC;
 using SheetMusic.Api.Database.Entities;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,6 +22,12 @@ public class GetPartCollection(ODataQueryParams queryParams) : IRequest<List<Mus
         public async Task<List<MusicPart>> Handle(GetPartCollection request, CancellationToken cancellationToken)
         {
             var query = db.MusicParts.AsQueryable();
+
+            if (request.QueryParams != null &&
+                request.QueryParams.Expand.Any(e => string.Equals(e, "aliases", StringComparison.OrdinalIgnoreCase)))
+            {
+                query = query.Include(p => p.Aliases);
+            }
 
             if (request.QueryParams != null && request.QueryParams.HasFilter)
             {
