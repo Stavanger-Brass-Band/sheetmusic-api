@@ -57,6 +57,14 @@ ASP.NET Core 8.0 Web API for managing sheet music collections. Uses CQRS, Mediat
 - Return `ActionResult<T>` or `ActionResult`
 - Primary constructors with `IMediator mediator`
 
+### REST endpoint documentation
+`PartsController` and `CategoriesController` are the reference standard - follow their shape for every controller/action:
+- Controller-level `<summary>` describing the resource and any privilege requirements
+- Per-action `<summary>` describing what the endpoint does
+- `<param>` for every route/query/body parameter
+- `<response code="...">` for every status code the action can produce (success plus `400`/`401`/`403`/`404`/`409`, etc.), matching the `StatusCode` of exceptions the underlying command/query can throw
+- Prefer `ActionResult<T>` over `IActionResult` so Swagger can infer the response schema
+
 ### Database
 - EF Core with SQL Server
 - `Guid` for entity IDs

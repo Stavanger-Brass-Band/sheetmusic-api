@@ -31,6 +31,9 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// <summary>
     /// Authenticate using legacy HMAC password hash and receive a JWT token.
     /// </summary>
+    /// <param name="request">The username and password to authenticate with</param>
+    /// <response code="200">The access token</response>
+    /// <response code="400">Username or password is incorrect</response>
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.Token)]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
@@ -69,6 +72,9 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// <summary>
     /// Register a new user using legacy password hashing.
     /// </summary>
+    /// <param name="request">Details about the new user</param>
+    /// <response code="201">Details about the newly created user</response>
+    /// <response code="409">A user with the same email already exists</response>
     [AllowAnonymous]
     [HttpPost("users/register")]
     public async Task<IActionResult> RegisterAsync([FromBody] UserRequest request)
@@ -97,6 +103,13 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// <summary>
     /// Update a user's password using legacy password hashing.
     /// </summary>
+    /// <param name="identifier">The guid of the user to update</param>
+    /// <param name="request">The new password</param>
+    /// <response code="200">Password was updated successfully</response>
+    /// <response code="400">Unable to identify the authenticated user, or the target user is not yourself and you are not admin</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
@@ -122,6 +135,9 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// <summary>
     /// Get all users.
     /// </summary>
+    /// <response code="200">A list of all users</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [HttpGet("users")]
     public IActionResult GetAll()
     {
@@ -136,6 +152,12 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
     /// <summary>
     /// Get a user by ID or "me" for the current user.
     /// </summary>
+    /// <param name="identifier">The guid of the user, or "me" for the current user</param>
+    /// <response code="200">The user matching the identifier</response>
+    /// <response code="400">Identifier could not be parsed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [HttpGet("users/{identifier}")]
     public async Task<IActionResult> GetByIdAsync(string identifier)
     {

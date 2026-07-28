@@ -20,6 +20,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Controllers;
 
+/// <summary>
+/// This controller contains endpoints for managing sheet music Set resources, including the parts (PDF files)
+/// assigned to a set and the categories assigned to a set.
+///
+/// PS! Creating, updating and deleting sets, categories on a set and part content require Administrator privileges.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("sheetmusic")]
@@ -38,6 +44,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="queryParams">Optional. OData support for $filter</param>
     /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
     /// <returns>Sets matching criteria</returns>
+    /// <response code="200">A list of sets matching filter, or all sets. Empty list if no matching results</response>
+    /// <response code="400">If an unsupported $expand value is provided</response>
+    /// <response code="404">Category was not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(List<ApiSet>))]
     [HttpGet("sets")]
     public async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category)
@@ -87,6 +97,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <returns>List of parts for set</returns>
+    /// <response code="200">Set information including its parts</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [HttpGet("sets/{identifier}/parts")]
     public async Task<ActionResult<ApiSet>> GetPartsForSet(string identifier)
@@ -118,7 +131,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
     /// <returns>The part that matches, 404 if not found</returns>
-
+    /// <response code="200">The part matching the identifiers</response>
+    /// <response code="404">Set, part, or the relationship between them was not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(ApiSheetMusicPart))]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}")]
     public async Task<IActionResult> GetSinglePart(string setIdentifier, string partIdentifier)
@@ -138,6 +153,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
     /// <param name="downloadToken">A token to prove you are authorized for download</param>
     /// <returns>The PDF file, if it exists. 404 otherwise.</returns>
+    /// <response code="200">The PDF file content</response>
+    /// <response code="400">If the download token is missing or invalid</response>
+    /// <response code="404">Set, part, or the relationship between them was not found</response>
     [AllowAnonymous]
     [Produces("application/pdf")]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}/pdf")]
@@ -165,6 +183,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <returns>Set matching <paramref name="setIdentifier"/></returns>
+    /// <response code="200">The set matching the identifier</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [HttpGet("sets/{setIdentifier}")]
     public async Task<IActionResult> GetSetinformationByIdentifier(string setIdentifier)
@@ -187,6 +208,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="request">Update set parameters</param>
     /// <returns>Updated set metadata</returns>
+    /// <response code="200">The updated set</response>
+    /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [Authorize(AuthPolicy.Admin)]
     [HttpPut("sets/{setIdentifier}")]
@@ -212,6 +238,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <returns>List of categories assigned to the set</returns>
+    /// <response code="200">List of categories assigned to the set</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(List<ApiCategory>))]
     [HttpGet("sets/{setIdentifier}/categories")]
     public async Task<IActionResult> GetCategoriesForSet(string setIdentifier)
@@ -232,6 +261,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="request">The category to assign, identified by guid or name</param>
     /// <returns>The updated list of categories assigned to the set</returns>
+    /// <response code="200">The updated list of categories assigned to the set</response>
+    /// <response code="404">Set or category not found</response>
+    /// <response code="409">The category is already assigned to the set</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Produces("application/json", Type = typeof(List<ApiCategory>))]
     [Authorize(AuthPolicy.Admin)]
     [HttpPost("sets/{setIdentifier}/categories")]
@@ -255,6 +289,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="categoryIdentifier">A value uniquely identifying category. Either guid or name</param>
     /// <returns>204 if successfull, 404 if set, category or the assignment was not found</returns>
+    /// <response code="204">Category was removed from the set successfully</response>
+    /// <response code="404">Set, category, or the assignment was not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpDelete("sets/{setIdentifier}/categories/{categoryIdentifier}")]
     public async Task<ActionResult> RemoveCategoryFromSet(string setIdentifier, string categoryIdentifier)
@@ -268,7 +306,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Authorized a set for download, allowing a single download for the one with the token.
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
-    /// <returns></returns>
+    /// <returns>A one-time download token</returns>
+    /// <response code="200">The generated download token</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [HttpGet("sets/{setIdentifier}/zip/token")]
     public async Task<IActionResult> GetDownloadToken(string setIdentifier)
     {
@@ -291,6 +332,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="downloadToken">A token for proving that user is allowed to download this set</param>
     /// <returns>Zipped collection of parts</returns>
+    /// <response code="200">The zipped collection of parts</response>
+    /// <response code="400">If the download token is missing or invalid</response>
+    /// <response code="404">Set not found</response>
     [AllowAnonymous]
     [Produces("application/zip")]
     [HttpGet("sets/{setIdentifier}/zip")]
@@ -320,6 +364,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// If a non-empty file does not exists, the set is listed in results
     /// </summary>
     /// <returns>The sets with parts that are assigned, but a file is not present</returns>
+    /// <response code="200">The sets with parts that are assigned, but a file is not present</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json")]
     [HttpGet("sets/withoutFiles")]
     public async Task<IActionResult> GetSetsThatHasPartsButNoFiles()
@@ -357,6 +403,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="file">The file that has all parts. Needs to be a zip file.</param>
     /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+    /// <response code="200">Parts were uploaded successfully</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="409">A part in the zip file is already assigned to the set</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpPost("sets/{identifier}")]
     public async Task<IActionResult> UploadPartsForSets(string identifier, IFormFile file)
@@ -378,6 +429,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="partIdentifier">Name of the part to add</param>
     /// <param name="file">The PDF file for the part</param>
     /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+    /// <response code="200">Part content was added successfully</response>
+    /// <response code="404">Set or part not found</response>
+    /// <response code="409">The part is already added to the set</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpPost("sets/{setIdentifier}/parts/{partIdentifier}/content")]
     [MapToApiVersion("1.0")]
@@ -396,6 +452,12 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="partIdentifier">Name of the part to add</param>
     /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
+    /// <response code="200">Part content was added successfully</response>
+    /// <response code="400">If the uploaded file is missing or invalid</response>
+    /// <response code="404">Set or part not found</response>
+    /// <response code="409">The part is already added to the set</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(MaxFileSize)]
@@ -424,6 +486,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="partIdentifier">Name of the part to add</param>
     /// <returns>204 if successfull, 404 if not found, 500 if something bad happens</returns>
+    /// <response code="204">Part content and relationship were deleted successfully</response>
+    /// <response code="404">The relationship between the set and part was not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpDelete("sets/{setIdentifier}/parts/{partIdentifier}")]
     public async Task<ActionResult> DeletePart(string setIdentifier, string partIdentifier)
@@ -439,6 +505,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="request">Information about the new set</param>
     /// <returns>200 if ok, 500 if something bad happens</returns>
+    /// <response code="200">The newly created set</response>
+    /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
+    /// <response code="409">The requested archive number is already in use</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [Authorize(AuthPolicy.Admin)]
     [HttpPost("sets")]
@@ -462,6 +533,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <returns>200 if ok, 404 if not found, 500 if something bad happens</returns>
+    /// <response code="200">Set was deleted successfully</response>
+    /// <response code="404">Set not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpDelete("sets/{setIdentifier}")]
     public async Task<IActionResult> DeleteSet(string setIdentifier)
