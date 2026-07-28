@@ -11,6 +11,7 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Email;
 using SheetMusic.Api.Search;
+using SheetMusic.Api.Sets;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
 using System;

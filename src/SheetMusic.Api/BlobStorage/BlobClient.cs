@@ -3,6 +3,7 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Sets;
 using System;
 using System.IO;
 using System.Threading.Tasks;
