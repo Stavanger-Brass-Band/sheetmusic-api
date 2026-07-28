@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using SheetMusic.Api.Controllers.RequestModels;
+﻿using SheetMusic.Api.Controllers.RequestModels;
 using SheetMusic.Api.Controllers.ViewModels;
 using System;
 using System.IO;
@@ -7,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -55,7 +55,7 @@ public class FolderImporter
             }
             else
             {
-                set = JsonConvert.DeserializeObject<ApiSet>(await setResponse.Content.ReadAsStringAsync());
+                set = JsonSerializer.Deserialize<ApiSet>(await setResponse.Content.ReadAsStringAsync(), JsonDefaults.Options);
             }
 
             foreach (var fileInfo in folderInfo.GetFiles())
@@ -110,7 +110,7 @@ public class FolderImporter
             Title = name,
         };
 
-        var content = new StringContent(JsonConvert.SerializeObject(parameters), Encoding.UTF8, "application/json");
+        var content = new StringContent(JsonSerializer.Serialize(parameters), Encoding.UTF8, "application/json");
         var response = await client.PostAsync("sheetmusic/sets", content);
 
         response.EnsureSuccessStatusCode();

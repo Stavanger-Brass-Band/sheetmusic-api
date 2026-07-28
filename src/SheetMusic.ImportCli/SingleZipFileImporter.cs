@@ -1,8 +1,8 @@
-﻿using Newtonsoft.Json;
-using SheetMusic.Api.Controllers.ViewModels;
+﻿using SheetMusic.Api.Controllers.ViewModels;
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SheetMusic.ImportCli;
@@ -32,7 +32,7 @@ public class SingleZipFileImporter
 
             var set = await client.GetAsync($"sheetmusic/sets/{archiveNumber}/parts");
 
-            var content = JsonConvert.DeserializeObject<ApiSet>(await set.Content.ReadAsStringAsync());
+            var content = JsonSerializer.Deserialize<ApiSet>(await set.Content.ReadAsStringAsync(), JsonDefaults.Options);
 
             if (content.Parts == null || content.Parts.Count == 0)
             {

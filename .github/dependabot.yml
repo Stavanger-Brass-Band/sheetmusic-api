@@ -8,6 +8,13 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    ignore:
+      # Swashbuckle.AspNetCore 10.2.3 (latest) still depends on Microsoft.OpenApi 2.7.5.
+      # Bumping past that breaks Swagger generation at runtime with a MissingMethodException
+      # (IOpenApiRequestBody.get_Content()). Remove this ignore once Swashbuckle ships support
+      # for Microsoft.OpenApi 3.x, or once the API migrates to Scalar (see tracking issue).
+      - dependency-name: "Microsoft.OpenApi"
+        versions: [">= 3.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
