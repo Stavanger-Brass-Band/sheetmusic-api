@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System;
 
-namespace SheetMusic.Api.Sets.Attributes;
+namespace SheetMusic.Api.Utilities;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class DisableFormValueModelBindingAttribute : Attribute, IResourceFilter

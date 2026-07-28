@@ -7,7 +7,6 @@ using Microsoft.Extensions.Caching.Memory;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.OData.MVC;
-using SheetMusic.Api.Sets.Attributes;
 using SheetMusic.Api.Sets.Commands;
 using SheetMusic.Api.Sets.Queries;
 using SheetMusic.Api.Sets.RequestModels;
