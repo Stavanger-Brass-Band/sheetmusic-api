@@ -108,7 +108,7 @@ app.MapScalarApiReference(options =>
     // Persisting the resulting token means it survives page reloads instead of being lost every refresh.
     options.AddPreferredSecuritySchemes("oauth2")
         .AddPasswordFlow("oauth2", flow => flow.ClientId = "sheetmusic-api")
-        .WithPersistentAuthentication();
+        .EnablePersistentAuthentication();
 });
 
 app.MapControllers();
