@@ -35,6 +35,9 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Authenticate using Identity and receive a JWT token.
     /// </summary>
+    /// <param name="request">The username and password to authenticate with</param>
+    /// <response code="200">The access token</response>
+    /// <response code="400">Username or password is incorrect</response>
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.Token)]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
@@ -80,6 +83,9 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Register a new user. User is created as inactive and must be activated by an admin.
     /// </summary>
+    /// <param name="request">Details about the new user</param>
+    /// <response code="201">Details about the newly created user</response>
+    /// <response code="400">If provided input is invalid, e.g. weak password</response>
     [AllowAnonymous]
     [HttpPost("users/register")]
     public async Task<IActionResult> RegisterAsync([FromBody] UserRequest request)
@@ -106,6 +112,13 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Update a user's password. Admins can update any user.
     /// </summary>
+    /// <param name="identifier">The guid of the user to update</param>
+    /// <param name="request">The new password</param>
+    /// <response code="200">Password was updated successfully</response>
+    /// <response code="400">Unable to identify the authenticated user</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. Only the user themselves or an Administrator can update the password</response>
+    /// <response code="404">User not found</response>
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
@@ -134,6 +147,9 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Get all users. Admin only.
     /// </summary>
+    /// <response code="200">A list of all users</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpGet("users")]
     public async Task<IActionResult> GetAll()
@@ -146,6 +162,12 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Get a user by ID or "me" for the current user. Admins can view any user; other users may only view themselves.
     /// </summary>
+    /// <param name="identifier">The guid of the user, or "me" for the current user</param>
+    /// <response code="200">The user details, including assigned roles</response>
+    /// <response code="400">Identifier could not be parsed, or the authenticated user could not be identified</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. Only the user themselves or an Administrator can view this user</response>
+    /// <response code="404">User not found</response>
     [HttpGet("users/{identifier}")]
     public async Task<IActionResult> GetByIdAsync(string identifier)
     {
@@ -177,6 +199,12 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Activate a user, allowing them to log in. Admin only.
     /// </summary>
+    /// <param name="id">The guid of the user to activate</param>
+    /// <response code="200">User was activated successfully</response>
+    /// <response code="400">The identity operation failed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpPut("users/{id}/activate")]
     public async Task<IActionResult> ActivateUserAsync(Guid id)
@@ -188,6 +216,12 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Deactivate a user, preventing them from logging in. Admin only.
     /// </summary>
+    /// <param name="id">The guid of the user to deactivate</param>
+    /// <response code="200">User was deactivated successfully</response>
+    /// <response code="400">The identity operation failed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpPut("users/{id}/deactivate")]
     public async Task<IActionResult> DeactivateUserAsync(Guid id)
@@ -199,6 +233,13 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Assign a role to a user. Admin only.
     /// </summary>
+    /// <param name="id">The guid of the user to assign the role to</param>
+    /// <param name="request">The name of the role to assign</param>
+    /// <response code="200">Role was assigned successfully</response>
+    /// <response code="400">The identity operation failed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User or role not found</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpPut("users/{id}/roles")]
     public async Task<IActionResult> AssignRoleAsync(Guid id, [FromBody] AssignRoleRequest request)
@@ -210,6 +251,13 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Remove a role from a user. Admin only.
     /// </summary>
+    /// <param name="id">The guid of the user to remove the role from</param>
+    /// <param name="roleName">The name of the role to remove</param>
+    /// <response code="204">Role was removed successfully</response>
+    /// <response code="400">The identity operation failed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpDelete("users/{id}/roles/{roleName}")]
     public async Task<IActionResult> RemoveRoleAsync(Guid id, string roleName)
@@ -221,6 +269,13 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Delete a user. Defaults to a soft delete (deactivation). Pass <paramref name="hardDelete"/>=true to permanently remove the user. Admin only.
     /// </summary>
+    /// <param name="id">The guid of the user to delete</param>
+    /// <param name="hardDelete">If true, permanently removes the user instead of deactivating it</param>
+    /// <response code="204">User was deleted successfully</response>
+    /// <response code="400">The identity operation failed</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User not found</response>
     [Authorize(AuthPolicy.Admin)]
     [HttpDelete("users/{id}")]
     public async Task<IActionResult> DeleteUserAsync(Guid id, [FromQuery] bool hardDelete = false)
@@ -233,6 +288,8 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// Request a password reset email. Always returns 200 to prevent user enumeration.
     /// Rate limited per client IP to prevent abuse of the outbound email flow.
     /// </summary>
+    /// <param name="request">The email address of the user requesting a reset</param>
+    /// <response code="200">Request was accepted (regardless of whether the email is registered)</response>
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.ForgotPassword)]
     [HttpPost("users/forgot-password")]
@@ -245,6 +302,9 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <summary>
     /// Reset a user's password using a token received via email.
     /// </summary>
+    /// <param name="request">The email, reset token and new password</param>
+    /// <response code="200">Password was reset successfully</response>
+    /// <response code="400">The reset token is invalid or expired</response>
     [AllowAnonymous]
     [HttpPost("users/reset-password")]
     public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordRequest request)
