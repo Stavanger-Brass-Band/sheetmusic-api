@@ -1,11 +1,11 @@
 using FluentAssertions;
 using Moq;
-using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Parts.ViewModels;
+using SheetMusic.Api.Sets;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Models;
+using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
 using System;
 using System.Collections.Generic;

@@ -1,5 +1,5 @@
 ﻿using FluentAssertions;
-using SheetMusic.Api.Test.Models;
+using SheetMusic.Api.Test.Sets.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
