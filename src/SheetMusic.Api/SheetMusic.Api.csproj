@@ -18,6 +18,11 @@
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
 		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.4.6" />
 		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.4.6" />
+		<!-- Microsoft.Data.SqlClient's transitive Azure.Identity is too old to understand Aspire's
+		     AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential (only 1.15.0+ accepts named credential
+		     types; earlier versions only accept 'dev'/'prod'), breaking "Active Directory Default" SQL
+		     auth in Azure Container Apps. Force a compatible version for the whole app. -->
+		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
 		<PackageReference Include="MediatR" Version="14.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
