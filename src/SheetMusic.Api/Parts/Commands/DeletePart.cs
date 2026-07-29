@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Errors;
+using SheetMusic.Api.Parts.Errors;
 using System;
 using System.Linq;
 using System.Threading;
@@ -25,7 +26,7 @@ public class DeletePart(Guid partId) : IRequest
             if (part == null) throw new NotFoundError(request.PartId.ToString(), "Part not found");
 
             if (part.MusicianMusicParts.Any() || part.Parts.Any())
-                throw new InvalidOperationException("Part is linked to musicians or sets and cannot be deleted");
+                throw new PartInUseError(part.Name);
 
             db.MusicParts.Remove(part);
             await db.SaveChangesAsync(cancellationToken);

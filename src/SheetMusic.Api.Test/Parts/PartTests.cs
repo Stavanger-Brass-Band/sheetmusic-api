@@ -1,4 +1,8 @@
 ﻿using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Parts.ViewModels;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -6,6 +10,8 @@ using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Utility;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
@@ -216,6 +222,41 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var client = factory.CreateClient();
         var response = await client.DeleteAsync($"parts/{part.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeletePart_ShouldReturnConflict_WhenPartIsUsedInSet()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var set = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var path = $"{Path.GetTempPath()}{part.Name}.pdf";
+        await File.WriteAllTextAsync(path, "content");
+        await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{set.Id}/parts/{part.Name}/content?api-version=2.0");
+
+        var response = await adminClient.DeleteAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task DeletePart_ShouldReturnConflict_WhenPartIsAssignedToMusician()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            var userGroupId = await db.UserGroups.Select(g => g.Id).FirstAsync();
+            var musician = new Musician { Id = Guid.NewGuid(), Name = $"Musician-{Guid.NewGuid()}", UserGroupId = userGroupId };
+            db.Musicians.Add(musician);
+            db.Set<MusicianMusicPart>().Add(new MusicianMusicPart { Id = Guid.NewGuid(), MusicianId = musician.Id, MusicPartId = part.Id });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await adminClient.DeleteAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
