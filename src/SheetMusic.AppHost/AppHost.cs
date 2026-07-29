@@ -106,7 +106,11 @@ IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResource
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
 
     var project = builder.AddProject<Projects.SheetMusic_Api>(name)
-        .WithReference(database)
+        // connectionName fixed to "SheetMusicContext" (not the database resource's own name): Program.cs
+        // always reads ConnectionStrings:SheetMusicContext, but the test database resource is named
+        // "SheetMusicContextTest" - without this override the test app/job would get an env var named
+        // ConnectionStrings__SheetMusicContextTest that the app never looks for.
+        .WithReference(database, connectionName: "SheetMusicContext")
         .WaitFor(database)
         .WithReference(blobs)
         .WaitFor(storage)
@@ -184,7 +188,8 @@ IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResource
 void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString> database)
 {
     builder.AddProject<Projects.SheetMusic_Api>(name)
-        .WithReference(database)
+        // Same fixed connectionName override as AddApi above, for the same reason.
+        .WithReference(database, connectionName: "SheetMusicContext")
         .WaitFor(database)
         .WithReference(blobs)
         .WaitFor(storage)

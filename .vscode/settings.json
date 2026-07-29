@@ -18,6 +18,8 @@
         "git rebase": true,
         "git remote": true,
         "Test-Path": true,
-        "git merge-base": true
+        "git merge-base": true,
+        "az": true,
+        "aspire": true
     }
 }
