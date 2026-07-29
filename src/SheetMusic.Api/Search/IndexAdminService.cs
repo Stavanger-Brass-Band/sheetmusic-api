@@ -43,5 +43,16 @@ public class IndexAdminService(IConfiguration config) : IIndexAdminService
     private Uri Endpoint => new Uri($"https://{config[ConfigKeys.SearchHost] ?? throw new MissingConfigurationException(ConfigKeys.SearchHost)}");
     private string AdminKey => config[ConfigKeys.SearchAdminKey] ?? throw new MissingConfigurationException(ConfigKeys.SearchAdminKey);
 
-    private string GetIndexName<T>() => typeof(T).Name.ToLower();
+    /// <summary>
+    /// Resolves the physical index name for <typeparamref name="T"/>, optionally prefixed by
+    /// <see cref="ConfigKeys.SearchIndexPrefix"/> so test and prod can share a single Free-tier
+    /// search service without a rebuild in one environment deleting the other's index. With no
+    /// prefix configured this returns the historical unprefixed name unchanged.
+    /// </summary>
+    private string GetIndexName<T>()
+    {
+        var baseName = typeof(T).Name.ToLower();
+        var prefix = config[ConfigKeys.SearchIndexPrefix];
+        return string.IsNullOrWhiteSpace(prefix) ? baseName : $"{prefix}-{baseName}";
+    }
 }

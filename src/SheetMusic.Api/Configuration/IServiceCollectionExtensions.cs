@@ -10,7 +10,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Resend;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Users.Authorization;
 using System;
@@ -23,6 +25,28 @@ namespace SheetMusic.Api.Configuration;
 
 public static class IServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers <see cref="ResendEmailSender"/> when <see cref="ConfigKeys.ResendApiKey"/> is
+    /// configured, or a logging no-op sender otherwise. Guards against a test environment - holding an
+    /// anonymised copy of production data - ever sending real password-reset email because a live
+    /// Resend key was configured there by mistake: without a key, nothing can be sent regardless.
+    /// </summary>
+    public static IServiceCollection AddSheetMusicEmailSender(this IServiceCollection services, IConfiguration configuration)
+    {
+        var resendApiKey = configuration[ConfigKeys.ResendApiKey];
+        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        {
+            services.AddResend(options => options.ApiToken = resendApiKey);
+            services.AddScoped<IEmailSender, ResendEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, NoOpEmailSender>();
+        }
+
+        return services;
+    }
+
     public static IServiceCollection AddSheetMusicSecurity(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddCors(options =>
