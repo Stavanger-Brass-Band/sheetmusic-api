@@ -1,7 +1,10 @@
 ﻿using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -10,7 +13,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Resend;
+using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Users.Authorization;
 using System;
@@ -23,6 +29,65 @@ namespace SheetMusic.Api.Configuration;
 
 public static class IServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers <see cref="ResendEmailSender"/> when <see cref="ConfigKeys.ResendApiKey"/> is
+    /// configured, or a logging no-op sender otherwise. Guards against a test environment - holding an
+    /// anonymised copy of production data - ever sending real password-reset email because a live
+    /// Resend key was configured there by mistake: without a key, nothing can be sent regardless.
+    /// </summary>
+    public static IServiceCollection AddSheetMusicEmailSender(this IServiceCollection services, IConfiguration configuration)
+    {
+        var resendApiKey = configuration[ConfigKeys.ResendApiKey];
+        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        {
+            services.AddResend(options => options.ApiToken = resendApiKey);
+            services.AddScoped<IEmailSender, ResendEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, NoOpEmailSender>();
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers Data Protection and, where possible, persists its key ring to blob storage (container
+    /// "data-protection-keys", blob "keys.xml") instead of the local filesystem. App Service
+    /// auto-persists keys to %HOME%, but Azure Container Apps' filesystem is ephemeral: every
+    /// scale-to-zero cold start would otherwise regenerate the ring, invalidating outstanding
+    /// password-reset tokens and breaking token validation across replicas. See
+    /// BlobStorage/AzureBlobXmlRepository.cs for why a small custom <see cref="IXmlRepository"/> is used
+    /// instead of Microsoft's official (legacy-SDK-only) DataProtection.AzureStorage package.
+    ///
+    /// Resolving the <see cref="BlobServiceClient"/> requires a throwaway service provider built from
+    /// the services registered so far - this must therefore be called after the app's
+    /// <see cref="BlobServiceClient"/> registration (e.g. <c>AddAzureBlobServiceClient</c>). Guarded:
+    /// hosts with no blob storage configured at all (e.g. the WebApplicationFactory-based test host,
+    /// which doesn't run through the AppHost) fall back to Data Protection's default local key storage
+    /// instead of failing application startup - matching the historical, storage-optional behaviour.
+    /// </summary>
+    public static IServiceCollection AddSheetMusicDataProtection(this IServiceCollection services, string applicationName)
+    {
+        services.AddDataProtection().SetApplicationName(applicationName);
+
+        try
+        {
+            using var blobServiceProvider = services.BuildServiceProvider();
+            var blobServiceClient = blobServiceProvider.GetRequiredService<BlobServiceClient>();
+            var keyRingContainer = blobServiceClient.GetBlobContainerClient("data-protection-keys");
+
+            services.Configure<KeyManagementOptions>(options =>
+                options.XmlRepository = new AzureBlobXmlRepository(keyRingContainer, "keys.xml"));
+        }
+        catch (InvalidOperationException)
+        {
+            // No blob storage configured for this host; Data Protection uses its default key storage.
+        }
+
+        return services;
+    }
+
     public static IServiceCollection AddSheetMusicSecurity(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddCors(options =>

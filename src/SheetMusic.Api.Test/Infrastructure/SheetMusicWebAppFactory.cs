@@ -39,6 +39,18 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("SkipMigrations", "true");
 
+        // AppSettings:Secret has no committed fallback (issue #237) - startup fails fast without it, so
+        // every test host needs its own value. Only ever used to sign tokens within this test process.
+        builder.UseSetting("AppSettings:Secret", "sheetmusic-api-test-signing-key-not-used-in-production");
+
+        // appsettings.Development.json points ConnectionStrings:blobs at the local Azurite emulator, but
+        // no emulator is running for this in-memory test host. Program.cs resolves a real BlobServiceClient
+        // from that connection string to back Data Protection's key ring (issue #235); left unset, that
+        // resolution fails fast with InvalidOperationException and Program.cs falls back to its default,
+        // filesystem-based key storage - exactly what this process-local test host needs. IBlobClient
+        // itself is separately replaced with BlobMock below, so this override doesn't affect blob-content tests.
+        builder.UseSetting("ConnectionStrings:blobs", "");
+
         // This factory instance is shared across all tests in a collection, so the rate limiter
         // partition (keyed by client IP) accumulates requests across every test method. Use a
         // generous limit here so unrelated tests don't trip 429s; tests that specifically verify

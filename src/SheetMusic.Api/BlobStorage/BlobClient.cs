@@ -1,7 +1,5 @@
 ﻿using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Sets;
 using System;
@@ -10,13 +8,20 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.BlobStorage;
 
-public class BlobClient(IConfiguration configuration) : IBlobClient
+/// <summary>
+/// Reads and writes sheet music PDFs in blob storage via an injected <see cref="BlobServiceClient"/>.
+/// The client is resolved through the Aspire Azure Storage Blobs integration (see Program.cs), which
+/// transparently handles both a local emulator connection string and, once published, a service
+/// endpoint URI combined with a managed identity credential - so this class never needs to know which
+/// case it is running under.
+/// </summary>
+public class BlobClient(BlobServiceClient blobServiceClient) : IBlobClient
 {
     private const string ContainerName = "sheet-music";
 
     private BlobContainerClient GetContainer()
     {
-        return new BlobContainerClient(configuration.GetConnectionString("AzureStorageConnectionString"), ContainerName);
+        return blobServiceClient.GetBlobContainerClient(ContainerName);
     }
 
     public async Task EnsureContainerExistsAsync()

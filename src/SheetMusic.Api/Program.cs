@@ -1,17 +1,15 @@
-﻿using Asp.Versioning.ApiExplorer;
+using Asp.Versioning.ApiExplorer;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Resend;
 using Scalar.AspNetCore;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
-using SheetMusic.Api.Email;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Search;
 using SheetMusic.Api.Users;
@@ -41,11 +39,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
     options.TokenLifespan = TimeSpan.FromHours(1));
 
-builder.Services.AddResend(options =>
-{
-    options.ApiToken = builder.Configuration[ConfigKeys.ResendApiKey] ?? string.Empty;
-});
-builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
+builder.Services.AddSheetMusicEmailSender(builder.Configuration);
 
 builder.Services.Configure<FormOptions>(x =>
 {
@@ -58,9 +52,18 @@ builder.Services.AddSheetMusicVersioning();
 builder.Services.AddSheetMusicOpenApi();
 builder.Services.AddSheetMusicRateLimiting(builder.Configuration);
 
-builder.Services.AddSingleton<IBlobClient, BlobClient>();
+// Resolves the emulator-connection-string case (local Azurite via Aspire's RunAsEmulator) and the
+// published service-endpoint-URI-plus-managed-identity case transparently, so BlobClient never has to
+// know which one it's running under. See BlobStorage/BlobClient.cs.
+builder.AddAzureBlobServiceClient("blobs");
+builder.Services.AddSingleton<IBlobClient, SheetMusic.Api.BlobStorage.BlobClient>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
+
+// See AddSheetMusicDataProtection for why the key ring is persisted to blob storage rather than the
+// local filesystem (issue #235). Must run after AddAzureBlobServiceClient above, since it resolves the
+// BlobServiceClient from the services registered so far.
+builder.Services.AddSheetMusicDataProtection("SheetMusic.Api");
 
 builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<Program>());
 
@@ -72,11 +75,20 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 var app = builder.Build();
 
-if (!builder.Configuration.GetValue<bool>("SkipMigrations"))
+// A dedicated migration entry point, invoked as `dotnet SheetMusic.Api.dll --migrate` from a deploy-time
+// job built from this same image, rather than running as part of every application start. Exits with a
+// non-zero code on failure so the invoking job/pipeline can detect it.
+if (args.Any(a => string.Equals(a, "--migrate", StringComparison.OrdinalIgnoreCase)))
+{
+    var migrationExitCode = await MigrationRunner.RunAsAppEntryPointAsync(app.Services);
+    Environment.Exit(migrationExitCode);
+}
+
+if (MigrationRunner.ShouldRunOnStartup(builder.Configuration))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
-    db.Database.Migrate();
+    await db.Database.MigrateAsync();
 
     if (app.Environment.IsDevelopment())
     {
