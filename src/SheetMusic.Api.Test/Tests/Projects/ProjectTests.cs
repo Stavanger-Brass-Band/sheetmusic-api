@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
@@ -519,4 +520,77 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         });
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    #region OData $orderby, $skip and $top
+
+    private static async Task SeedProjectsAsync(HttpClient client, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            await client.PostAsJsonAsync("projects", new
+            {
+                Name = name,
+                StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+                EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+            });
+        }
+    }
+
+    [Fact]
+    public async Task GetProjects_ShouldRespectOrderBy_WhenOrderByAscendingProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Zulu project", "Alfa project", "Mike project");
+
+        var response = await client.GetAsync("projects?$orderby=name asc");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects!.Select(p => p.Name).Should().Equal("Alfa project", "Mike project", "Zulu project");
+    }
+
+    [Fact]
+    public async Task GetProjects_ShouldRespectOrderBy_WhenOrderByDescendingProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Zulu project", "Alfa project", "Mike project");
+
+        var response = await client.GetAsync("projects?$orderby=name desc");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects!.Select(p => p.Name).Should().Equal("Zulu project", "Mike project", "Alfa project");
+    }
+
+    [Fact]
+    public async Task GetProjects_ShouldRespectTop_WhenTopProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Alfa project", "Bravo project", "Charlie project");
+
+        var response = await client.GetAsync("projects?$orderby=name asc&$top=2");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects!.Select(p => p.Name).Should().Equal("Alfa project", "Bravo project");
+    }
+
+    [Fact]
+    public async Task GetProjects_ShouldRespectSkipAndTop_WhenBothProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Alfa project", "Bravo project", "Charlie project", "Delta project");
+
+        var response = await client.GetAsync("projects?$orderby=name asc&$skip=1&$top=2");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects!.Select(p => p.Name).Should().Equal("Bravo project", "Charlie project");
+    }
+
+    #endregion
 }

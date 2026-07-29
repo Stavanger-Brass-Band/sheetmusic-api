@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Xunit;
@@ -530,4 +531,70 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await client.DeleteAsync($"parts/{part.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
+
+    #region OData $orderby, $skip and $top
+
+    private static async Task SeedPartsAsync(HttpClient client, params string[] names)
+    {
+        foreach (var name in names)
+            await client.PostAsJsonAsync("parts", new { Name = name, SortOrder = 1, Indexable = false });
+    }
+
+    [Fact]
+    public async Task GetPartList_ShouldRespectOrderBy_WhenOrderByAscendingProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedPartsAsync(client, "Zulu part", "Alfa part", "Mike part");
+
+        var response = await client.GetAsync("parts?$orderby=name asc");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts!.Select(p => p.Name).Should().Equal("Alfa part", "Mike part", "Zulu part");
+    }
+
+    [Fact]
+    public async Task GetPartList_ShouldRespectOrderBy_WhenOrderByDescendingProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedPartsAsync(client, "Zulu part", "Alfa part", "Mike part");
+
+        var response = await client.GetAsync("parts?$orderby=name desc");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts!.Select(p => p.Name).Should().Equal("Zulu part", "Mike part", "Alfa part");
+    }
+
+    [Fact]
+    public async Task GetPartList_ShouldRespectTop_WhenTopProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedPartsAsync(client, "Alfa part", "Bravo part", "Charlie part");
+
+        var response = await client.GetAsync("parts?$orderby=name asc&$top=2");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts!.Select(p => p.Name).Should().Equal("Alfa part", "Bravo part");
+    }
+
+    [Fact]
+    public async Task GetPartList_ShouldRespectSkipAndTop_WhenBothProvided()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedPartsAsync(client, "Alfa part", "Bravo part", "Charlie part", "Delta part");
+
+        var response = await client.GetAsync("parts?$orderby=name asc&$skip=1&$top=2");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var parts = await response.Content.ReadFromJsonAsync<List<ApiPart>>(JsonDefaults.Options);
+        parts!.Select(p => p.Name).Should().Equal("Bravo part", "Charlie part");
+    }
+
+    #endregion
 }
