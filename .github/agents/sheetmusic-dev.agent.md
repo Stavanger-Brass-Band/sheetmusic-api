@@ -87,6 +87,11 @@ When adding a new entity:
 
 When changing existing behavior (bug fix, field addition, small tweak) outside the full endpoint/entity flow above, still add or update a test covering the change before considering the task complete.
 
+### AppHost / Aspire Changes
+
+- When investigating Aspire hosting APIs or Azure provisioning types (e.g. `Azure.Provisioning.*`, `PublishAsAzureContainerApp` customization), use `aspire docs search` / `aspire docs api search` (or the aspire-deployment skill) to find the exact API shape - never reflect over installed NuGet DLLs to guess member names
+- Do not invent builder methods, overloads, or provisioning properties; verify them against Aspire docs first
+
 ## Code Style Enforcement
 
 - Always use primary constructors for DI
