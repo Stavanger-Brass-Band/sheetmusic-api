@@ -100,9 +100,7 @@ builder.AddAzureContainerAppEnvironment("sheetmusic-aca-env")
 // from clobbering each other (issue #236) on the one shared Search service above. `minReplicas`/
 // `maxReplicas` are this app's real steady-state scale (see "Scale rules" above). `frontendBaseUrl` is
 // this app's own frontend deployment (test and prod are different URLs - see the parameters above).
-// `corsAllowedOrigins` is this app's own set of browser origins - test and prod are served from
-// different frontend hosts, so each app declares only the origin(s) it actually needs.
-IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResourceWithConnectionString> database, string searchIndexPrefix, int minReplicas, int maxReplicas, IResourceBuilder<ParameterResource> frontendBaseUrl, string[] corsAllowedOrigins)
+IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResourceWithConnectionString> database, string searchIndexPrefix, int minReplicas, int maxReplicas, IResourceBuilder<ParameterResource> frontendBaseUrl)
 {
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
@@ -137,25 +135,6 @@ IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResource
             // ACA does not infer probes from `WithHttpHealthCheck` the way local `aspire run`
             // health-checking does - both must be set explicitly here.
             app.Configuration.Ingress.TargetPort = 8080;
-
-            // ACA ingress-level CORS policy, declared here so it's part of the AppHost model and gets
-            // reapplied on every deploy - previously this had to be set by hand against the Container
-            // App resource (e.g. via the portal or `az containerapp ingress cors enable`), and Aspire's
-            // full-resource redeploy silently wiped it back to "no CORS policy" every time, since nothing
-            // in the deployment model declared it. Keep this in sync with AddSheetMusicSecurity's
-            // "AllowMember" policy (see Configuration/IServiceCollectionExtensions.cs). `corsAllowedOrigins`
-            // is this app's own real frontend origin(s) - test and prod intentionally do not share a list.
-            var corsPolicy = new ContainerAppCorsPolicy
-            {
-                AllowedMethods = { "*" },
-                AllowedHeaders = { "*" },
-                AllowCredentials = true,
-            };
-            foreach (var origin in corsAllowedOrigins)
-            {
-                corsPolicy.AllowedOrigins.Add(origin);
-            }
-            app.Configuration.Ingress.CorsPolicy = corsPolicy;
 
             var container = app.Template.Containers[0].Value!;
             container.Probes.Add(new ContainerAppProbe
@@ -225,10 +204,10 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
         .PublishAsAzureContainerAppJob();
 }
 
-var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, corsAllowedOrigins: ["https://medlem.stavanger-brassband.no"]);
+var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl);
 AddMigrationJob("sheetmusic-api-migrate", db);
 
-var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, corsAllowedOrigins: ["https://orange-mud-00eed1803.1.azurestaticapps.net"]);
+var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl);
 AddMigrationJob("sheetmusic-api-test-migrate", testDb);
 
 builder.Build().Run();
