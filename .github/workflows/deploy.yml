@@ -70,7 +70,7 @@ jobs:
       # support. Requires an app registration + federated credential trusting this repo - there is no
       # code-only way to create that; see the deployment walkthrough.
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -197,7 +197,7 @@ jobs:
             aspire-deployments-
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
