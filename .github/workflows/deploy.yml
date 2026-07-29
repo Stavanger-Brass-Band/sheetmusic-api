@@ -171,7 +171,9 @@ jobs:
     # scoping - production deploys the same Azure resource group/Azure identity as test (kept as
     # repo-level vars/secrets, not duplicated per environment), just its own frontend URL via this
     # environment's own `vars.EMAIL_FRONTEND_BASE_URL` and a different container app/job.
-    environment: production
+    # Name must be "prod", not "production" - it must match the Subject configured on the Azure AD
+    # app registration's federated identity credential exactly (repo:<owner>/<repo>:environment:prod).
+    environment: prod
 
     steps:
       - uses: actions/checkout@v7
