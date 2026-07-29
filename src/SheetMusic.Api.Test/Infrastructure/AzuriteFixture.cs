@@ -25,6 +25,8 @@ public class AzuriteFixture : IAsyncLifetime
 
     public Uri BlobEndpoint => new(container.GetBlobEndpoint());
 
+    public string ConnectionString => container.GetConnectionString();
+
     public StorageSharedKeyCredential Credential { get; } =
         new(AzuriteBuilder.AccountName, AzuriteBuilder.AccountKey);
 

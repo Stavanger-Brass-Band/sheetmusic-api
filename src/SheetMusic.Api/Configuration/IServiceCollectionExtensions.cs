@@ -60,30 +60,37 @@ public static class IServiceCollectionExtensions
     /// BlobStorage/AzureBlobXmlRepository.cs for why a small custom <see cref="IXmlRepository"/> is used
     /// instead of Microsoft's official (legacy-SDK-only) DataProtection.AzureStorage package.
     ///
-    /// Resolving the <see cref="BlobServiceClient"/> requires a throwaway service provider built from
-    /// the services registered so far - this must therefore be called after the app's
-    /// <see cref="BlobServiceClient"/> registration (e.g. <c>AddAzureBlobServiceClient</c>). Guarded:
-    /// hosts with no blob storage configured at all (e.g. the WebApplicationFactory-based test host,
-    /// which doesn't run through the AppHost) fall back to Data Protection's default local key storage
-    /// instead of failing application startup - matching the historical, storage-optional behaviour.
+    /// The <see cref="BlobServiceClient"/> is resolved lazily from the app's own service provider, via
+    /// DI-injected options configuration, rather than by building a second, throwaway
+    /// <see cref="IServiceProvider"/> here. The Azure Client Factory registration added by
+    /// <c>AddAzureBlobServiceClient</c> caches client state in a singleton that is shared across every
+    /// provider built from this same <see cref="IServiceCollection"/> - building and disposing an extra
+    /// provider to eagerly grab a <see cref="BlobServiceClient"/> disposed that shared state out from
+    /// under the app's real provider, causing an intermittent <see cref="ObjectDisposedException"/>
+    /// ("ClientRegistration") the first time any later request resolved a <see cref="BlobServiceClient"/>
+    /// (issue: 500 on GetPartsForSet and similar). Guarded: hosts with no blob storage configured at all
+    /// (e.g. the WebApplicationFactory-based test host, which doesn't run through the AppHost and where
+    /// <see cref="BlobServiceClient"/> is registered but throws <see cref="InvalidOperationException"/>
+    /// on resolution) fall back to Data Protection's default local key storage instead of failing
+    /// application startup - matching the historical, storage-optional behaviour.
     /// </summary>
     public static IServiceCollection AddSheetMusicDataProtection(this IServiceCollection services, string applicationName)
     {
         services.AddDataProtection().SetApplicationName(applicationName);
 
-        try
+        services.AddOptions<KeyManagementOptions>().Configure<IServiceProvider>((options, serviceProvider) =>
         {
-            using var blobServiceProvider = services.BuildServiceProvider();
-            var blobServiceClient = blobServiceProvider.GetRequiredService<BlobServiceClient>();
-            var keyRingContainer = blobServiceClient.GetBlobContainerClient("data-protection-keys");
-
-            services.Configure<KeyManagementOptions>(options =>
-                options.XmlRepository = new AzureBlobXmlRepository(keyRingContainer, "keys.xml"));
-        }
-        catch (InvalidOperationException)
-        {
-            // No blob storage configured for this host; Data Protection uses its default key storage.
-        }
+            try
+            {
+                var blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
+                var keyRingContainer = blobServiceClient.GetBlobContainerClient("data-protection-keys");
+                options.XmlRepository = new AzureBlobXmlRepository(keyRingContainer, "keys.xml");
+            }
+            catch (InvalidOperationException)
+            {
+                // No blob storage configured for this host; Data Protection uses its default key storage.
+            }
+        });
 
         return services;
     }
