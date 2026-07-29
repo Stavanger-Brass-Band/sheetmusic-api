@@ -14,12 +14,13 @@ public class ResetPasswordRequest
         {
             RuleFor(r => r.Email).NotEmpty().EmailAddress().WithMessage("A valid email address is required.");
             RuleFor(r => r.Token).NotEmpty().WithMessage("Reset token is required.");
-            RuleFor(r => r.NewPassword)
-                .NotEmpty()
-                .MinimumLength(8)
-                .Matches("[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
-                .Matches("[a-z]").WithMessage("Password must contain at least one lowercase letter.")
-                .Matches("[0-9]").WithMessage("Password must contain at least one digit.");
+
+            // Complexity rules are intentionally not duplicated here. Identity's PasswordValidator
+            // (configured via IdentityOptions.Password in Program.cs) is the sole enforcement point for
+            // all v2 password paths - see ResetPassword.Handler, which maps its failures to
+            // PasswordRequirementsNotMetError. Re-adding rules here would run before the handler (this
+            // validator runs via FluentValidation auto-validation) and shadow that error path entirely.
+            RuleFor(r => r.NewPassword).NotEmpty().WithMessage("New password is required.");
         }
     }
 }

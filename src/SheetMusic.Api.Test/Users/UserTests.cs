@@ -5,6 +5,9 @@ using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
+using SheetMusic.Api.Test.Utility;
+using SheetMusic.Api.Users.Errors;
+using SheetMusic.Api.Users.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -277,7 +280,7 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task V2_RegisterUser_ShouldReturnBadRequest_WhenWeakPassword()
+    public async Task V2_RegisterUser_ShouldReturnRequirementDetails_WhenWeakPassword()
     {
         var client = CreateV2Client();
 
@@ -289,7 +292,41 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Password = "short"
         });
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await response.Content.ReadFromJsonAsync<PasswordProblemResponse>(JsonDefaults.Options);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be(nameof(PasswordRequirementsNotMetError));
+        problem.FailedRequirements.Should().Contain("PasswordTooShort");
+        problem.Messages.Should().NotBeNullOrEmpty();
+        problem.Requirements.Should().NotBeNull();
+        problem.Requirements!.MinimumLength.Should().Be(8);
     }
+
+    [Fact]
+    public async Task V2_GetPasswordRequirements_ShouldReturnConfiguredValues()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.GetAsync("users/password-requirements");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var requirements = await response.Content.ReadFromJsonAsync<ApiPasswordRequirements>(JsonDefaults.Options);
+        requirements.Should().NotBeNull();
+        requirements!.MinimumLength.Should().Be(8);
+        requirements.RequireDigit.Should().BeTrue();
+        requirements.RequireUppercase.Should().BeTrue();
+        requirements.RequireLowercase.Should().BeTrue();
+        requirements.RequireNonAlphanumeric.Should().BeFalse();
+    }
+
+    private sealed record PasswordProblemResponse(
+        int? Status,
+        string? Title,
+        string? Type,
+        string? Detail,
+        List<string>? FailedRequirements,
+        List<string>? Messages,
+        ApiPasswordRequirements? Requirements);
 
     [Fact]
     public async Task V2_GetAllUsers_ShouldBeSuccessful_WhenAdmin()
@@ -384,6 +421,42 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Password = "HackerPassword1!"
         });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_UpdateUser_ShouldReturnBadRequest_WhenWeakPassword()
+    {
+        var anonymousClient = CreateV2Client();
+        var email = $"weakupdate-{Guid.NewGuid():N}@user.com";
+        const string originalPassword = "Original123!";
+
+        await anonymousClient.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Weak Update User",
+            Email = email,
+            Password = originalPassword
+        });
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+        appUser!.Inactive = false;
+        await userManager.UpdateAsync(appUser);
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.PutAsJsonAsync($"users/{appUser.Id}", new { Password = "weak" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await response.Content.ReadFromJsonAsync<PasswordProblemResponse>(JsonDefaults.Options);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be(nameof(PasswordRequirementsNotMetError));
+
+        // The bug this guards against: UpdateUser used to discard the IdentityResult and return 200,
+        // silently leaving the password unchanged while telling the caller it had been updated.
+        var loginResponse = await anonymousClient.PostAsync("token", BuildLoginForm(email, originalPassword));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     // --- User management: activate / deactivate / roles / delete ---
@@ -723,18 +796,69 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task ResetPassword_ShouldReturn400_WhenPasswordIsTooWeak()
+    public async Task V2_ResetPassword_ShouldReturnPasswordError_WhenWeakPassword()
     {
         var client = CreateV2Client();
+        factory.FakeEmail.Clear();
 
+        // Register a dedicated user for this test to avoid mutating shared test users
+        var email = $"resetweak-{Guid.NewGuid():N}@user.com";
+
+        await client.PostAsJsonAsync("users/register", new
+        {
+            Id = Guid.NewGuid(),
+            Name = "Reset Weak User",
+            Email = email,
+            Password = "Original123!"
+        });
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await userManager.FindByEmailAsync(email);
+        appUser!.Inactive = false;
+        await userManager.UpdateAsync(appUser);
+
+        // Request a valid reset token
+        await client.PostAsJsonAsync("users/forgot-password", new { Email = email });
+        factory.FakeEmail.SentEmails.Should().HaveCount(1);
+        var token = factory.FakeEmail.SentEmails[0].ResetToken;
+
+        // A valid token plus a weak password must be reported as a password error, not an expired/invalid link
         var response = await client.PostAsJsonAsync("users/reset-password", new
         {
-            Email = TestUser.Testesen.Email,
-            Token = "sometoken",
+            Email = email,
+            Token = token,
             NewPassword = "weak"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await response.Content.ReadFromJsonAsync<PasswordProblemResponse>(JsonDefaults.Options);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be(nameof(PasswordRequirementsNotMetError));
+        problem.FailedRequirements.Should().Contain("PasswordTooShort");
+    }
+
+    [Fact]
+    public async Task V2_ResetPassword_ShouldReturnGenericError_WhenUnknownEmail()
+    {
+        var client = CreateV2Client();
+
+        // Guards the anti-enumeration behaviour: an unknown email must still get the generic
+        // invalid-token error, never a password-specific one.
+        var response = await client.PostAsJsonAsync("users/reset-password", new
+        {
+            Email = $"unknown-reset-{Guid.NewGuid():N}@nobody.com",
+            Token = "irrelevant-token",
+            NewPassword = "StrongPassword123!"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await response.Content.ReadFromJsonAsync<PasswordProblemResponse>(JsonDefaults.Options);
+        problem.Should().NotBeNull();
+        problem!.Type.Should().Be(nameof(InvalidPasswordResetTokenError));
+        problem.FailedRequirements.Should().BeNull();
     }
 
     // --- Account lockout ---

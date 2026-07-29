@@ -5,12 +5,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Users.Authorization;
 using SheetMusic.Api.Users.Commands;
+using SheetMusic.Api.Users.Errors;
 using SheetMusic.Api.Users.Queries;
 using SheetMusic.Api.Users.RequestModels;
 using SheetMusic.Api.Users.ViewModels;
@@ -30,7 +32,7 @@ namespace SheetMusic.Api.Users;
 [ApiVersion("2.0")]
 [Authorize]
 [ApiController]
-public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMediator mediator) : ControllerBase
+public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMediator mediator, IOptions<IdentityOptions> identityOptions) : ControllerBase
 {
     /// <summary>
     /// Authenticate using Identity and receive a JWT token.
@@ -85,7 +87,8 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// </summary>
     /// <param name="request">Details about the new user</param>
     /// <response code="201">Details about the newly created user</response>
-    /// <response code="400">If provided input is invalid, e.g. weak password</response>
+    /// <response code="400">If provided input is invalid. A password that does not meet the requirements
+    /// returned by <c>GET users/password-requirements</c> produces a <see cref="PasswordRequirementsNotMetError"/></response>
     [AllowAnonymous]
     [HttpPost("users/register")]
     public async Task<IActionResult> RegisterAsync([FromBody] UserRequest request)
@@ -102,7 +105,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         var result = await userManager.CreateAsync(user, request.Password);
 
         if (!result.Succeeded)
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+            throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
 
         await userManager.AddToRoleAsync(user, "Reader");
 
@@ -115,7 +118,9 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
     /// <param name="identifier">The guid of the user to update</param>
     /// <param name="request">The new password</param>
     /// <response code="200">Password was updated successfully</response>
-    /// <response code="400">Unable to identify the authenticated user</response>
+    /// <response code="400">Unable to identify the authenticated user, or the new password does not
+    /// meet the requirements returned by <c>GET users/password-requirements</c> (<see cref="PasswordRequirementsNotMetError"/>).
+    /// The existing password remains valid in that case.</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     /// <response code="403">Forbidden. Only the user themselves or an Administrator can update the password</response>
     /// <response code="404">User not found</response>
@@ -138,10 +143,28 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
             var token = await userManager.GeneratePasswordResetTokenAsync(userToChange);
-            await userManager.ResetPasswordAsync(userToChange, token, request.Password);
+            var result = await userManager.ResetPasswordAsync(userToChange, token, request.Password);
+
+            if (!result.Succeeded)
+                throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
         }
 
         return Ok();
+    }
+
+    /// <summary>
+    /// Get the password complexity requirements enforced when registering, updating a password, or
+    /// resetting a password. Backed by the same configured policy used to enforce those rules, so a
+    /// client can render a requirements checklist before submission.
+    /// </summary>
+    /// <response code="200">The configured password requirements</response>
+    [AllowAnonymous]
+    [HttpGet("users/password-requirements")]
+    public async Task<ActionResult<ApiPasswordRequirements>> GetPasswordRequirementsAsync()
+    {
+        var requirements = await mediator.Send(new GetPasswordRequirements());
+
+        return Ok(requirements);
     }
 
     /// <summary>
