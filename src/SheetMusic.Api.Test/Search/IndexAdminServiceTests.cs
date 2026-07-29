@@ -1,8 +1,11 @@
+using Azure;
+using Azure.Search.Documents.Indexes;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Parts;
 using SheetMusic.Api.Search;
+using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -33,11 +36,7 @@ public class IndexAdminServiceTests
 
     private static IndexAdminService BuildService(string? indexPrefix = null)
     {
-        var values = new Dictionary<string, string?>
-        {
-            [ConfigKeys.SearchHost] = "example.search.windows.net",
-            [ConfigKeys.SearchAdminKey] = "test-admin-key"
-        };
+        var values = new Dictionary<string, string?>();
 
         if (indexPrefix is not null)
         {
@@ -45,6 +44,7 @@ public class IndexAdminServiceTests
         }
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
-        return new IndexAdminService(configuration);
+        var searchIndexClient = new SearchIndexClient(new Uri("https://example.search.windows.net"), new AzureKeyCredential("test-admin-key"));
+        return new IndexAdminService(searchIndexClient, configuration);
     }
 }

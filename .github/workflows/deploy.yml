@@ -11,9 +11,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
-    name: Build and pack
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -30,55 +34,225 @@ jobs:
       - name: Build
         run: dotnet build src/SheetMusic.sln --configuration Release --no-restore
 
-      - name: Publish
-        run: dotnet publish src/SheetMusic.Api/SheetMusic.Api.csproj --configuration Release --output ./publish
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: sheetmusic-api
-          path: ./publish
-
       - name: Run integration tests
         run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release
 
+  # Test and production now share one Azure environment/resource group and one Aspire deployment state
+  # (issue #246) instead of two independent `aspire deploy --environment` invocations - that's what lets
+  # Search, the SQL server, the ACR, the ACA environment, and Log Analytics each be provisioned exactly
+  # once rather than duplicated (or needing hand-created "existing" references) per environment.
+  # `aspire do <step>` targets only the named resource's provisioning step; its dependencies (shared
+  # infra) run automatically, but the *other* app's container app/job is never touched.
   deploy-test:
     name: Deploy to test
     needs: build
     runs-on: ubuntu-latest
+    # Not an approval gate (unlike production below) - test deploys automatically on every push to main.
+    # This exists purely so `vars.EMAIL_FRONTEND_BASE_URL` can resolve to test's own environment-scoped
+    # value below, while production's job resolves the same variable *name* to its own value - Azure
+    # identity/resource group stay repo-level since those are genuinely identical for both jobs.
     environment: test
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: sheetmusic-api
-          path: ./publish
+      - uses: actions/checkout@v7
 
-      - name: Deploy to Azure Web App (test)
-        uses: azure/webapps-deploy@v3
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v6
         with:
-          app-name: sheet-music-api-test
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publish
+          dotnet-version: '10.0.x'
+
+      - name: Install Aspire CLI
+        run: |
+          curl -sSL https://aspire.dev/install.sh | bash
+          echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+
+      # Persist Aspire's local deployment state (issue #246) across runner-clean CI runs, instead of
+      # hand-creating an Azure storage container for a remote backend. This is Aspire's own documented
+      # CI pattern (`aspire docs get deployment-state-caching`) - `aspire deploy`/`aspire do` always
+      # write to ~/.aspire/deployments/{AppHostSha}/{environment}.json regardless of where it's run;
+      # without *something* persisting that directory, every CI run looks like a first-ever deploy
+      # (re-prompts for/regenerates provisioning settings). The key includes `github.run_id` so a fresh
+      # cache entry is always saved at the end of the job (cache keys are immutable in GitHub Actions);
+      # `restore-keys` then restores the most recent prior entry by prefix. Known limitation: GitHub
+      # evicts caches unused for 7 days - acceptable here since every parameter this state might cache is
+      # already supplied explicitly via env vars below on every run (see Security considerations in the
+      # linked doc: state files can contain secrets in plain text).
+      - name: Restore Aspire deployment state
+        uses: actions/cache@v4
+        with:
+          path: ~/.aspire/deployments
+          key: aspire-deployments-${{ github.run_id }}
+          restore-keys: |
+            aspire-deployments-
+
+      # OIDC (issue #246): replaces the old publish-profile deploy, which Azure Container Apps does not
+      # support. Requires an app registration + federated credential trusting this repo - there is no
+      # code-only way to create that; see the deployment walkthrough.
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Deploy sequence, part 1 of 4 (issue #246, #234 decision 11): deploys the new image and creates
+      # the new revision with test's real replica counts (see AppHost.cs) - no scale trickery needed.
+      - name: Deploy test infrastructure and new image
+        run: aspire do provision-sheetmusic-api-test-containerapp --non-interactive
+        env:
+          Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ vars.AZURE_LOCATION }}
+          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
+          Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
+          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+
+      # Deploy sequence, part 2 of 4: in Single revision mode the new revision above becomes active (and
+      # starts serving) as soon as it's healthy, so deactivate it immediately - before running
+      # migrations against not-yet-migrated code. `az containerapp revision deactivate`/`activate` (both
+      # GA) is used here rather than temporarily forcing min/max replicas to zero: Azure's own scale
+      # schema doesn't document a minimum value for maxReplicas, so that approach's validity was
+      # uncertain, whereas deactivate/activate is a purpose-built, documented mechanism for this exact
+      # "take a revision offline, then bring it back" scenario.
+      - name: Deactivate new test revision
+        run: |
+          set -euo pipefail
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          revision=$(az containerapp show --name "sheetmusic-api-test" --resource-group "$rg" --query "properties.latestRevisionName" -o tsv)
+          echo "TEST_REVISION=$revision" >> "$GITHUB_ENV"
+          az containerapp revision deactivate --name "sheetmusic-api-test" --resource-group "$rg" --revision "$revision"
+
+      # Deploy sequence, part 3 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
+      # globally-unique names (unlike Storage/Search/ACR/SQL, which Aspire suffixes with a generated
+      # hash) so the Azure resource name should match the AppHost resource name below exactly - verify
+      # with `az containerapp job list` after the first deploy and adjust here if Aspire ever mangles it.
+      - name: Start test migration job
+        run: |
+          az containerapp job start \
+            --name "sheetmusic-api-test-migrate" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
+
+      # Deploy sequence, part 4 of 5 (renumbered): poll the execution to completion and check its exit
+      # code (#234 decision 11). Omitting this poll creates a race that only appears under a slow
+      # migration - the revision would reactivate (next step) before the schema is actually ready.
+      - name: Wait for test migration job to complete
+        run: |
+          set -euo pipefail
+          job="sheetmusic-api-test-migrate"
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          execution=$(az containerapp job execution list --name "$job" --resource-group "$rg" --query "[0].name" -o tsv)
+
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show --name "$job" --resource-group "$rg" --job-execution-name "$execution" --query "properties.status" -o tsv)
+            echo "Migration job status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped) echo "Migration job did not succeed (status: $status)"; exit 1 ;;
+            esac
+            sleep 10
+          done
+
+          echo "Timed out waiting for migration job to complete"
+          exit 1
+
+      # Deploy sequence, part 5 of 5: reactivate the revision now that the migration has succeeded.
+      - name: Reactivate test revision
+        run: |
+          az containerapp revision activate \
+            --name "sheetmusic-api-test" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --revision "${{ env.TEST_REVISION }}"
 
   deploy-prod:
     name: Deploy to production
     needs: deploy-test
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    # Approval gate (add required reviewers on this GitHub Environment if you want one) AND variable
+    # scoping - production deploys the same Azure resource group/Azure identity as test (kept as
+    # repo-level vars/secrets, not duplicated per environment), just its own frontend URL via this
+    # environment's own `vars.EMAIL_FRONTEND_BASE_URL` and a different container app/job.
     environment: production
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: sheetmusic-api
-          path: ./publish
+      - uses: actions/checkout@v7
 
-      - name: Deploy to Azure Web App (production)
-        uses: azure/webapps-deploy@v3
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v6
         with:
-          app-name: sheet-music-api
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publish
+          dotnet-version: '10.0.x'
+
+      - name: Install Aspire CLI
+        run: |
+          curl -sSL https://aspire.dev/install.sh | bash
+          echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+
+      - name: Restore Aspire deployment state
+        uses: actions/cache@v4
+        with:
+          path: ~/.aspire/deployments
+          key: aspire-deployments-${{ github.run_id }}
+          restore-keys: |
+            aspire-deployments-
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy production infrastructure and new image
+        run: aspire do provision-sheetmusic-api-containerapp --non-interactive
+        env:
+          Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ vars.AZURE_LOCATION }}
+          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
+          Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
+          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+
+      # See "Deactivate new test revision" above for why deactivate/activate is used instead of
+      # temporarily forcing min/max replicas to zero.
+      - name: Deactivate new production revision
+        run: |
+          set -euo pipefail
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          revision=$(az containerapp show --name "sheetmusic-api" --resource-group "$rg" --query "properties.latestRevisionName" -o tsv)
+          echo "PROD_REVISION=$revision" >> "$GITHUB_ENV"
+          az containerapp revision deactivate --name "sheetmusic-api" --resource-group "$rg" --revision "$revision"
+
+      - name: Start production migration job
+        run: |
+          az containerapp job start \
+            --name "sheetmusic-api-migrate" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
+
+      - name: Wait for production migration job to complete
+        run: |
+          set -euo pipefail
+          job="sheetmusic-api-migrate"
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          execution=$(az containerapp job execution list --name "$job" --resource-group "$rg" --query "[0].name" -o tsv)
+
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show --name "$job" --resource-group "$rg" --job-execution-name "$execution" --query "properties.status" -o tsv)
+            echo "Migration job status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped) echo "Migration job did not succeed (status: $status)"; exit 1 ;;
+            esac
+            sleep 10
+          done
+
+          echo "Timed out waiting for migration job to complete"
+          exit 1
+
+      - name: Reactivate production revision
+        run: |
+          az containerapp revision activate \
+            --name "sheetmusic-api" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --revision "${{ env.PROD_REVISION }}"

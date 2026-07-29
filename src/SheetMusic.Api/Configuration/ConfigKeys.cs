@@ -2,9 +2,7 @@
 
 public static class ConfigKeys
 {
-    public const string Secret = "AppSettings:Secret";
-    public const string SearchHost = "Search:Host";
-    public const string SearchAdminKey = "Search:AdminKey";
+    public const string JwtSigningKey = "Jwt:SigningKey";
 
     /// <summary>
     /// Optional prefix (e.g. "test", "prod") applied to Azure AI Search index names so multiple

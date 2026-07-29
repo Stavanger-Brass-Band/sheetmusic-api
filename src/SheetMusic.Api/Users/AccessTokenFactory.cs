@@ -27,7 +27,7 @@ internal static class AccessTokenFactory
     public static (string AccessToken, DateTime ExpiresAt) CreateAccessToken(Guid userId, IConfiguration configuration)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.Secret] ?? throw new MissingConfigurationException(ConfigKeys.Secret));
+        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.JwtSigningKey] ?? throw new MissingConfigurationException(ConfigKeys.JwtSigningKey));
         var expiryMinutes = GetPositiveConfiguredValue(configuration, ConfigKeys.JwtAccessTokenExpiryMinutes, 15);
         var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 

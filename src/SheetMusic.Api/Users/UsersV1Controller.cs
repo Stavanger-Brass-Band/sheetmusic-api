@@ -48,7 +48,7 @@ public class UsersV1Controller(IUserRepository userRepository, IConfiguration co
             return BadRequest(new { message = "Username or password is incorrect" });
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.Secret] ?? throw new MissingConfigurationException(ConfigKeys.Secret));
+        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.JwtSigningKey] ?? throw new MissingConfigurationException(ConfigKeys.JwtSigningKey));
         var expires = DateTime.UtcNow.AddDays(7);
 
         var tokenDescriptor = new SecurityTokenDescriptor

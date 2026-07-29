@@ -56,6 +56,10 @@ builder.Services.AddSheetMusicRateLimiting(builder.Configuration);
 // published service-endpoint-URI-plus-managed-identity case transparently, so BlobClient never has to
 // know which one it's running under. See BlobStorage/BlobClient.cs.
 builder.AddAzureBlobServiceClient("blobs");
+// Role-based access (issue #246): Aspire provisions the Search resource with local (key) auth disabled
+// by default, so this resolves credentials via managed identity/DefaultAzureCredential instead of an
+// admin key - see IndexAdminService, which no longer has a Search:AdminKey to manage.
+builder.AddAzureSearchClient("search");
 builder.Services.AddSingleton<IBlobClient, SheetMusic.Api.BlobStorage.BlobClient>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
