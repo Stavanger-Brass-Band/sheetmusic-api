@@ -95,13 +95,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy sequence, part 1 of 4 (issue #246, #234 decision 11): targets only the test container
-      # app's provisioning step. Forces replicas to zero for *this* deploy only - the new image is
-      # pushed and the new revision provisioned, but with nothing running yet, so not-yet-migrated code
-      # never serves traffic. Real replica counts (test's own defaults, 0/3 - see AppHost.cs) are
-      # restored in "Scale back up" below, once the migration job (using this same new image) has
-      # actually succeeded.
-      - name: Deploy test infrastructure and new image (scaled to zero)
+      # Deploy sequence, part 1 of 4 (issue #246, #234 decision 11): deploys the new image and creates
+      # the new revision with test's real replica counts (see AppHost.cs) - no scale trickery needed.
+      - name: Deploy test infrastructure and new image
         run: aspire do provision-sheetmusic-api-test-containerapp --non-interactive
         env:
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -111,10 +107,23 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__sheetmusic_api_test_min_replicas: "0"
-          Parameters__sheetmusic_api_test_max_replicas: "0"
 
-      # Deploy sequence, part 2 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
+      # Deploy sequence, part 2 of 4: in Single revision mode the new revision above becomes active (and
+      # starts serving) as soon as it's healthy, so deactivate it immediately - before running
+      # migrations against not-yet-migrated code. `az containerapp revision deactivate`/`activate` (both
+      # GA) is used here rather than temporarily forcing min/max replicas to zero: Azure's own scale
+      # schema doesn't document a minimum value for maxReplicas, so that approach's validity was
+      # uncertain, whereas deactivate/activate is a purpose-built, documented mechanism for this exact
+      # "take a revision offline, then bring it back" scenario.
+      - name: Deactivate new test revision
+        run: |
+          set -euo pipefail
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          revision=$(az containerapp show --name "sheetmusic-api-test" --resource-group "$rg" --query "properties.latestRevisionName" -o tsv)
+          echo "TEST_REVISION=$revision" >> "$GITHUB_ENV"
+          az containerapp revision deactivate --name "sheetmusic-api-test" --resource-group "$rg" --revision "$revision"
+
+      # Deploy sequence, part 3 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
       # globally-unique names (unlike Storage/Search/ACR/SQL, which Aspire suffixes with a generated
       # hash) so the Azure resource name should match the AppHost resource name below exactly - verify
       # with `az containerapp job list` after the first deploy and adjust here if Aspire ever mangles it.
@@ -124,9 +133,9 @@ jobs:
             --name "sheetmusic-api-test-migrate" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
 
-      # Deploy sequence, part 3 of 4: poll the execution to completion and check its exit code (#234
-      # decision 11). Omitting this poll creates a race that only appears under a slow migration - the
-      # API would scale back up (next step) before the schema is actually ready.
+      # Deploy sequence, part 4 of 5 (renumbered): poll the execution to completion and check its exit
+      # code (#234 decision 11). Omitting this poll creates a race that only appears under a slow
+      # migration - the revision would reactivate (next step) before the schema is actually ready.
       - name: Wait for test migration job to complete
         run: |
           set -euo pipefail
@@ -147,15 +156,13 @@ jobs:
           echo "Timed out waiting for migration job to complete"
           exit 1
 
-      # Deploy sequence, part 4 of 4: scale back up to test's real replica counts (min 0 - test has no
-      # warm-replica requirement, see AppHost.cs) now that the migration has succeeded.
-      - name: Scale test API back up
+      # Deploy sequence, part 5 of 5: reactivate the revision now that the migration has succeeded.
+      - name: Reactivate test revision
         run: |
-          az containerapp update \
+          az containerapp revision activate \
             --name "sheetmusic-api-test" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --min-replicas 0 \
-            --max-replicas 3
+            --revision "${{ env.TEST_REVISION }}"
 
   deploy-prod:
     name: Deploy to production
@@ -196,7 +203,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy production infrastructure and new image (scaled to zero)
+      - name: Deploy production infrastructure and new image
         run: aspire do provision-sheetmusic-api-containerapp --non-interactive
         env:
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -206,8 +213,16 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__sheetmusic_api_min_replicas: "0"
-          Parameters__sheetmusic_api_max_replicas: "0"
+
+      # See "Deactivate new test revision" above for why deactivate/activate is used instead of
+      # temporarily forcing min/max replicas to zero.
+      - name: Deactivate new production revision
+        run: |
+          set -euo pipefail
+          rg="${{ vars.AZURE_RESOURCE_GROUP }}"
+          revision=$(az containerapp show --name "sheetmusic-api" --resource-group "$rg" --query "properties.latestRevisionName" -o tsv)
+          echo "PROD_REVISION=$revision" >> "$GITHUB_ENV"
+          az containerapp revision deactivate --name "sheetmusic-api" --resource-group "$rg" --revision "$revision"
 
       - name: Start production migration job
         run: |
@@ -235,11 +250,9 @@ jobs:
           echo "Timed out waiting for migration job to complete"
           exit 1
 
-      # Production keeps one warm replica (min 1 - see AppHost.cs) so real users never hit a cold start.
-      - name: Scale production API back up
+      - name: Reactivate production revision
         run: |
-          az containerapp update \
+          az containerapp revision activate \
             --name "sheetmusic-api" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --min-replicas 1 \
-            --max-replicas 3
+            --revision "${{ env.PROD_REVISION }}"
