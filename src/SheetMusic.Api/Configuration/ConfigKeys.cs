@@ -20,4 +20,16 @@ public static class ConfigKeys
     public const string RateLimitingForgotPasswordWindowSeconds = "RateLimiting:ForgotPassword:WindowSeconds";
     public const string RateLimitingTokenPermitLimit = "RateLimiting:Token:PermitLimit";
     public const string RateLimitingTokenWindowSeconds = "RateLimiting:Token:WindowSeconds";
+
+    /// <summary>
+    /// Lifetime, in minutes, of issued JWT access tokens. Defaults to 15 when unset - see
+    /// <see cref="Users.AccessTokenFactory"/>.
+    /// </summary>
+    public const string JwtAccessTokenExpiryMinutes = "Jwt:AccessTokenExpiryMinutes";
+
+    /// <summary>
+    /// Lifetime, in days, of issued refresh tokens. Defaults to 7 when unset - see
+    /// <see cref="Users.AccessTokenFactory"/>.
+    /// </summary>
+    public const string JwtRefreshTokenExpiryDays = "Jwt:RefreshTokenExpiryDays";
 }

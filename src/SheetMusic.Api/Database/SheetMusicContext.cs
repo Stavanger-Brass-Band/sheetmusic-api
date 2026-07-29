@@ -37,5 +37,13 @@ public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : Id
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(rt => rt.Token)
             .IsUnique();
+
+        // Optimistic concurrency guard used by RefreshAccessToken.Handler: two concurrent requests
+        // redeeming the same refresh token both load it with RevokedAt == null, but only the first
+        // SaveChangesAsync succeeds - the second sees a stale original value and throws
+        // DbUpdateConcurrencyException, so a token can never be revoked/rotated more than once.
+        modelBuilder.Entity<RefreshToken>()
+            .Property(rt => rt.RevokedAt)
+            .IsConcurrencyToken();
     }
 }

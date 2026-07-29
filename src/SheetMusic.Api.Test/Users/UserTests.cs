@@ -1,6 +1,8 @@
 ﻿using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -14,6 +16,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -929,5 +933,193 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await client.PostAsync("token", BuildLoginForm(email, correctPassword));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    // --- Refresh tokens ---
+
+    private static FormUrlEncodedContent BuildRefreshForm(string refreshToken) => new(new List<KeyValuePair<string?, string?>>
+    {
+        new("grant_type", "refresh_token"),
+        new("refresh_token", refreshToken)
+    });
+
+    [Fact]
+    public async Task V2_GetToken_ShouldReturnRefreshToken_OnSuccessfulLogin()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var response = await client.PostAsync("token", BuildLoginForm(email, password));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var tokens = await response.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+        tokens.Should().NotBeNull();
+        tokens!.access_token.Should().NotBeNullOrWhiteSpace();
+        tokens.refresh_token.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldIssueNewTokenPair_WhenRefreshTokenIsValid()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var loginResponse = await client.PostAsync("token", BuildLoginForm(email, password));
+        var loginTokens = await loginResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+
+        var refreshResponse = await client.PostAsync("token", BuildRefreshForm(loginTokens!.refresh_token));
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var refreshedTokens = await refreshResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+        refreshedTokens.Should().NotBeNull();
+        refreshedTokens!.access_token.Should().NotBeNullOrWhiteSpace();
+        refreshedTokens.refresh_token.Should().NotBeNullOrWhiteSpace();
+        refreshedTokens.refresh_token.Should().NotBe(loginTokens.refresh_token);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldRevokeOldToken_PreventingReuse()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var loginResponse = await client.PostAsync("token", BuildLoginForm(email, password));
+        var loginTokens = await loginResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+
+        // First use rotates the refresh token - the old one is revoked in the same operation.
+        var firstRefresh = await client.PostAsync("token", BuildRefreshForm(loginTokens!.refresh_token));
+        firstRefresh.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Reusing the original (now-revoked) refresh token must fail.
+        var secondRefresh = await client.PostAsync("token", BuildRefreshForm(loginTokens.refresh_token));
+        secondRefresh.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldReturnBadRequest_WhenTokenIsUnknown()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsync("token", BuildRefreshForm("not-a-real-refresh-token"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldReturnBadRequest_WhenRefreshTokenIsMissing()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsync("token", new FormUrlEncodedContent(new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "refresh_token")
+        }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldReturnBadRequest_WhenTokenIsExpired()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByEmailAsync(email);
+
+        // Insert an already-expired refresh token directly, matching how AccessTokenFactory hashes
+        // the raw value before persisting it, so the endpoint can look it up by its stored digest.
+        const string rawToken = "expired-raw-refresh-token-value";
+        var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user!.Id,
+            Token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken))),
+            CreatedAt = DateTime.UtcNow.AddDays(-8),
+            ExpiresAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+
+        var response = await client.PostAsync("token", BuildRefreshForm(rawToken));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldReturnBadRequest_WhenUserIsDeactivated()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var loginResponse = await client.PostAsync("token", BuildLoginForm(email, password));
+        var loginTokens = await loginResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            user!.Inactive = true;
+            await userManager.UpdateAsync(user);
+        }
+
+        var response = await client.PostAsync("token", BuildRefreshForm(loginTokens!.refresh_token));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_GetToken_ShouldReturnBadRequest_WhenGrantTypeIsUnsupported()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsync("token", new FormUrlEncodedContent(new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "client_credentials"),
+            new("username", TestUser.Testesen.Email),
+            new("password", TestUser.Testesen.Password)
+        }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_GetToken_ShouldReturnBadRequest_WhenUsernameIsMissing()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PostAsync("token", new FormUrlEncodedContent(new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "basic"),
+            new("password", TestUser.Testesen.Password)
+        }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldOnlyAllowOneWinner_WhenRedeemedConcurrently()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var loginResponse = await client.PostAsync("token", BuildLoginForm(email, password));
+        var loginTokens = await loginResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+
+        // Fire two redemptions of the same refresh token concurrently. The conditional (atomic) revoke
+        // in RefreshAccessToken.Handler must let exactly one of them succeed.
+        var responses = await Task.WhenAll(
+            client.PostAsync("token", BuildRefreshForm(loginTokens!.refresh_token)),
+            client.PostAsync("token", BuildRefreshForm(loginTokens.refresh_token)));
+
+        responses.Count(r => r.StatusCode == HttpStatusCode.OK).Should().Be(1);
+        responses.Count(r => r.StatusCode == HttpStatusCode.BadRequest).Should().Be(1);
     }
 }
