@@ -25,6 +25,9 @@ jobs:
   deploy-test:
     name: Deploy to test
     runs-on: ubuntu-latest
+    # Only on push to main, not on release - a release is published from a commit that already went
+    # through this same job on its push-to-main run, so re-deploying test here would be redundant.
+    if: github.event_name == 'push'
     # Not an approval gate (unlike production below) - test deploys automatically on every push to main.
     # This exists purely so `vars.EMAIL_FRONTEND_BASE_URL` can resolve to test's own environment-scoped
     # value below, while production's job resolves the same variable *name* to its own value - Azure
@@ -160,7 +163,9 @@ jobs:
   deploy-prod:
     name: Deploy to production
     needs: deploy-test
-    if: github.event_name == 'release'
+    # deploy-test is skipped (not run) on a release-triggered run, so its result is 'skipped' rather
+    # than 'success' - allow that alongside the ordinary success case.
+    if: always() && github.event_name == 'release' && (needs.deploy-test.result == 'success' || needs.deploy-test.result == 'skipped')
     runs-on: ubuntu-latest
     # Approval gate (add required reviewers on this GitHub Environment if you want one) AND variable
     # scoping - production deploys the same Azure resource group/Azure identity as test (kept as
