@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.2.0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.1.0...v0.2.0) (2026-07-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **users:** introduce Noteansvarlig role for three-tier authorization ([#258](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/258))
+* **docs:** migrate API documentation from Swashbuckle to Scalar ([#232](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/232))
+* **projects:** support reordering sets via POST sets endpoint ([#207](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/207))
+
+### Features
+
+* **auth:** issue and rotate refresh tokens on login ([#257](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/257)) ([48f8988](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/48f8988e391cdb53f30e205450f5274b3688e867))
+* **categories:** add category management and set categorization ([#200](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/200)) ([0f018f8](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0f018f87ccf2319c7399cea2d396e3e4de57d678))
+* **deploy:** provision Search, ACR, and shared test/prod ACA environment via Aspire ([#259](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/259)) ([8f54bd7](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/8f54bd7790726811ed74d44bde1f95217179ecc8))
+* **docs:** migrate API documentation from Swashbuckle to Scalar ([#232](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/232)) ([b2171e1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/b2171e11640b8f848a8c82a4c82f8d2868309e40))
+* implement phase 0 infrastructure prerequisites for cost-reduction migration ([#252](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/252)) ([87bfb47](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/87bfb4721857408e6e8e3b96de9020c8ea2a7d42))
+* migrate to ASP.NET Core Identity framework (non-breaking) ([#122](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/122)) ([3a1f9e3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/3a1f9e31088b2d6bc70563198f93b30b0462a87c))
+* password reset email flow via Resend ([#157](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/157)) ([e32698a](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/e32698a76580466fa7d47d7454d0f065ea31ed6c))
+* **projects:** add comments field to project creation endpoint ([#189](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/189)) ([0ad8ee6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0ad8ee6cc2b2c161ec2c33c51c5efd0cbeaf84fe))
+* **projects:** support reordering sets via POST sets endpoint ([#207](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/207)) ([c33fd06](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/c33fd068a3de6babbc4c27a718fa3b6fc925edea))
+* **projects:** support sorting sets within a project ([#202](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/202)) ([c2f476f](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/c2f476fe5215eb746941e9928e77d2772a08f507))
+* rate limit forgot-password and login endpoints ([#170](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/170)) ([004bdbf](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/004bdbfaf1bd4631d5bf58e2eb7b22b496e8a89b))
+* **users:** admin endpoints for user handling ([#173](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/173)) ([a52ea7d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a52ea7d0768ab793aa006a6014b3e768a5fa647a))
+* **users:** introduce Noteansvarlig role for three-tier authorization ([#258](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/258)) ([0da4c2a](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0da4c2afe72c07bcf4980f8edce543abe89cfe0d))
+* **users:** report actionable password requirement errors and expose the policy ([#255](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/255)) ([6ad9ce8](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6ad9ce828d3dcde410a2ec90ea2acbdc7c1ab98c))
+
+
+### Bug Fixes
+
+* apply $orderby to GET /sheetmusic/sets ([#169](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/169)) ([8e6251f](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/8e6251f212af56bafcc37372d1a8107f21f9da5a))
+* **blob-storage:** avoid disposing shared BlobServiceClient registration in data protection setup ([#254](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/254)) ([70116e5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/70116e5510d53939c1bb4b1acc2921974eeecd81))
+* **deploy:** pin Azure.Identity to a version supporting AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential ([#264](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/264)) ([3d86b1e](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/3d86b1e700f4fabd2c6be169c7cb9e9b8524114b))
+* **deploy:** pin migration job/API connection name to SheetMusicContext ([#262](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/262)) ([358501c](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/358501c8b745e8366f56a83280cbde9383e2f321))
+* **deploy:** re-provision migration container app jobs before starting them ([#263](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/263)) ([a00b015](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a00b0157f0b8adac65becd5433628c74e91135ae))
+* **deploy:** use vars instead of secrets for Azure identity in login step ([#260](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/260)) ([770c8a0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/770c8a07777899d14f4489781d02c9ca0de7b0a5))
+* enforce account lockout after repeated failed login attempts ([#171](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/171)) ([9b08ceb](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/9b08ceb59d95279cd3ec1d5ccbeda594a081c3e5))
+* **odata:** document $orderby correctly in Swagger and reject JSON clauses ([#219](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/219)) ([a290ae0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a290ae0bac547d22e476e4d1cfe9a4864ff46fb2))
+* **parts:** support $expand=aliases on GET /parts ([#231](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/231)) ([59332ff](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/59332ff354f060331d9bb10d210fd745897c698a))
+* remove Newtonsoft.Json and revert incompatible Microsoft.OpenApi bump ([#222](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/222)) ([b0a4210](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/b0a4210d5ebfb1f48a92b9676f7cf9b2bb7cdca1))
+* resolve v1 auth 401s for legacy musicians unlinked to ApplicationUser ([#176](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/176)) ([62f5375](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/62f537579c8a32bb190f73cf414c901c32bdb807))
+* **sets:** return 400 instead of bare 500 for invalid OData query params ([#206](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/206)) ([0d6342f](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0d6342fe1d90357c53159082ecb2751307d96e50))
+
 ## 0.1.0 (2026-05-20)
 
 - Initial release
