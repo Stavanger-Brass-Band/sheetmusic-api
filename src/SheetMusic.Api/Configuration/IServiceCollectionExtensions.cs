@@ -99,9 +99,12 @@ public static class IServiceCollectionExtensions
     {
         services.AddCors(options =>
         {
+            // Same binary serves both test and prod (see AppHost.cs), so this list is the union of both
+            // environments' real frontend origins - keep it in sync with the per-app ACA ingress CORS
+            // policies declared there.
             options.AddPolicy("AllowMember", builder =>
-                builder.WithOrigins("https://sheetmusic-member.azurewebsites.net",
-                                    "https://medlem.stavanger-brassband.no",
+                builder.WithOrigins("https://medlem.stavanger-brassband.no",
+                                    "https://orange-mud-00eed1803.1.azurestaticapps.net",
                                     "http://localhost:5000",
                                     "http://localhost:5100",
                                     "https://localhost:5001")
