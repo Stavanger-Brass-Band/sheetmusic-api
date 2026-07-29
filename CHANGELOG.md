@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.0...v0.2.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **deploy:** use prod environment name to match federated identity credential ([#266](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/266)) ([09c7a1d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/09c7a1d89c4a4eb3070b6ce42c7b6088aa7a5fab))
+
 ## [0.2.0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.1.0...v0.2.0) (2026-07-29)
 
 
