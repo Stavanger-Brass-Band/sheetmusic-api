@@ -2,7 +2,6 @@
 using Asp.Versioning.ApiExplorer;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -22,6 +21,7 @@ using SheetMusic.Api.Users.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -140,6 +140,19 @@ public static class IServiceCollectionExtensions
                         if (resolved is null || resolved.IsInactive)
                         {
                             context.Fail("Unauthorized");
+                            return;
+                        }
+
+                        // Roles are resolved per request rather than minted into the token: tokens live for
+                        // days with no revocation, so a role change has to take effect immediately. Any role
+                        // claim carried by the token itself is dropped first, so the database is the only
+                        // source of truth even if a token was issued with roles baked in.
+                        if (context.Principal!.Identity is ClaimsIdentity identity)
+                        {
+                            foreach (var staleRoleClaim in identity.FindAll(identity.RoleClaimType).ToList())
+                                identity.RemoveClaim(staleRoleClaim);
+
+                            identity.AddClaims(resolved.Roles.Select(role => new Claim(identity.RoleClaimType, role)));
                         }
                     }
                     else
@@ -161,9 +174,9 @@ public static class IServiceCollectionExtensions
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("Admin", policy => policy.Requirements.Add(new AdministratorRequirement("Admin")));
+            options.AddPolicy(AuthPolicy.Admin, policy => policy.RequireRole(Roles.Admin));
+            options.AddPolicy(AuthPolicy.ManageMusic, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig));
         });
-        services.AddScoped<IAuthorizationHandler, AdministratorRequirementHandler>();
         services.AddScoped<LegacyAuthResolver>();
 
         return services;

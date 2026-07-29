@@ -212,9 +212,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [Produces("application/json", Type = typeof(ApiSet))]
-    [Authorize(AuthPolicy.Admin)]
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPut("sets/{setIdentifier}")]
     public async Task<ActionResult<ApiSet>> UpdateSetInformation(string setIdentifier, SetRequest request)
     {
@@ -265,9 +265,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="404">Set or category not found</response>
     /// <response code="409">The category is already assigned to the set</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [Produces("application/json", Type = typeof(List<ApiCategory>))]
-    [Authorize(AuthPolicy.Admin)]
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("sets/{setIdentifier}/categories")]
     public async Task<IActionResult> AssignCategoryToSet(string setIdentifier, AssignCategoryRequest request)
     {
@@ -292,8 +292,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="204">Category was removed from the set successfully</response>
     /// <response code="404">Set, category, or the assignment was not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("sets/{setIdentifier}/categories/{categoryIdentifier}")]
     public async Task<ActionResult> RemoveCategoryFromSet(string setIdentifier, string categoryIdentifier)
     {
@@ -407,8 +407,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="404">Set not found</response>
     /// <response code="409">A part in the zip file is already assigned to the set</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("sets/{identifier}")]
     public async Task<IActionResult> UploadPartsForSets(string identifier, IFormFile file)
     {
@@ -433,8 +433,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="404">Set or part not found</response>
     /// <response code="409">The part is already added to the set</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("sets/{setIdentifier}/parts/{partIdentifier}/content")]
     [MapToApiVersion("1.0")]
     [Obsolete("Use version 2.0 of endpoint instead")]
@@ -457,8 +457,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="404">Set or part not found</response>
     /// <response code="409">The part is already added to the set</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(MaxFileSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
@@ -489,8 +489,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="204">Part content and relationship were deleted successfully</response>
     /// <response code="404">The relationship between the set and part was not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("sets/{setIdentifier}/parts/{partIdentifier}")]
     public async Task<ActionResult> DeletePart(string setIdentifier, string partIdentifier)
     {
@@ -509,9 +509,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="409">The requested archive number is already in use</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [Produces("application/json", Type = typeof(ApiSet))]
-    [Authorize(AuthPolicy.Admin)]
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("sets")]
     public async Task<IActionResult> AddNewSet([FromBody] SetRequest request)
     {
@@ -536,8 +536,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">Set was deleted successfully</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("sets/{setIdentifier}")]
     public async Task<IActionResult> DeleteSet(string setIdentifier)
     {

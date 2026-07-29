@@ -4,9 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
@@ -17,11 +15,9 @@ using SheetMusic.Api.Users.Queries;
 using SheetMusic.Api.Users.RequestModels;
 using SheetMusic.Api.Users.ViewModels;
 using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Users;
@@ -32,54 +28,30 @@ namespace SheetMusic.Api.Users;
 [ApiVersion("2.0")]
 [Authorize]
 [ApiController]
-public class UsersController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMediator mediator, IOptions<IdentityOptions> identityOptions) : ControllerBase
+public class UsersController(UserManager<ApplicationUser> userManager, IMediator mediator, IOptions<IdentityOptions> identityOptions) : ControllerBase
 {
     /// <summary>
-    /// Authenticate using Identity and receive a JWT token.
+    /// Authenticate using Identity and receive a JWT access token and refresh token. Supports two
+    /// grant types via <paramref name="request"/>.grant_type: "basic" (username/password) issues a new
+    /// token pair; "refresh_token" exchanges a still-active refresh token for a new, rotated pair.
     /// </summary>
-    /// <param name="request">The username and password to authenticate with</param>
-    /// <response code="200">The access token</response>
-    /// <response code="400">Username or password is incorrect</response>
+    /// <param name="request">The grant type, plus either username/password or a refresh_token</param>
+    /// <response code="200">The access token and refresh token</response>
+    /// <response code="400">Username or password is incorrect, or the refresh token is invalid/expired</response>
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.Token)]
     [ProducesResponseType(typeof(ApiAccessTokens), (int)HttpStatusCode.OK)]
     [HttpPost("token")]
     public async Task<IActionResult> AuthenticateAsync([FromForm] LoginRequest request)
     {
-        var user = await userManager.FindByEmailAsync(request.username);
-
-        if (user == null || user.Inactive)
-            return BadRequest(new { message = "Username or password is incorrect" });
-
-        // lockoutOnFailure: true increments the failed access count and locks the account after
-        // IdentityOptions.Lockout.MaxFailedAccessAttempts is reached. The response is intentionally
-        // identical to the generic invalid-credentials case to avoid leaking account lockout state
-        // to an unauthenticated caller.
-        var result = await signInManager.CheckPasswordSignInAsync(user, request.password, lockoutOnFailure: true);
-
-        if (!result.Succeeded)
-            return BadRequest(new { message = "Username or password is incorrect" });
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(configuration[ConfigKeys.JwtSigningKey] ?? throw new MissingConfigurationException(ConfigKeys.JwtSigningKey));
-        var expires = DateTime.UtcNow.AddDays(7);
-
-        var tokenDescriptor = new SecurityTokenDescriptor
+        if (request.grant_type == "refresh_token")
         {
-            Subject = new ClaimsIdentity([new Claim(ClaimTypes.Name, user.Id.ToString())]),
-            Expires = expires,
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(token);
+            var refreshed = await mediator.Send(new RefreshAccessToken(request.refresh_token!));
+            return Ok(refreshed);
+        }
 
-        return Ok(new ApiAccessTokens
-        {
-            expires_in = (expires - DateTime.UtcNow).Seconds,
-            access_token = tokenString,
-            token_type = "bearer",
-            scope = "sheetmusic-api"
-        });
+        var tokens = await mediator.Send(new Login(request.username, request.password));
+        return Ok(tokens);
     }
 
     /// <summary>
@@ -107,7 +79,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         if (!result.Succeeded)
             throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
 
-        await userManager.AddToRoleAsync(user, "Reader");
+        await userManager.AddToRoleAsync(user, Roles.Musikant);
 
         return new CreatedResult("users", new ApiUser(user));
     }
@@ -131,7 +103,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
             return BadRequest("Unable to find Name claim and identify user");
 
         var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
         var userToChange = await userManager.FindByIdAsync(identifier.ToString());
 
         if (userToChange == null)
@@ -208,7 +180,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, SignInMan
         if (authenticatedUserId != id)
         {
             var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-            var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+            var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
 
             if (!isAdmin)
                 return Forbid();

@@ -14,6 +14,7 @@ using SheetMusic.Api.Search;
 using SheetMusic.Api.Sets;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
+using SheetMusic.Api.Users.Authorization;
 using System;
 using System.IO;
 using System.Linq;
@@ -124,8 +125,9 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
 
-        roleManager.CreateAsync(new IdentityRole<Guid> { Name = "Admin" }).GetAwaiter().GetResult();
-        roleManager.CreateAsync(new IdentityRole<Guid> { Name = "Reader" }).GetAwaiter().GetResult();
+        roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Admin }).GetAwaiter().GetResult();
+        roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Noteansvarlig }).GetAwaiter().GetResult();
+        roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Musikant }).GetAwaiter().GetResult();
 
         // Seed legacy UserGroups for backward compatibility
         var adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
@@ -133,8 +135,9 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         db.UserGroups.Add(adminGroup);
         db.UserGroups.Add(readerGroup);
 
-        SeedUser(userManager, db, TestUser.Testesen, "Reader", readerGroup.Id);
-        SeedUser(userManager, db, TestUser.Administrator, "Admin", adminGroup.Id);
+        SeedUser(userManager, db, TestUser.Testesen, Roles.Musikant, readerGroup.Id);
+        SeedUser(userManager, db, TestUser.Noteansvarlig, Roles.Noteansvarlig, readerGroup.Id);
+        SeedUser(userManager, db, TestUser.Administrator, Roles.Admin, adminGroup.Id);
 
         db.SaveChanges();
     }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Users.Authorization;
@@ -15,6 +16,9 @@ namespace SheetMusic.Api.Users.Authorization;
 /// <see cref="Musician.ApplicationUserId"/>. Musicians that predate the Identity migration are
 /// never linked, so callers must be able to make authn/authz decisions directly off the legacy
 /// <see cref="Musician"/> record in that case.
+///
+/// The resolved identity carries its role names, so authentication can enrich the principal with
+/// role claims without a second round-trip.
 /// </summary>
 public class LegacyAuthResolver(UserManager<ApplicationUser> userManager, SheetMusicContext dbContext)
 {
@@ -23,7 +27,7 @@ public class LegacyAuthResolver(UserManager<ApplicationUser> userManager, SheetM
         // Try as ApplicationUser ID first (v2 tokens)
         var user = await userManager.FindByIdAsync(claimUserId.ToString());
         if (user != null)
-            return new ResolvedIdentity(user, null);
+            return new ResolvedIdentity(user, null, [.. await userManager.GetRolesAsync(user)]);
 
         // Fall back to Musician ID lookup (v1 tokens)
 #pragma warning disable CS0612 // Type or member is obsolete
@@ -37,17 +41,25 @@ public class LegacyAuthResolver(UserManager<ApplicationUser> userManager, SheetM
         if (musician.ApplicationUserId != null)
         {
             user = await userManager.FindByIdAsync(musician.ApplicationUserId.Value.ToString());
-            return user != null ? new ResolvedIdentity(user, null) : null;
+            return user != null ? new ResolvedIdentity(user, null, [.. await userManager.GetRolesAsync(user)]) : null;
         }
 
-        // Legacy musician never linked to an ApplicationUser
-        return new ResolvedIdentity(null, musician);
+        // Legacy musician never linked to an ApplicationUser. Its obsolete UserGroup can only ever be
+        // "Admin" or "Reader", so map it onto the current role names instead of migrating that table.
+#pragma warning disable CS0612 // Type or member is obsolete
+        var legacyRole = string.Equals(musician.UserGroup?.Name, Roles.Admin, StringComparison.OrdinalIgnoreCase)
+            ? Roles.Admin
+            : Roles.Musikant;
+#pragma warning restore CS0612
+
+        return new ResolvedIdentity(null, musician, [legacyRole]);
     }
 }
 
-public record ResolvedIdentity(ApplicationUser? User, Musician? LegacyMusician)
+public record ResolvedIdentity(ApplicationUser? User, Musician? LegacyMusician, IReadOnlyList<string> Roles)
 {
 #pragma warning disable CS0612 // Type or member is obsolete
     public bool IsInactive => User?.Inactive ?? LegacyMusician?.Inactive ?? true;
 #pragma warning restore CS0612
 }
+
