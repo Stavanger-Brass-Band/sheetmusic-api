@@ -1,6 +1,20 @@
 ﻿namespace SheetMusic.Api.Users.Authorization;
 
-public class AuthPolicy
+/// <summary>
+/// Names of the authorization policies registered in <c>AddSheetMusicAuthentication</c>. Kept separate
+/// from the role names in <see cref="Roles"/> so the set of roles satisfying a policy is defined in one
+/// place instead of being duplicated across every <c>[Authorize]</c> attribute.
+/// </summary>
+public static class AuthPolicy
 {
-    public const string Admin = "Admin";
+    /// <summary>
+    /// Requires the <see cref="Roles.Admin"/> role. Used for user administration and rebuilding the part index.
+    /// </summary>
+    public const string Admin = "AdminOnly";
+
+    /// <summary>
+    /// Requires <see cref="Roles.Admin"/> or <see cref="Roles.Noteansvarlig"/>. Used for every write
+    /// operation on the music catalogue: sets, parts, projects and categories.
+    /// </summary>
+    public const string ManageMusic = "ManageMusic";
 }

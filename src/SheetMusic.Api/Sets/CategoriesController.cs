@@ -19,7 +19,7 @@ namespace SheetMusic.Api.Sets;
 /// This controller contains endpoints for managing Category resources.
 /// Categories are used to tag sheet music sets.
 ///
-/// PS! Creating, updating and deleting categories require Administrator privileges.
+/// PS! Creating, updating and deleting categories require Noteansvarlig or Administrator privileges.
 /// </summary>
 [Authorize]
 [ApiController]
@@ -60,15 +60,15 @@ public class CategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Adds a new category.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="request">Details about the new category</param>
     /// <response code="200">Details about the newly created category</response>
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="409">A category with the same name already exists</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("categories")]
     public async Task<ActionResult<ApiCategory>> AddNewCategory(CategoryRequest request)
     {
@@ -79,7 +79,7 @@ public class CategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Updates the category identified by <paramref name="categoryIdentifier"/>.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="categoryIdentifier">A value uniquely identifying the category. Either guid or name</param>
     /// <param name="request">Updated details for the category</param>
@@ -87,8 +87,8 @@ public class CategoriesController(IMediator mediator) : ControllerBase
     /// <response code="404">Category not found</response>
     /// <response code="409">A different category with the same name already exists</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPut("categories/{categoryIdentifier}")]
     public async Task<ActionResult<ApiCategory>> UpdateCategory(string categoryIdentifier, CategoryRequest request)
     {
@@ -109,15 +109,15 @@ public class CategoriesController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Deletes the category identified by <paramref name="categoryIdentifier"/>.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="categoryIdentifier">A value uniquely identifying the category. Either guid or name</param>
     /// <response code="204">Category was deleted successfully</response>
     /// <response code="404">Category not found</response>
     /// <response code="409">Category is assigned to one or more sets and cannot be deleted</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("categories/{categoryIdentifier}")]
     public async Task<ActionResult> DeleteCategory(string categoryIdentifier)
     {

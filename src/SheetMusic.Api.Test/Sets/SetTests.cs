@@ -26,7 +26,7 @@ namespace SheetMusic.Api.Test.Sets;
 public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
     [Fact]
-    public async Task GetSingleSet_AsReader_ShouldBeSuccessfull()
+    public async Task GetSingleSet_AsMusikant_ShouldBeSuccessfull()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
@@ -49,7 +49,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
-    public async Task UpdateSet_ShouldBeForbidden_ForReaderUser()
+    public async Task UpdateSet_ShouldBeForbidden_ForMusikantUser()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testBuilder = new SetDataBuilder(adminClient);
@@ -459,12 +459,21 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
-    public async Task AddNewSet_ShouldBeForbidden_WhenReader()
+    public async Task AddNewSet_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.PostAsJsonAsync("sheetmusic/sets", new { Title = "Test Set", Composer = "Test" });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AddNewSet_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PostAsJsonAsync("sheetmusic/sets", new { Title = $"Noteansvarlig Set {Guid.NewGuid()}", Composer = "Test" });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -556,7 +565,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
-    public async Task DeleteSet_ShouldBeForbidden_WhenReader()
+    public async Task DeleteSet_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
@@ -564,5 +573,16 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
         var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteSet_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var response = await client.DeleteAsync($"sheetmusic/sets/{testSet.ArchiveNumber}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

@@ -77,13 +77,13 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task UpdateProject_ShouldBeForbidden_WhenUserIsReader()
+    public async Task UpdateProject_ShouldBeForbidden_WhenUserIsMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Administrator);
 
         var project = new
         {
-            Name = "New project - Reader",
+            Name = "New project - Musikant",
             Comments = "This is a long comment",
             StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
             EndDate = DateTimeOffset.UtcNow.AddMonths(1)
@@ -167,12 +167,21 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task CreateProject_ShouldBeForbidden_WhenReader()
+    public async Task CreateProject_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.PostAsJsonAsync("projects", new { Name = "Should fail", StartDate = DateTimeOffset.UtcNow, EndDate = DateTimeOffset.UtcNow.AddDays(1) });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CreateProject_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PostAsJsonAsync("projects", new { Name = $"Noteansvarlig project - {Guid.NewGuid():N}", StartDate = DateTimeOffset.UtcNow, EndDate = DateTimeOffset.UtcNow.AddDays(1) });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -247,7 +256,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task AssignSetToProject_ShouldBeForbidden_WhenReader()
+    public async Task AssignSetToProject_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
@@ -411,7 +420,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task DeleteProject_ShouldBeForbidden_WhenReader()
+    public async Task DeleteProject_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 
@@ -426,6 +435,24 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
         var response = await client.DeleteAsync($"projects/{project.Name}");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteProject_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var project = new
+        {
+            Name = $"Delete project noteansvarlig test - {Guid.NewGuid():N}",
+            StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+            EndDate = DateTimeOffset.UtcNow.AddMonths(1)
+        };
+        await adminClient.PostAsJsonAsync("projects", project);
+
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var response = await client.DeleteAsync($"projects/{project.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -457,7 +484,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task UnassignSetFromProject_ShouldBeForbidden_WhenReader()
+    public async Task UnassignSetFromProject_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
 

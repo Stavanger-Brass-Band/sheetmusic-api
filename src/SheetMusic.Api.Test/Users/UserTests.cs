@@ -116,7 +116,7 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task V1_GetAllUsers_ShouldBeForbidden_WhenReader()
+    public async Task V1_GetAllUsers_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
@@ -342,12 +342,51 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task V2_GetAllUsers_ShouldBeForbidden_WhenReader()
+    public async Task V2_GetAllUsers_ShouldBeForbidden_WhenMusikant()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Testesen);
 
         var response = await client.GetAsync("users");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_GetAllUsers_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.GetAsync("users");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_AssignRole_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/roles", new { RoleName = "Admin" });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_AssignRole_ShouldTakeEffectImmediately_WithoutReauthenticating()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, email) = await RegisterInactiveUserAsync(anonymousClient, "role-takes-effect");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        await adminClient.PutAsJsonAsync($"users/{id}/activate", new { });
+
+        // Roles are resolved per request rather than baked into the token, so the same credentials
+        // must go from denied to allowed the moment the role is granted.
+        var userClient = factory.CreateClientWithTestToken(new TestUser { Identifier = id, Email = email, Name = "role-takes-effect", Password = "SecurePassword123!" });
+
+        (await userClient.GetAsync("parts")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var assignResponse = await adminClient.PutAsJsonAsync($"users/{id}/roles", new { RoleName = "Noteansvarlig" });
+        assignResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await userClient.GetAsync("parts")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -482,6 +521,19 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_Register_ShouldAssignMusikantRole()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "default-role");
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByIdAsync(id.ToString());
+
+        (await userManager.GetRolesAsync(user!)).Should().BeEquivalentTo(["Musikant"]);
+    }
+
+    [Fact]
     public async Task V2_ActivateUser_ShouldAllowLogin_WhenAdmin()
     {
         var anonymousClient = CreateV2Client();
@@ -501,8 +553,19 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var anonymousClient = CreateV2Client();
         var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "activate-forbidden");
 
-        var readerClient = CreateV2ClientWithTestToken(TestUser.Testesen);
-        var response = await readerClient.PutAsJsonAsync($"users/{id}/activate", new { });
+        var musikantClient = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await musikantClient.PutAsJsonAsync($"users/{id}/activate", new { });
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_ActivateUser_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "activate-forbidden-noteansvarlig");
+
+        var noteansvarligClient = CreateV2ClientWithTestToken(TestUser.Noteansvarlig);
+        var response = await noteansvarligClient.PutAsJsonAsync($"users/{id}/activate", new { });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
@@ -558,11 +621,30 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task V2_AssignRole_ShouldReturnNotFound_WhenRoleDoesNotExist()
+    public async Task V2_AssignRole_ShouldReturnBadRequest_WhenRoleIsNotAKnownRole()
     {
         var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
         var response = await adminClient.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/roles", new { RoleName = "NonExistentRole" });
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("Noteansvarlig")]
+    [InlineData("Musikant")]
+    public async Task V2_AssignRole_ShouldAcceptRole_WhenRoleIsKnown(string roleName)
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, $"assign-{roleName.ToLowerInvariant()}");
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.PutAsJsonAsync($"users/{id}/roles", new { RoleName = roleName });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByIdAsync(id.ToString());
+        (await userManager.IsInRoleAsync(user!, roleName)).Should().BeTrue();
     }
 
     [Fact]
@@ -595,7 +677,15 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     public async Task V2_RemoveRole_ShouldBeForbidden_WhenNonAdmin()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Testesen);
-        var response = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}/roles/Reader");
+        var response = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}/roles/Musikant");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_RemoveRole_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Noteansvarlig);
+        var response = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}/roles/Musikant");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
