@@ -62,8 +62,8 @@ DELETE FROM dbo.RefreshTokens;
 
 -- Sign-in after blanking password hashes (issue #246 decision, settled): seed one known administrator
 -- rather than requiring Google-only auth (this app authenticates via ASP.NET Core Identity's password
--- flow - see UsersController.CheckPasswordSignInAsync - not Google). Promotes whichever account already
--- holds the "Admin" role (see AdministratorRequirement/AddSheetMusicSecurity) in the copied data, so its
+-- flow - see the Users.Commands.Login handler - not Google). Promotes whichever account already
+-- holds the "Admin" role (see Roles.Admin/AddSheetMusicSecurity) in the copied data, so its
 -- existing AspNetUserRoles membership carries over unchanged - only that one account's email and
 -- password become known/usable; no new row is inserted.
 DECLARE @AdminEmail nvarchar(256) = N'$(AdminEmail)';
