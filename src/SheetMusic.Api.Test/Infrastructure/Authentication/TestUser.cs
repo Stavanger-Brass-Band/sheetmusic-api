@@ -33,6 +33,15 @@ public class TestUser
         IsAdministrator = false
     };
 
+    public static TestUser Noteansvarlig => new TestUser
+    {
+        Identifier = Guid.Parse("6E0A1B6C-6C1D-4B0E-9A2F-3F1D2C4B5A67"),
+        Name = "Nora Noteansvarlig",
+        Email = "nora@noteansvarlig.com",
+        Password = "IntgTest123!",
+        IsAdministrator = false
+    };
+
     public static TestUser Administrator => new TestUser
     {
         Identifier = Guid.Parse("2A319F65-C533-45BB-BB93-11C4492770AF"),

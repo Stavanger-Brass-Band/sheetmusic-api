@@ -135,7 +135,7 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
-    public async Task AssignCategoryToSet_ShouldBeForbidden_ForReaderUser()
+    public async Task AssignCategoryToSet_ShouldBeForbidden_ForMusikantUser()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
@@ -244,7 +244,7 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
-    public async Task RemoveCategoryFromSet_ShouldBeForbidden_ForReaderUser()
+    public async Task RemoveCategoryFromSet_ShouldBeForbidden_ForMusikantUser()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
@@ -336,12 +336,21 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
-    public async Task AddNewCategory_ShouldBeForbidden_ForReaderUser()
+    public async Task AddNewCategory_ShouldBeForbidden_ForMusikantUser()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.PostAsJsonAsync("categories", new { Name = $"Category-{Guid.NewGuid()}" });
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AddNewCategory_ShouldBeSuccessful_ForNoteansvarligUser()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PostAsJsonAsync("categories", new { Name = $"Category-{Guid.NewGuid()}" });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -380,7 +389,7 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
-    public async Task UpdateCategory_ShouldBeForbidden_ForReaderUser()
+    public async Task UpdateCategory_ShouldBeForbidden_ForMusikantUser()
     {
         var category = await SeedCategoryAsync();
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
@@ -423,13 +432,23 @@ public class CategoryTests(SheetMusicWebAppFactory factory) : IClassFixture<Shee
     }
 
     [Fact]
-    public async Task DeleteCategory_ShouldBeForbidden_ForReaderUser()
+    public async Task DeleteCategory_ShouldBeForbidden_ForMusikantUser()
     {
         var category = await SeedCategoryAsync();
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.DeleteAsync($"categories/{category.Id}");
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteCategory_ShouldBeSuccessful_ForNoteansvarligUser()
+    {
+        var category = await SeedCategoryAsync();
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.DeleteAsync($"categories/{category.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]

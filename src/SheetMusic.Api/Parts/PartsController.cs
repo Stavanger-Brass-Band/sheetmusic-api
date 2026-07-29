@@ -8,6 +8,7 @@ using SheetMusic.Api.Parts.Errors;
 using SheetMusic.Api.Parts.Queries;
 using SheetMusic.Api.Parts.RequestModels;
 using SheetMusic.Api.Parts.ViewModels;
+using SheetMusic.Api.Users.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,10 +20,11 @@ namespace SheetMusic.Api.Parts;
 /// This controller contains endpoints for manipulating Parts resources. 
 /// Not to be confused with parts that belongs to a set, that is a different resource.
 /// 
-/// PS! Only Administrators can invoke endpoints in this controller.
+/// PS! Only Noteansvarlig and Administrators can invoke endpoints in this controller,
+/// except rebuilding the part index which is Administrator only.
 /// </summary>
 [ApiController]
-[Authorize("Admin")]
+[Authorize(AuthPolicy.ManageMusic)]
 [Produces("application/json")]
 public class PartsController(IMediator mediator) : ControllerBase
 {
@@ -37,6 +39,7 @@ public class PartsController(IMediator mediator) : ControllerBase
     /// <response code="204">Index was rebuilt successfully</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    [Authorize(AuthPolicy.Admin)]
     [HttpPost("parts/index")]
     public async Task<ActionResult> BuildPartIndex()
     {
@@ -48,13 +51,13 @@ public class PartsController(IMediator mediator) : ControllerBase
     /// <summary>
     /// Gets a list of all Parts. OData filtering is supported, e.g. $filter=name eq 'partitur'.
     /// Use $expand=aliases to include the enabled aliases of each part.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="queryParams">The OData query paramateres specified</param>
     /// <response code="200">A list of parts matching filter, or all parts. Empty list if no matching results</response>
     /// <response code="400">If an unsupported $expand value is provided</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpGet("parts")]
     public async Task<ActionResult<List<ApiPart>>> GetPartList([FromQuery] ODataQueryParams queryParams)
     {
@@ -73,13 +76,13 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Search for a part through the Part index.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="searchTerm">The search term to use when searching</param>
     /// <response code="200">The best match for the part</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpGet("parts/index")]
     public async Task<ActionResult<ApiPart>> SearchForPartInIndex(string searchTerm)
     {
@@ -91,13 +94,13 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Add a new part.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="request">Details about the new part</param>
     /// <response code="200">Details about the newly created part</response>
     /// <response code="400">If provided input is invalid. Should include a body with ProplemDetails-formatted errors.</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpPost("parts")]
     public async Task<ActionResult<ApiPart>> AddNewPart(PartRequest request)
     {
@@ -112,13 +115,13 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Gets details about part identified by <paramref name="partIdentifier"/>. 
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
     /// <response code="200">Part information including list of aliases</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpGet("parts/{partIdentifier}")]
     public async Task<ActionResult<ApiPart>> GetPart(string partIdentifier)
     {
@@ -132,14 +135,14 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Updates information about part identified by <paramref name="partIdentifier"/> PS! Provide all values, those not provided will be set to null.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
     /// <param name="request">Request body containing all properties</param>
     /// <response code="200">Updated part information including list of aliases</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpPut("parts/{partIdentifier}")]
     public async Task<ActionResult<ApiPart>> UpdatePart(string partIdentifier, PartRequest request)
     {
@@ -161,13 +164,13 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Deletes part identified by <paramref name="partIdentifier"/> permanently. 
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="partIdentifier">Identifier (name, alias or Guid) of the part. Case insensitive for part names.</param>
     /// <response code="204">Part and connected aliases are deleted</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpDelete("parts/{partIdentifier}")]
     public async Task<ActionResult> DeletePart(string partIdentifier)
     {
@@ -183,14 +186,14 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Adds <paramref name="alias"/> to part identified by <paramref name="partIdentifier"/>.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
     /// <param name="alias">An alias the part is also known as</param>
     /// <response code="200">Updated part information including list of aliases</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpPost("parts/{partIdentifier}/aliases")]
     public async Task<ActionResult<ApiPart>> AddAlias(string partIdentifier, string alias)
     {
@@ -218,14 +221,14 @@ public class PartsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Delete <paramref name="alias"/> from part identified by <paramref name="partIdentifier"/>.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="partIdentifier">Identifier (name, alias or Guid) of the part</param>
     /// <param name="alias">An alias the part is also known as</param>
     /// <response code="200">Updated part information including list of aliases</response>
     /// <response code="404">Part not found, make sure part name is correct</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [HttpDelete("parts/{partIdentifier}/aliases/{alias}")]
     public async Task<ActionResult<ApiPart>> DeleteAliasFromPart(string partIdentifier, string alias)
     {

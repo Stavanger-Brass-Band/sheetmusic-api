@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Users.Authorization;
 
 namespace SheetMusic.Api.Database;
 
@@ -23,7 +24,7 @@ public static class DatabaseSeeder
     {
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
-        foreach (var roleName in new[] { "Admin", "Reader" })
+        foreach (var roleName in Roles.All)
         {
             if (!await roleManager.RoleExistsAsync(roleName))
             {

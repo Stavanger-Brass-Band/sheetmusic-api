@@ -79,7 +79,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
         if (!result.Succeeded)
             throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
 
-        await userManager.AddToRoleAsync(user, "Reader");
+        await userManager.AddToRoleAsync(user, Roles.Musikant);
 
         return new CreatedResult("users", new ApiUser(user));
     }
@@ -103,7 +103,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
             return BadRequest("Unable to find Name claim and identify user");
 
         var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
         var userToChange = await userManager.FindByIdAsync(identifier.ToString());
 
         if (userToChange == null)
@@ -180,7 +180,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
         if (authenticatedUserId != id)
         {
             var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-            var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, "Admin");
+            var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
 
             if (!isAdmin)
                 return Forbid();

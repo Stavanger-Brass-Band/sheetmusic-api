@@ -17,7 +17,7 @@ namespace SheetMusic.Api.Test.Parts;
 public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
     [Fact]
-    public async Task CreatePart_ShouldBeForbidden_WhenReader()
+    public async Task CreatePart_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
@@ -105,7 +105,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task UpdatePart_ShouldBeForbidden_WhenReader()
+    public async Task UpdatePart_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
@@ -138,7 +138,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task AddAlias_ShouldBeForbidden_WhenReader()
+    public async Task AddAlias_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
@@ -174,7 +174,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task RemoveAlias_ShouldBeForbidden_WhenReader()
+    public async Task RemoveAlias_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
@@ -197,7 +197,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task DeletePart_ShouldBeForbidden_WhenReader()
+    public async Task DeletePart_ShouldBeForbidden_WhenMusikant()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
@@ -285,7 +285,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task SearchForPart_ShouldBeForbidden_WhenReader()
+    public async Task SearchForPart_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
@@ -309,7 +309,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task GetPartList_ShouldBeForbidden_WhenReader()
+    public async Task GetPartList_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
@@ -445,11 +445,48 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task BuildPartIndex_ShouldBeForbidden_WhenReader()
+    public async Task BuildPartIndex_ShouldBeForbidden_WhenMusikant()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         var response = await client.PostAsync("parts/index", null);
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task BuildPartIndex_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PostAsync("parts/index", null);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CreatePart_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.PostAsJsonAsync("parts", new { Name = $"noteansvarlig-part-{Guid.NewGuid():N}", SortOrder = 1, Indexable = false });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetPartList_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+
+        var response = await client.GetAsync("parts");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task DeletePart_ShouldBeSuccessful_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var part = await new PartDataBuilder(client).ProvisionSinglePartAsync();
+
+        var response = await client.DeleteAsync($"parts/{part.Name}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 }

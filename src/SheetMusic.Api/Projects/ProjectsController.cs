@@ -73,14 +73,14 @@ public class ProjectsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Adds a new project.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="request">Details about the new project</param>
     /// <response code="200">Details about the newly created project</response>
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("projects")]
     public async Task<ActionResult<ApiProject>> CreateNewProject([FromBody] NewProjectRequest request)
     {
@@ -93,7 +93,7 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     /// Assigns the given sets to a project. The order of <see cref="SetCollectionRequest.SetIdentifiers"/> determines
     /// the sort order of those sets - sets already assigned to the project are moved to match their position in the
     /// list, so this endpoint also covers reordering the sets currently assigned to a project.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="projectIdentifier">A value uniquely identifying the project. Either guid or name</param>
     /// <param name="request">The identifiers (guid, archive number or title) of the sets to assign, in the desired order</param>
@@ -101,8 +101,8 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="404">Project not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("projects/{projectIdentifier}/sets")]
     public async Task<ActionResult<List<ApiSet>>> AssignSetToProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
@@ -128,7 +128,7 @@ public class ProjectsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Removes the given sets from a project.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="projectIdentifier">A value uniquely identifying the project. Either guid or name</param>
     /// <param name="request">The identifiers (guid, archive number or title) of the sets to unassign</param>
@@ -136,8 +136,8 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="404">Project not found, or one of the sets is not assigned to the project</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("projects/{projectIdentifier}/sets/")]
     public async Task<ActionResult<List<ApiSet>>> UnassignSetFromProject(string projectIdentifier, [FromBody] SetCollectionRequest request)
     {
@@ -164,8 +164,8 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     /// <response code="204">Project was deleted successfully</response>
     /// <response code="404">Project not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpDelete("projects/{projectIdentifier}")]
     public async Task<ActionResult> DeleteProject(string projectIdentifier)
     {
@@ -176,7 +176,7 @@ public class ProjectsController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Updates the project identified by <paramref name="projectIdentifier"/>. PS! Provide all values, those not provided will be set to null.
-    /// Requires Administrator privileges.
+    /// Requires Noteansvarlig or Administrator privileges.
     /// </summary>
     /// <param name="projectIdentifier">A value uniquely identifying the project. Either guid or name</param>
     /// <param name="request">Updated details for the project</param>
@@ -184,8 +184,8 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="404">Project not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
-    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
-    [Authorize(AuthPolicy.Admin)]
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
+    [Authorize(AuthPolicy.ManageMusic)]
     [HttpPut("projects/{projectIdentifier}")]
     public async Task<ActionResult<ApiProject>> UpdateProject(string projectIdentifier, UpdateProjectRequest request)
     {
