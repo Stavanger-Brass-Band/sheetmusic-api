@@ -17,10 +17,10 @@
 		<PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
 		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.4.6" />
+		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.4.6" />
 		<PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
 		<PackageReference Include="MediatR" Version="14.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
-		<PackageReference Include="Azure.Search.Documents" Version="12.0.0" />
 		<PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />

@@ -110,7 +110,7 @@ public static class IServiceCollectionExtensions
                     .AllowCredentials());
         });
 
-        var secretKey = Encoding.ASCII.GetBytes(configuration[ConfigKeys.Secret] ?? throw new MissingConfigurationException(ConfigKeys.Secret));
+        var secretKey = Encoding.ASCII.GetBytes(configuration[ConfigKeys.JwtSigningKey] ?? throw new MissingConfigurationException(ConfigKeys.JwtSigningKey));
 
         services.AddAuthentication(x =>
         {

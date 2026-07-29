@@ -61,11 +61,10 @@ Some settings aren't safe to commit and must be supplied via [user secrets](http
 |---|---|---|
 | `Resend:ApiKey` | `resend-api-key` | Transactional email (password reset, etc.) via [Resend](https://resend.com/). Leave unset locally to fall back to a no-op sender that logs instead of sending. |
 | `Email:FromAddress`, `Email:FrontendBaseUrl` | `email-from-address`, `email-frontend-base-url` | Email sender address and link target for the member frontend |
-| `Search:Host`, `Search:AdminKey` | `search-host`, `search-admin-key` | Azure AI Search endpoint/key used for the parts search index. Optional locally - part search is simply unavailable until these are set. |
 | `Search:IndexPrefix` | `search-index-prefix` | Optional prefix (e.g. `test`, `prod`) so multiple environments can share one Azure AI Search service without one environment's index rebuild deleting another's. Unset preserves the historical unprefixed index name. |
-| `AppSettings:Secret` | `app-settings-secret` | Symmetric key used to sign JWT access tokens. No committed fallback and no local-dev default - a missing value fails startup (AppHost) or app startup (API). Every environment, including local dev, must set its own value via user secrets. |
+| `Jwt:SigningKey` | `jwt-signing-key` | Symmetric key used to sign JWT access tokens. No committed fallback and no local-dev default - a missing value fails startup (AppHost) or app startup (API). Every environment, including local dev, must set its own value via user secrets. |
 
-Set any of these via `dotnet user-secrets set Parameters:<parameter-name> <value>` from `src/SheetMusic.AppHost`. `app-settings-secret` in particular must be set before running `aspire run` locally for the first time.
+Set any of these via `dotnet user-secrets set Parameters:<parameter-name> <value>` from `src/SheetMusic.AppHost`. `jwt-signing-key` in particular must be set before running `aspire run` locally for the first time.
 
 See [ConfigKeys.cs](src/SheetMusic.Api/Configuration/ConfigKeys.cs) for the full list of configuration keys, including rate limiting overrides.
 

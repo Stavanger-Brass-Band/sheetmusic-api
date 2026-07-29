@@ -7,7 +7,7 @@ using Xunit;
 namespace SheetMusic.Api.Test.Users;
 
 /// <summary>
-/// Verifies that a missing <c>AppSettings:Secret</c> - the JWT signing key - fails application startup
+/// Verifies that a missing <c>Jwt:SigningKey</c> - the JWT signing key - fails application startup
 /// fast rather than silently booting on some other fallback. Before issue #237, a value was committed to
 /// <c>appsettings.json</c>; anyone missing an environment-specific override would boot successfully on a
 /// signing key public in source control, letting anyone forge an admin token.
@@ -15,12 +15,12 @@ namespace SheetMusic.Api.Test.Users;
 public class SecurityConfigurationTests
 {
     [Fact]
-    public void Startup_Fails_WhenAppSettingsSecretIsMissing()
+    public void Startup_Fails_WhenJwtSigningKeyIsMissing()
     {
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("SkipMigrations", "true");
-            // Deliberately not setting AppSettings:Secret - appsettings.json no longer provides one.
+            // Deliberately not setting Jwt:SigningKey - appsettings.json no longer provides one.
         });
 
         Action act = () =>
