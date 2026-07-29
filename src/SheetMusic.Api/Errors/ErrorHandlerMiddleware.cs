@@ -10,6 +10,10 @@ namespace SheetMusic.Api.Errors;
 
 public class ErrorHandlerMiddleware(RequestDelegate next, ILogger<ErrorHandlerMiddleware> logger)
 {
+    // Matches the camelCase naming ASP.NET Core MVC uses by default for controller responses, so
+    // manually-serialized error responses (this middleware runs outside the MVC pipeline) look the same.
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
     public async Task Invoke(HttpContext context)
     {
         try
@@ -22,6 +26,12 @@ public class ErrorHandlerMiddleware(RequestDelegate next, ILogger<ErrorHandlerMi
 
             var errorType = eb.GetType().Name;
             var error = new ProblemDetails { Status = (int)eb.StatusCode, Type = errorType, Title = errorType, Detail = eb.Message };
+
+            if (eb.Extensions is not null)
+            {
+                foreach (var (key, value) in eb.Extensions)
+                    error.Extensions[key] = value;
+            }
 
             await WriteProblemDetailsAsync(context, error);
         }
@@ -50,6 +60,6 @@ public class ErrorHandlerMiddleware(RequestDelegate next, ILogger<ErrorHandlerMi
         context.Response.Clear();
         context.Response.StatusCode = error.Status ?? (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync(JsonSerializer.Serialize(error));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(error, SerializerOptions));
     }
 }
