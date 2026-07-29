@@ -104,10 +104,13 @@ app.UseMiddleware<ErrorHandlerMiddleware>();
 
 app.UseForwardedHeaders();
 app.UseRouting();
+// Before auth (documented ASP.NET Core ordering): otherwise a 401/403 short-circuits before reaching
+// UseCors, so the response has no CORS headers and the browser reports a CORS error instead of the
+// real auth failure.
+app.UseCors("AllowMember");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpsRedirection();
-app.UseCors("AllowMember");
 app.UseRateLimiter();
 
 var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
