@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.1...v0.2.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* **cors:** declare a single CORS policy and enforce it correctly ([#274](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/274)) ([a9536f5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a9536f53acabb4a2f721ecadaa99c91ca09c92bc))
+* **odata:** apply $orderby, $skip and $top on GET /projects and /parts ([#272](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/272)) ([d55ab08](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/d55ab08fb24720b67773305ce2919fc585df4083))
+* **parts:** return 409 conflict instead of 500 when deleting a part in use ([#270](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/270)) ([4f9e089](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/4f9e08999b73e167da8bb04bedd9d84f3b21e520))
+
 ## [0.2.1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.0...v0.2.1) (2026-07-29)
 
 
