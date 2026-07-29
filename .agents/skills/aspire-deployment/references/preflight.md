@@ -153,7 +153,7 @@ For CI/CD and GitHub Actions, load `references/cicd.md` before adding workflow Y
 Flag production-only endpoint behavior:
 
 - External HTTP endpoint configuration can change what becomes public in deployment.
-- JavaScript app resources need an explicit production serving model. Load `references/javascript.md` when the AppHost contains JavaScript, Vite, Node, or Next.js resources.
+- JavaScript app resources need an explicit production serving model - verify current Aspire docs for Vite/Node/Next.js deployment models if the AppHost ever gains a JavaScript resource (this repo is C#-only today).
 - Azure Container Apps supports internal and external endpoints, with one main HTTP ingress group.
 - Azure App Service supports a public website model with external HTTP/HTTPS endpoints only.
 - Kubernetes exposes services through ClusterIP by default unless Ingress, Gateway API, or service type customization is configured.

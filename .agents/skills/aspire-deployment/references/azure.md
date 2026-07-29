@@ -222,7 +222,7 @@ Code changes:
 4. Use Azure Kubernetes Service (AKS) customization APIs only when needed, such as node pools, system node pool SKU/count, subnet integration, workload identity, custom ACR, or Application Gateway for Containers.
 5. Use Kubernetes Gateway/Ingress/service customization APIs for public exposure. Do not assume adding the environment makes every workload public.
 
-For Azure Kubernetes Service (AKS) details, also load [kubernetes.md](kubernetes.md).
+For Azure Kubernetes Service (AKS) details, verify current Aspire docs for Kubernetes/Helm output, registry requirements, and kubectl/Helm checks (this repo targets Azure Container Apps, not AKS, so that path is unexercised here).
 
 Azure Kubernetes Service (AKS) uses the Azure Kubernetes integration to provision Azure Kubernetes Service (AKS) infrastructure and then deploys through an inner Kubernetes/Helm environment. It auto-creates ACR by default, supports explicit ACR replacement, and can customize node pools, subnets, workload identity, and Application Gateway for Containers. Verify exact APIs before editing.
 

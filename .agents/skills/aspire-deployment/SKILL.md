@@ -119,11 +119,7 @@ The Azure deployment path in this skill is `aspire add <azure-target>`, AppHost 
    - If exactly one target environment already exists, use it and state what was detected.
    - If multiple targets exist, none exists, or the user says only "Azure", ask where to deploy using the choices above.
 3. **Load target and app-type references.**
-    - Docker Compose: [references/docker-compose.md](references/docker-compose.md)
-    - Kubernetes and Azure Kubernetes Service (AKS): [references/kubernetes.md](references/kubernetes.md)
     - Azure Container Apps/App Service/Azure Kubernetes Service (AKS): [references/azure.md](references/azure.md)
-    - AWS: [references/aws.md](references/aws.md)
-    - JavaScript app resources: [references/javascript.md](references/javascript.md)
     - CI/CD or GitHub Actions automation: [references/cicd.md](references/cicd.md)
 4. **Use Aspire docs search for current guidance.**
     - Search and get the target deployment docs.
@@ -188,11 +184,7 @@ Use `aspire secret list` for AppHost user secrets when appropriate, but do not p
 
 ## Target references
 
-- [references/docker-compose.md](references/docker-compose.md) - Docker Compose target, generated files, environment variables, cleanup.
-- [references/kubernetes.md](references/kubernetes.md) - Kubernetes and Azure Kubernetes Service (AKS) target selection, Helm output, registry requirements, kubectl/Helm checks.
 - [references/azure.md](references/azure.md) - Azure target selection, Azure settings, Container Apps, App Service, and Azure Kubernetes Service (AKS).
-- [references/aws.md](references/aws.md) - AWS target selection, AWS CDK prerequisites, publish/deploy workflow, and AWS integration docs.
-- [references/javascript.md](references/javascript.md) - JavaScript app deployment models, including Vite/static assets, Node/SSR servers, Next.js, and gateway/backend serving patterns.
 - [references/cicd.md](references/cicd.md) - CI/CD and GitHub Actions workflow guidance for Aspire publish/deploy, parameters, secrets, registry auth, and cloud auth.
 - [references/preflight.md](references/preflight.md) - Common preflight, preview, parameter, destroy, and validation checklist.
 

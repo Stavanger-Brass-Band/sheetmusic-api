@@ -237,7 +237,6 @@ If the workflow uses service-principal secrets instead of OIDC, set `AZURE_CLIEN
 A real Azure Aspire deployment workflow can be as small as checkout, AppHost toolchain setup, Aspire CLI install, Azure login, and `aspire deploy`. Use these checked-in workflow references when the user wants GitHub Actions to deploy directly to Azure through Aspire and gate it with a GitHub Environment:
 
 - C# AppHost: [github-actions-azure-csharp.yml](github-actions-azure-csharp.yml)
-- TypeScript AppHost: [github-actions-azure-typescript.yml](github-actions-azure-typescript.yml)
 
 The C# AppHost reference has this shape:
 
