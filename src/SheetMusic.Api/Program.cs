@@ -1,10 +1,7 @@
 using Asp.Versioning.ApiExplorer;
-using Azure.Storage.Blobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -63,32 +60,10 @@ builder.Services.AddSingleton<IBlobClient, SheetMusic.Api.BlobStorage.BlobClient
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
-// Persist the Data Protection key ring to blob storage (container "data-protection-keys", blob
-// "keys.xml") rather than relying on the local filesystem. App Service auto-persists keys to %HOME%,
-// but Azure Container Apps' filesystem is ephemeral: every scale-to-zero cold start would otherwise
-// regenerate the ring, invalidating outstanding password-reset tokens and breaking token validation
-// across replicas. See BlobStorage/AzureBlobXmlRepository.cs for why a small custom IXmlRepository is
-// used instead of Microsoft's official (legacy-SDK-only) DataProtection.AzureStorage package.
-//
-// Resolving the BlobServiceClient requires a throwaway service provider (same pattern as
-// AddSheetMusicOpenApi above). Guarded: hosts with no blob storage configured at all (e.g. the
-// WebApplicationFactory-based test host, which doesn't run through the AppHost) fall back to Data
-// Protection's default local key storage instead of failing application startup - matching the
-// historical, storage-optional behaviour.
-builder.Services.AddDataProtection().SetApplicationName("SheetMusic.Api");
-try
-{
-    using var blobServiceProvider = builder.Services.BuildServiceProvider();
-    var blobServiceClient = blobServiceProvider.GetRequiredService<BlobServiceClient>();
-    var keyRingContainer = blobServiceClient.GetBlobContainerClient("data-protection-keys");
-
-    builder.Services.Configure<KeyManagementOptions>(options =>
-        options.XmlRepository = new AzureBlobXmlRepository(keyRingContainer, "keys.xml"));
-}
-catch (InvalidOperationException)
-{
-    // No blob storage configured for this host; Data Protection uses its default key storage.
-}
+// See AddSheetMusicDataProtection for why the key ring is persisted to blob storage rather than the
+// local filesystem (issue #235). Must run after AddAzureBlobServiceClient above, since it resolves the
+// BlobServiceClient from the services registered so far.
+builder.Services.AddSheetMusicDataProtection("SheetMusic.Api");
 
 builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<Program>());
 
