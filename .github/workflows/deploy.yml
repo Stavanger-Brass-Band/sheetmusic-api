@@ -73,7 +73,7 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy sequence, part 1 of 4 (issue #246, #234 decision 11): deploys the new image and creates
+      # Deploy sequence, part 1 of 6 (issue #246, #234 decision 11): deploys the new image and creates
       # the new revision with test's real replica counts (see AppHost.cs) - no scale trickery needed.
       - name: Deploy test infrastructure and new image
         run: aspire do provision-sheetmusic-api-test-containerapp --non-interactive
@@ -86,7 +86,7 @@ jobs:
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
 
-      # Deploy sequence, part 2 of 4: in Single revision mode the new revision above becomes active (and
+      # Deploy sequence, part 2 of 6: in Single revision mode the new revision above becomes active (and
       # starts serving) as soon as it's healthy, so deactivate it immediately - before running
       # migrations against not-yet-migrated code. `az containerapp revision deactivate`/`activate` (both
       # GA) is used here rather than temporarily forcing min/max replicas to zero: Azure's own scale
@@ -101,7 +101,22 @@ jobs:
           echo "TEST_REVISION=$revision" >> "$GITHUB_ENV"
           az containerapp revision deactivate --name "sheetmusic-api-test" --resource-group "$rg" --revision "$revision"
 
-      # Deploy sequence, part 3 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
+      # Deploy sequence, part 3 of 6: the migration job is its own AppHost resource with its own
+      # provisioning step (`provision-sheetmusic-api-test-migrate-containerapp`), never touched by the
+      # containerapp step above - without this, the job silently keeps running its previous image/env vars
+      # (e.g. a stale connection string) on every deploy no matter what changed in the AppHost.
+      - name: Deploy test migration job infrastructure and new image
+        run: aspire do provision-sheetmusic-api-test-migrate-containerapp --non-interactive
+        env:
+          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ vars.AZURE_LOCATION }}
+          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
+          Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
+          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+
+      # Deploy sequence, part 4 of 6: start the test migration ACA Job. Container Apps/Jobs don't need
       # globally-unique names (unlike Storage/Search/ACR/SQL, which Aspire suffixes with a generated
       # hash) so the Azure resource name should match the AppHost resource name below exactly - verify
       # with `az containerapp job list` after the first deploy and adjust here if Aspire ever mangles it.
@@ -111,9 +126,9 @@ jobs:
             --name "sheetmusic-api-test-migrate" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
 
-      # Deploy sequence, part 4 of 5 (renumbered): poll the execution to completion and check its exit
-      # code (#234 decision 11). Omitting this poll creates a race that only appears under a slow
-      # migration - the revision would reactivate (next step) before the schema is actually ready.
+      # Deploy sequence, part 5 of 6: poll the execution to completion and check its exit code (#234
+      # decision 11). Omitting this poll creates a race that only appears under a slow migration - the
+      # revision would reactivate (next step) before the schema is actually ready.
       - name: Wait for test migration job to complete
         run: |
           set -euo pipefail
@@ -134,7 +149,7 @@ jobs:
           echo "Timed out waiting for migration job to complete"
           exit 1
 
-      # Deploy sequence, part 5 of 5: reactivate the revision now that the migration has succeeded.
+      # Deploy sequence, part 6 of 6: reactivate the revision now that the migration has succeeded.
       - name: Reactivate test revision
         run: |
           az containerapp revision activate \
@@ -201,6 +216,21 @@ jobs:
           revision=$(az containerapp show --name "sheetmusic-api" --resource-group "$rg" --query "properties.latestRevisionName" -o tsv)
           echo "PROD_REVISION=$revision" >> "$GITHUB_ENV"
           az containerapp revision deactivate --name "sheetmusic-api" --resource-group "$rg" --revision "$revision"
+
+      # The migration job is its own AppHost resource with its own provisioning step
+      # (`provision-sheetmusic-api-migrate-containerapp`), never touched by the containerapp step above -
+      # without this, the job silently keeps running its previous image/env vars (e.g. a stale connection
+      # string) on every deploy no matter what changed in the AppHost.
+      - name: Deploy production migration job infrastructure and new image
+        run: aspire do provision-sheetmusic-api-migrate-containerapp --non-interactive
+        env:
+          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ vars.AZURE_LOCATION }}
+          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
+          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
+          Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
+          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
 
       - name: Start production migration job
         run: |
