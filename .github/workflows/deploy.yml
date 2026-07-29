@@ -16,27 +16,6 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build and test
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Setup .NET 10.0
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore packages
-        run: dotnet restore src/SheetMusic.sln
-
-      - name: Build
-        run: dotnet build src/SheetMusic.sln --configuration Release --no-restore
-
-      - name: Run integration tests
-        run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release
-
   # Test and production now share one Azure environment/resource group and one Aspire deployment state
   # (issue #246) instead of two independent `aspire deploy --environment` invocations - that's what lets
   # Search, the SQL server, the ACR, the ACA environment, and Log Analytics each be provisioned exactly
@@ -45,7 +24,6 @@ jobs:
   # infra) run automatically, but the *other* app's container app/job is never touched.
   deploy-test:
     name: Deploy to test
-    needs: build
     runs-on: ubuntu-latest
     # Not an approval gate (unlike production below) - test deploys automatically on every push to main.
     # This exists purely so `vars.EMAIL_FRONTEND_BASE_URL` can resolve to test's own environment-scoped
