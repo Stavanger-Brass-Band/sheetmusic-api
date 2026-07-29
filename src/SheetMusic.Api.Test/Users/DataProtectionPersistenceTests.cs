@@ -2,8 +2,11 @@ using Azure.Storage.Blobs;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SheetMusic.Api.BlobStorage;
+using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using System;
@@ -39,6 +42,34 @@ public class DataProtectionPersistenceTests(AzuriteFixture azurite)
         var unprotected = protectorB.Unprotect(protectedPayload);
 
         unprotected.Should().Be("password-reset-token");
+    }
+
+    /// <summary>
+    /// Regression test for the production bug where <see cref="IServiceCollectionExtensions.AddSheetMusicDataProtection"/>
+    /// used to build a second, throwaway <see cref="IServiceProvider"/> to eagerly resolve a
+    /// <see cref="BlobServiceClient"/>, then dispose it - which also disposed Azure Client Factory
+    /// registration state shared with the app's real provider, causing every later
+    /// <see cref="BlobServiceClient"/> resolution to fail with <see cref="ObjectDisposedException"/>
+    /// ("ClientRegistration"). Registers a real Azure Client Factory <see cref="BlobServiceClient"/> -
+    /// the same registration shape <c>AddAzureBlobServiceClient</c> produces - runs it through
+    /// <see cref="IServiceCollectionExtensions.AddSheetMusicDataProtection"/>, forces the lazy
+    /// <see cref="KeyManagementOptions"/> configuration to materialize, and then confirms the same
+    /// provider can still resolve a working <see cref="BlobServiceClient"/> afterwards.
+    /// </summary>
+    [Fact]
+    public void AddSheetMusicDataProtection_DoesNotBreakLaterBlobServiceClientResolution()
+    {
+        var services = new ServiceCollection();
+        services.AddAzureClients(clientBuilder => clientBuilder.AddBlobServiceClient(azurite.ConnectionString));
+        services.AddSheetMusicDataProtection("SheetMusic.Api.Test");
+
+        using var provider = services.BuildServiceProvider();
+
+        var keyManagementOptions = provider.GetRequiredService<IOptions<KeyManagementOptions>>().Value;
+        keyManagementOptions.XmlRepository.Should().BeOfType<AzureBlobXmlRepository>();
+
+        var resolveAfterOptions = () => provider.GetRequiredService<BlobServiceClient>();
+        resolveAfterOptions.Should().NotThrow();
     }
 
     private static IDataProtector BuildProtector(BlobContainerClient container)
