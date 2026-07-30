@@ -59,7 +59,7 @@ jobs:
       # already supplied explicitly via env vars below on every run (see Security considerations in the
       # linked doc: state files can contain secrets in plain text).
       - name: Restore Aspire deployment state
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.aspire/deployments
           key: aspire-deployments-${{ github.run_id }}
@@ -189,7 +189,7 @@ jobs:
           echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
 
       - name: Restore Aspire deployment state
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.aspire/deployments
           key: aspire-deployments-${{ github.run_id }}
