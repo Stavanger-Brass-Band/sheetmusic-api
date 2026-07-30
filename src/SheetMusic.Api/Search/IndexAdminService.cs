@@ -28,7 +28,14 @@ public class IndexAdminService(SearchIndexClient searchIndexClient, IConfigurati
 
     public async Task ClearIndexAsync<T>()
     {
-        await searchIndexClient.DeleteIndexAsync(GetIndexName<T>(), default(MatchConditions));
+        try
+        {
+            await searchIndexClient.DeleteIndexAsync(GetIndexName<T>(), default(MatchConditions));
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // Delete is meant to be idempotent; nothing to clear if the index was never created.
+        }
     }
 
     public SearchClient GetQueryClient<T>()
