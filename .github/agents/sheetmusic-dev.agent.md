@@ -1,7 +1,7 @@
 ---
 description: "Expert at developing features for the Sheet Music API using CQRS, MediatR, EF Core patterns. Use when adding endpoints, commands, queries, entities, validators, or tests to the Sheet Music codebase."
 name: "Sheet Music API Developer"
-tools: [vscode/memory, vscode/askQuestions, execute, read, agent, edit, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web, browser, vscodeGeneral/usages, todo]
+tools: [vscode/askQuestions, vscode/memory, execute, read, agent, browser, vscodeGeneral/rename, vscodeGeneral/usages, vscodeNotebooks/createJupyterNotebook, vscodeNotebooks/editNotebook, edit, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, web, 'playwright/*', todo]
 argument-hint: "What feature or endpoint do you want to add?"
 agents: ["Code Reviewer"]
 user-invocable: true
