@@ -728,6 +728,34 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_DeleteUser_ShouldDetachConnectedMusician_WhenHardDeleting()
+    {
+        var anonymousClient = CreateV2Client();
+        var (id, _) = await RegisterInactiveUserAsync(anonymousClient, "hard-delete-musician");
+
+        Guid musicianId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            var musician = new Musician { Id = Guid.NewGuid(), ApplicationUserId = id };
+            db.Musicians.Add(musician);
+            await db.SaveChangesAsync();
+            musicianId = musician.Id;
+        }
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.DeleteAsync($"users/{id}?hardDelete=true");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            var musician = await db.Musicians.SingleAsync(m => m.Id == musicianId);
+            musician.ApplicationUserId.Should().BeNull();
+        }
+    }
+
+    [Fact]
     public async Task V2_DeleteUser_ShouldBeForbidden_WhenNonAdmin()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Testesen);
