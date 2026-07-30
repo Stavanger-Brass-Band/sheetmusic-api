@@ -210,6 +210,23 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_GetToken_ShouldAssumeBasicGrantType_WhenGrantTypeIsPassword()
+    {
+        var client = CreateV2Client();
+
+        var collection = new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "password"),
+            new("username", TestUser.Testesen.Email),
+            new("password", TestUser.Testesen.Password)
+        };
+
+        var content = new FormUrlEncodedContent(collection);
+        var response = await client.PostAsync("token", content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task V2_GetToken_WithWrongPassword_ShouldReturnBadRequest()
     {
         var client = CreateV2Client();
