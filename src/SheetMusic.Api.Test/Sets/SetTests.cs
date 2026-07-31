@@ -105,6 +105,33 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task AddNewSet_ShouldReturnBadRequest_WhenTitleIsMissing()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PostAsJsonAsync("sheetmusic/sets", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AddNewSet_ShouldPersistRecordingUrl()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PostAsJsonAsync("sheetmusic/sets", new
+        {
+            Title = $"Set with recording - {Guid.NewGuid()}",
+            RecordingUrl = "https://example.com/recording.mp3"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var apiSet = await response.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
+        apiSet.Should().NotBeNull();
+        apiSet!.RecordingUrl.Should().Be("https://example.com/recording.mp3");
+    }
+
+    [Fact]
     public async Task GetSetList_ShouldBeSuccessfull()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
