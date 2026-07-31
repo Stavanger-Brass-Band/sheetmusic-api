@@ -103,6 +103,7 @@ public static class IServiceCollectionExtensions
             // environments' real frontend origins.
             options.AddPolicy("AllowMember", builder =>
                 builder.WithOrigins("https://medlem.stavanger-brassband.no",
+                                    "https://kind-grass-0a4be7103.7.azurestaticapps.net",
                                     "https://orange-mud-00eed1803.1.azurestaticapps.net",
                                     "http://localhost:5000",
                                     "http://localhost:5100",
