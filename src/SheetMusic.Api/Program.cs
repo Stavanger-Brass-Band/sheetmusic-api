@@ -12,7 +12,6 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Search;
-using SheetMusic.Api.Users;
 using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,7 +60,6 @@ builder.AddAzureBlobServiceClient("blobs");
 // admin key - see IndexAdminService, which no longer has a Search:AdminKey to manage.
 builder.AddAzureSearchClient("search");
 builder.Services.AddSingleton<IBlobClient, SheetMusic.Api.BlobStorage.BlobClient>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
 
 // See AddSheetMusicDataProtection for why the key ring is persisted to blob storage rather than the

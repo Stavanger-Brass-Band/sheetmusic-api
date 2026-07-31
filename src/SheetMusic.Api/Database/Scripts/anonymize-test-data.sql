@@ -2,12 +2,11 @@
 -- per #234 decision 14). Run this against a *restored copy* of production, never against production
 -- itself, before loading the result into the test environment. The sheet music catalogue (Projects,
 -- ProjectSheetMusicSets, SheetMusicSets, SheetMusicParts, SheetMusicCategories, MusicParts,
--- MusicPartAliases, MusicianMusicParts, Categories, UserGroups) is left untouched - only person-
+-- MusicPartAliases, MusicianMusicParts, Categories) is left untouched - only person-
 -- identifying and credential data is rewritten.
 --
--- Legacy v1 (Musician-based) login is out of scope: the new Aspire-hosted environment (issue #246)
--- does not need to support it, so this script does not anonymise dbo.Musicians' obsolete
--- Email/PasswordHash/PasswordSalt columns - only dbo.AspNetUsers (ASP.NET Core Identity /
+-- Legacy v1 (Musician-based) login was removed (issue #273): dbo.Musicians only tracks the part
+-- assignment relationship (MusicianMusicParts) now, so only dbo.AspNetUsers (ASP.NET Core Identity /
 -- ApplicationUser, the only login path this environment supports) matters here.
 --
 -- This doubles as a dry run of the #247 export/import path.

@@ -249,8 +249,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
-            var userGroupId = await db.UserGroups.Select(g => g.Id).FirstAsync();
-            var musician = new Musician { Id = Guid.NewGuid(), Name = $"Musician-{Guid.NewGuid()}", UserGroupId = userGroupId };
+            var musician = new Musician { Id = Guid.NewGuid(), Name = $"Musician-{Guid.NewGuid()}" };
             db.Musicians.Add(musician);
             db.Set<MusicianMusicPart>().Add(new MusicianMusicPart { Id = Guid.NewGuid(), MusicianId = musician.Id, MusicPartId = part.Id });
             await db.SaveChangesAsync();

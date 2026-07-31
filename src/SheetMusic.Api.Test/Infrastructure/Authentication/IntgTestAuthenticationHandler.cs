@@ -33,7 +33,7 @@ internal class IntgTestAuthenticationHandler(IOptionsMonitor<IntgTestSchemeOptio
 
             // Mirrors the JwtBearer OnTokenValidated enrichment: roles are resolved per request, so a
             // role assigned mid-test takes effect on the next call without re-authenticating.
-            var resolver = Context.RequestServices.GetRequiredService<LegacyAuthResolver>();
+            var resolver = Context.RequestServices.GetRequiredService<AuthResolver>();
             var resolved = await resolver.ResolveAsync(testUser.Identifier);
 
             if (resolved is not null)

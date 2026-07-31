@@ -26,140 +26,6 @@ namespace SheetMusic.Api.Test.Users;
 [CollectionDefinition(Collections.User)]
 public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
-    // --- V1 (legacy HMAC auth, default version) ---
-
-    [Fact]
-    public async Task V1_GetToken_WithMatchingUserPassword_ShouldBeSuccessful()
-    {
-        var client = factory.CreateClient();
-
-        var collection = new List<KeyValuePair<string?, string?>>
-        {
-            new("grant_type", "basic"),
-            new("username", TestUser.Testesen.Email),
-            new("password", TestUser.Testesen.Password)
-        };
-
-        var content = new FormUrlEncodedContent(collection);
-        var response = await client.PostAsync("token", content);
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
-    public async Task V1_GetToken_ShouldReturn429_WhenRateLimitExceeded()
-    {
-        // Use a brand-new factory (own in-memory database and rate limiter state) with a low
-        // limit, so this test doesn't affect the shared factory/database used by other tests.
-        using var limitedFactory = new SheetMusicWebAppFactory().WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("RateLimiting:Token:PermitLimit", "2");
-            builder.UseSetting("RateLimiting:Token:WindowSeconds", "60");
-        });
-
-        var client = limitedFactory.CreateClient();
-
-        var collection = new List<KeyValuePair<string?, string?>>
-        {
-            new("grant_type", "basic"),
-            new("username", TestUser.Testesen.Email),
-            new("password", TestUser.Testesen.Password)
-        };
-
-        await client.PostAsync("token", new FormUrlEncodedContent(collection));
-        await client.PostAsync("token", new FormUrlEncodedContent(collection));
-        var response = await client.PostAsync("token", new FormUrlEncodedContent(collection));
-
-        response.StatusCode.Should().Be((HttpStatusCode)429);
-    }
-
-    [Fact]
-    public async Task V1_GetToken_WithWrongPassword_ShouldReturnBadRequest()
-    {
-        var client = factory.CreateClient();
-
-        var collection = new List<KeyValuePair<string?, string?>>
-        {
-            new("grant_type", "basic"),
-            new("username", TestUser.Testesen.Email),
-            new("password", "wrong-password")
-        };
-
-        var content = new FormUrlEncodedContent(collection);
-        var response = await client.PostAsync("token", content);
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task V1_GetToken_WithNonExistentUser_ShouldReturnBadRequest()
-    {
-        var client = factory.CreateClient();
-
-        var collection = new List<KeyValuePair<string?, string?>>
-        {
-            new("grant_type", "basic"),
-            new("username", "nonexistent@user.com"),
-            new("password", "anyPassword")
-        };
-
-        var content = new FormUrlEncodedContent(collection);
-        var response = await client.PostAsync("token", content);
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task V1_GetAllUsers_ShouldBeSuccessful_WhenAdmin()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-        var response = await client.GetAsync("users");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
-    public async Task V1_GetAllUsers_ShouldBeForbidden_WhenMusikant()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
-
-        var response = await client.GetAsync("users");
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task V1_GetUser_AsMe_ShouldBeSuccessful_WhenAdmin()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-        var response = await client.GetAsync("users/me");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
-    public async Task V1_GetUser_AsMe_ShouldGiveForbidden_WhenNonAdministrator()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
-        var response = await client.GetAsync("users/me");
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Theory]
-    [InlineData("bullshit")]
-    [InlineData("almost-a-guid-9FA3890E-D008-4791-B841-A1AD283BE86F")]
-    public async Task V1_GetUser_WithInvalidIdentifier_ShouldGiveBadRequest(string identifier)
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-        var response = await client.GetAsync($"users/{identifier}");
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task V1_GetUser_ById_ShouldBeSuccessful_WhenAdmin()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-        var response = await client.GetAsync($"users/{TestUser.Administrator.Identifier}");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
     // --- V2 (Identity auth) ---
 
     private HttpClient CreateV2Client()
@@ -241,6 +107,34 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var content = new FormUrlEncodedContent(collection);
         var response = await client.PostAsync("token", content);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_GetToken_ShouldReturn429_WhenRateLimitExceeded()
+    {
+        // Use a brand-new factory (own in-memory database and rate limiter state) with a low
+        // limit, so this test doesn't affect the shared factory/database used by other tests.
+        using var limitedFactory = new SheetMusicWebAppFactory().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("RateLimiting:Token:PermitLimit", "2");
+            builder.UseSetting("RateLimiting:Token:WindowSeconds", "60");
+        });
+
+        var client = limitedFactory.CreateClient();
+        client.DefaultRequestHeaders.Add("x-api-version", "2.0");
+
+        var collection = new List<KeyValuePair<string?, string?>>
+        {
+            new("grant_type", "basic"),
+            new("username", TestUser.Testesen.Email),
+            new("password", TestUser.Testesen.Password)
+        };
+
+        await client.PostAsync("token", new FormUrlEncodedContent(collection));
+        await client.PostAsync("token", new FormUrlEncodedContent(collection));
+        var response = await client.PostAsync("token", new FormUrlEncodedContent(collection));
+
+        response.StatusCode.Should().Be((HttpStatusCode)429);
     }
 
     [Fact]

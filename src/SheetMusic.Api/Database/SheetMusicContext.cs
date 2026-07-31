@@ -14,7 +14,6 @@ public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : Id
     public DbSet<MusicPart> MusicParts { get; set; } = null!;
     public DbSet<MusicPartAlias> MusicPartAliases { get; set; } = null!;
     public DbSet<Musician> Musicians { get; set; } = null!;
-    public DbSet<UserGroup> UserGroups { get; set; } = null!;
     public DbSet<Project> Projects { get; set; } = null!;
     public DbSet<ProjectSheetMusicSet> ProjectSheetMusicSets { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;

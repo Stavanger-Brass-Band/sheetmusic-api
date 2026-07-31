@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database.Entities;
@@ -38,20 +36,6 @@ public static class DatabaseSeeder
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var db = services.GetRequiredService<SheetMusicContext>();
 
-        // Seed legacy UserGroups for backward compatibility
-#pragma warning disable CS0612 // Type or member is obsolete
-        var adminGroup = await db.UserGroups.FirstOrDefaultAsync(g => g.Name == "Admin");
-        if (adminGroup is null)
-        {
-            adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
-            db.UserGroups.Add(adminGroup);
-
-            var readerGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Reader" };
-            db.UserGroups.Add(readerGroup);
-            await db.SaveChangesAsync();
-        }
-#pragma warning restore CS0612
-
         var adminUser = await userManager.FindByEmailAsync("admin@localhost");
         if (adminUser is null)
         {
@@ -67,30 +51,14 @@ public static class DatabaseSeeder
             await userManager.CreateAsync(adminUser, "Admin123!");
             await userManager.AddToRoleAsync(adminUser, "Admin");
 
-            CreatePasswordHash("Admin123!", out byte[] passwordHash, out byte[] passwordSalt);
-
-#pragma warning disable CS0612
             db.Musicians.Add(new Musician
             {
                 Id = Guid.NewGuid(),
                 Name = "Dev Admin",
-                Email = "admin@localhost",
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
-                Inactive = false,
-                UserGroupId = adminGroup.Id,
                 ApplicationUserId = adminUser.Id
             });
-#pragma warning restore CS0612
             await db.SaveChangesAsync();
         }
-    }
-
-    private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-    {
-        using var hmac = new HMACSHA512();
-        passwordSalt = hmac.Key;
-        passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
     }
 
     private static async Task SeedPartsAsync(SheetMusicContext db)
