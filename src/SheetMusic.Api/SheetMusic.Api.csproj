@@ -14,7 +14,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Asp.Versioning.Abstractions" Version="10.1.0" />
-		<PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
+		<PackageReference Include="Asp.Versioning.Mvc" Version="10.0.1" />
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
 		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.4.6" />
 		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.4.6" />
