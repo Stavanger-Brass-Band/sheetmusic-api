@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.3...v0.2.4) (2026-08-02)
+
+
+### Bug Fixes
+
+* **database:** retry transient SQL failures and stop prod free-limit auto-pause ([#296](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/296)) ([6ce8d14](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6ce8d143e852b1ada8a23f92dd4ff8095abb9eac))
+
 ## [0.2.3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.2...v0.2.3) (2026-07-31)
 
 
