@@ -20,7 +20,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 builder.Services.AddDbContext<SheetMusicContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SheetMusicContext")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("SheetMusicContext"), sqlOptions =>
+        // General resiliency against transient connection failures (timeouts, throttling) - not tied to
+        // any specific diagnosis, EF Core just retries these instead of failing the first request.
+        sqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)));
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
     {

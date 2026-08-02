@@ -1,7 +1,9 @@
+using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.ContainerRegistry;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
+using Azure.Provisioning.Sql;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -21,6 +23,23 @@ var sql = builder.AddAzureSqlServer("sql")
 // once. Test keeps its own database so its data never touches production's.
 var db = sql.AddDatabase("SheetMusicContext");
 var testDb = sql.AddDatabase("SheetMusicContextTest");
+
+// Prod must stay online for real users, so both of the free offer's independent pause triggers are
+// disabled here: idle-based auto-pause (AutoPauseDelay) and, separately, the auto-pause Aspire enables by
+// default once the monthly free quota (100,000 vCore-seconds or 32 GB) is exhausted
+// (FreeLimitExhaustionBehavior) - prod instead bills for any overage rather than pausing. Test keeps both
+// defaults so it can idle down / stay paused once its own free quota runs out. AzureSqlDatabaseResource
+// itself doesn't support ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent
+// server resource does - so the prod database's generated SqlDatabase is picked out of the shared server's
+// bicep resources by its BicepIdentifier, the same normalized name Aspire itself assigns each database
+// from its resource key.
+sql.ConfigureInfrastructure(infrastructure =>
+{
+    var prodDatabase = infrastructure.GetProvisionableResources().OfType<SqlDatabase>()
+        .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContext"));
+    prodDatabase.AutoPauseDelay = -1;
+    prodDatabase.FreeLimitExhaustionBehavior = FreeLimitExhaustionBehavior.BillOverUsage;
+});
 
 var storage = builder.AddAzureStorage("storage")
     .RunAsEmulator(emulator => emulator
