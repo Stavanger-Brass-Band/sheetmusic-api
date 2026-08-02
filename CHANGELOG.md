@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.4...v0.2.5) (2026-08-02)
+
+
+### Bug Fixes
+
+* **cors:** allowing noter.stavanger-brassband.no to cors ([#298](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/298)) ([f1188c3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f1188c3ddda683144f751ecdc7aa8a0626466810))
+
 ## [0.2.4](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.3...v0.2.4) (2026-08-02)
 
 
