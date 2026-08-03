@@ -19,7 +19,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 
 namespace SheetMusic.Api.Test.Infrastructure;
 
@@ -130,44 +129,26 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Musikant }).GetAwaiter().GetResult();
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Prosjektleder }).GetAwaiter().GetResult();
 
-        // Seed legacy UserGroups for backward compatibility
-        var adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
-        var readerGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Reader" };
-        db.UserGroups.Add(adminGroup);
-        db.UserGroups.Add(readerGroup);
-
-        SeedUser(userManager, db, TestUser.Testesen, Roles.Musikant, readerGroup.Id);
-        SeedUser(userManager, db, TestUser.Noteansvarlig, Roles.Noteansvarlig, readerGroup.Id);
-        SeedUser(userManager, db, TestUser.Administrator, Roles.Admin, adminGroup.Id);
-        SeedUser(userManager, db, TestUser.Prosjektleder, Roles.Prosjektleder, readerGroup.Id);
+        SeedUser(userManager, db, TestUser.Testesen, Roles.Musikant);
+        SeedUser(userManager, db, TestUser.Noteansvarlig, Roles.Noteansvarlig);
+        SeedUser(userManager, db, TestUser.Administrator, Roles.Admin);
+        SeedUser(userManager, db, TestUser.Prosjektleder, Roles.Prosjektleder);
 
         db.SaveChanges();
     }
 
-    private static void SeedUser(UserManager<ApplicationUser> userManager, SheetMusicContext db, TestUser testUser, string role, Guid userGroupId)
+    private static void SeedUser(UserManager<ApplicationUser> userManager, SheetMusicContext db, TestUser testUser, string role)
     {
         var appUser = testUser.AsApplicationUser();
         userManager.CreateAsync(appUser, testUser.Password).GetAwaiter().GetResult();
         userManager.AddToRoleAsync(appUser, role).GetAwaiter().GetResult();
 
-        // Seed legacy HMAC password hash for v1 compatibility
-        using var hmac = new System.Security.Cryptography.HMACSHA512();
-        var passwordSalt = hmac.Key;
-        var passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(testUser.Password));
-
-#pragma warning disable CS0612 // Type or member is obsolete
         db.Musicians.Add(new Musician
         {
             Id = testUser.Identifier,
             Name = testUser.Name,
-            Email = testUser.Email,
-            Inactive = false,
-            UserGroupId = userGroupId,
-            PasswordHash = passwordHash,
-            PasswordSalt = passwordSalt,
             ApplicationUserId = appUser.Id
         });
-#pragma warning restore CS0612
     }
 
     public HttpClient CreateClientWithTestToken(TestUser user)

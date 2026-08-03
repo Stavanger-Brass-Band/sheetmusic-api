@@ -138,7 +138,7 @@ public static class IServiceCollectionExtensions
 
                     if (Guid.TryParse(context.Principal?.Identity?.Name, out var userId))
                     {
-                        var resolver = context.HttpContext.RequestServices.GetRequiredService<LegacyAuthResolver>();
+                        var resolver = context.HttpContext.RequestServices.GetRequiredService<AuthResolver>();
                         var resolved = await resolver.ResolveAsync(userId);
 
                         if (resolved is null || resolved.IsInactive)
@@ -182,7 +182,7 @@ public static class IServiceCollectionExtensions
             options.AddPolicy(AuthPolicy.ManageMusic, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig));
             options.AddPolicy(AuthPolicy.ManageProjects, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig, Roles.Prosjektleder));
         });
-        services.AddScoped<LegacyAuthResolver>();
+        services.AddScoped<AuthResolver>();
 
         return services;
     }
