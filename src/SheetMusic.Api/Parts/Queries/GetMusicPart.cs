@@ -29,6 +29,12 @@ public class GetMusicPart(string partIdentifier) : IRequest<MusicPart?>
             {
                 var partNameLower = request.PartIdentifier.ToLower();
 
+                var canonicalPart = await db.MusicParts
+                    .Include(p => p.Aliases)
+                    .FirstOrDefaultAsync(p => p.Name.ToLower() == partNameLower, cancellationToken);
+                if (canonicalPart is not null)
+                    return canonicalPart;
+
                 var query = from mp in db.MusicParts
                             from mpa in mp.Aliases.DefaultIfEmpty()
                             where mp.Name.ToLower() == partNameLower ||

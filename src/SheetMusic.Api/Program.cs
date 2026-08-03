@@ -12,6 +12,7 @@ using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Search;
+using SheetMusic.Api.Sets.Services;
 using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -74,6 +75,11 @@ builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContain
 
 builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IMetadataAgentClient, MetadataAgentClient>(client =>
+{
+    client.BaseAddress = new Uri($"http://{builder.Configuration["Agent:ServiceName"] ?? "sheetmusic-agents"}");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddFluentValidationAutoValidation().AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
