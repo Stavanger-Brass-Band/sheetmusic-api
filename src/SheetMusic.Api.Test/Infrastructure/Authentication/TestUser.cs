@@ -50,4 +50,13 @@ public class TestUser
         Password = "IntgTest123!",
         IsAdministrator = true
     };
+
+    public static TestUser Prosjektleder => new TestUser
+    {
+        Identifier = Guid.Parse("8F3C6A1E-2D4B-4C5A-9E6F-7A1B2C3D4E5F"),
+        Name = "Petter Prosjektleder",
+        Email = "petter@prosjektleder.com",
+        Password = "IntgTest123!",
+        IsAdministrator = false
+    };
 }

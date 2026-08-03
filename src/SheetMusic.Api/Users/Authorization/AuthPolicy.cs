@@ -14,7 +14,13 @@ public static class AuthPolicy
 
     /// <summary>
     /// Requires <see cref="Roles.Admin"/> or <see cref="Roles.Noteansvarlig"/>. Used for every write
-    /// operation on the music catalogue: sets, parts, projects and categories.
+    /// operation on the music catalogue: sets, parts and categories.
     /// </summary>
     public const string ManageMusic = "ManageMusic";
+
+    /// <summary>
+    /// Requires <see cref="Roles.Admin"/>, <see cref="Roles.Noteansvarlig"/> or <see cref="Roles.Prosjektleder"/>.
+    /// Used for every write operation on Projects.
+    /// </summary>
+    public const string ManageProjects = "ManageProjects";
 }

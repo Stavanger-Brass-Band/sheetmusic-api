@@ -128,6 +128,7 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Admin }).GetAwaiter().GetResult();
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Noteansvarlig }).GetAwaiter().GetResult();
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Musikant }).GetAwaiter().GetResult();
+        roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Prosjektleder }).GetAwaiter().GetResult();
 
         // Seed legacy UserGroups for backward compatibility
         var adminGroup = new UserGroup { Id = Guid.NewGuid(), Name = "Admin" };
@@ -138,6 +139,7 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         SeedUser(userManager, db, TestUser.Testesen, Roles.Musikant, readerGroup.Id);
         SeedUser(userManager, db, TestUser.Noteansvarlig, Roles.Noteansvarlig, readerGroup.Id);
         SeedUser(userManager, db, TestUser.Administrator, Roles.Admin, adminGroup.Id);
+        SeedUser(userManager, db, TestUser.Prosjektleder, Roles.Prosjektleder, readerGroup.Id);
 
         db.SaveChanges();
     }
