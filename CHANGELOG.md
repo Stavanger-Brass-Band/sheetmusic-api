@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.5...v0.2.6) (2026-08-03)
+
+
+### Bug Fixes
+
+* **apphost:** switch prod SQL database to Basic tier ([#300](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/300)) ([f68382f](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f68382f09acf9f075b332286fd4aeedc2c29ce28))
+
 ## [0.2.5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.4...v0.2.5) (2026-08-02)
 
 
