@@ -26,3 +26,6 @@ jobs:
 
       - name: Run integration tests
         run: dotnet test src/SheetMusic.Api.Test/SheetMusic.Api.Test.csproj --configuration Release
+
+      - name: Run agent tests
+        run: dotnet test src/SheetMusic.Agents.Test/SheetMusic.Agents.Test.csproj --configuration Release

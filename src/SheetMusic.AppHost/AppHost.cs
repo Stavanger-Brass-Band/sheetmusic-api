@@ -4,6 +4,7 @@ using Azure.Provisioning.ContainerRegistry;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
 using Azure.Provisioning.Sql;
+using Aspire.Hosting.Foundry;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -70,6 +71,8 @@ var testEmailFrontendBaseUrl = builder.AddParameter("test-email-frontend-base-ur
 // provisioned environment silently booting with a well-known, forgeable signing key if its own override
 // were ever missed. Failing fast with a clear "parameter not set" error is safer than that.
 var jwtSigningKey = builder.AddParameter("jwt-signing-key", secret: true);
+var agentSharedSecret = builder.AddParameter("agent-shared-secret", secret: true);
+var testAgentSharedSecret = builder.AddParameter("test-agent-shared-secret", secret: true);
 
 // Azure AI Search (issue #246): now provisioned by Aspire directly, Free tier. This only works because
 // test and prod share one AppHost deploy - Azure allows exactly one Free-tier Search service per
@@ -82,6 +85,15 @@ var search = builder.AddAzureSearch("search")
         var service = infrastructure.GetProvisionableResources().OfType<SearchService>().Single();
         service.SearchSkuName = SearchServiceSkuName.Free;
     });
+
+// One shared Foundry account with isolated production and test deployments. Both use the same
+// model so local and test classification behavior stays representative of production; separate
+// capacities prevent a developer loop or backfill test from consuming production TPM quota.
+var foundry = builder.AddFoundry("foundry");
+var chat = foundry.AddDeployment("chat", FoundryModel.OpenAI.Gpt5Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 1);
+var chatTest = foundry.AddDeployment("chat-test", FoundryModel.OpenAI.Gpt5Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 1);
 
 // Scale rules (issue #246): test stays at zero idle replicas to get ACA's idle billing rate; production
 // keeps one warm replica so real users never hit a cold start. A shared max caps runaway scale-out cost.
@@ -121,7 +133,16 @@ builder.AddAzureContainerAppEnvironment("sheetmusic-aca-env")
 // from clobbering each other (issue #236) on the one shared Search service above. `minReplicas`/
 // `maxReplicas` are this app's real steady-state scale (see "Scale rules" above). `frontendBaseUrl` is
 // this app's own frontend deployment (test and prod are different URLs - see the parameters above).
-IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResourceWithConnectionString> database, string searchIndexPrefix, int minReplicas, int maxReplicas, IResourceBuilder<ParameterResource> frontendBaseUrl)
+IResourceBuilder<ProjectResource> AddApi(
+    string name,
+    IResourceBuilder<IResourceWithConnectionString> database,
+    string searchIndexPrefix,
+    int minReplicas,
+    int maxReplicas,
+    IResourceBuilder<ParameterResource> frontendBaseUrl,
+    IResourceBuilder<ProjectResource> agent,
+    IResourceBuilder<ParameterResource> agentSecret,
+    string agentServiceName)
 {
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
@@ -137,10 +158,14 @@ IResourceBuilder<ProjectResource> AddApi(string name, IResourceBuilder<IResource
         .WaitFor(storage)
         .WithReference(search)
         .WaitFor(search)
+        .WithReference(agent)
+        .WaitFor(agent)
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Email__FrontendBaseUrl", frontendBaseUrl)
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+        .WithEnvironment("Agent__SharedSecret", agentSecret)
+        .WithEnvironment("Agent__ServiceName", agentServiceName)
         .WithEnvironment("Search__IndexPrefix", searchIndexPrefix)
         // Public ingress (issue #246): without this the Container App is provisioned with internal-only
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
@@ -225,10 +250,67 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
         .PublishAsAzureContainerAppJob();
 }
 
-var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl);
+// Builds an internal metadata-enrichment service. It intentionally has no external ingress and is
+// protected by a shared secret at the HTTP boundary.
+IResourceBuilder<ProjectResource> AddAgent(string name, IResourceBuilder<FoundryDeploymentResource> deployment, IResourceBuilder<ParameterResource> sharedSecret)
+{
+    return builder.AddProject<Projects.SheetMusic_Agents>(name)
+        .WithReference(deployment)
+        .WaitFor(deployment)
+        .WithEnvironment("Agent__SharedSecret", sharedSecret)
+        .WithHttpHealthCheck("/health")
+        .PublishAsAzureContainerApp((infrastructure, app) =>
+        {
+            app.Configuration.Ingress.TargetPort = 8080;
+
+            var container = app.Template.Containers[0].Value!;
+            container.Probes.Add(new ContainerAppProbe
+            {
+                ProbeType = ContainerAppProbeType.Liveness,
+                HttpGet = new ContainerAppHttpRequestInfo
+                {
+                    Path = "/health",
+                    Port = 8080,
+                },
+            });
+            container.Probes.Add(new ContainerAppProbe
+            {
+                ProbeType = ContainerAppProbeType.Readiness,
+                HttpGet = new ContainerAppHttpRequestInfo
+                {
+                    Path = "/health",
+                    Port = 8080,
+                },
+            });
+
+            app.Template.Scale.MinReplicas = 0;
+            app.Template.Scale.MaxReplicas = 1;
+        });
+}
+
+void AddBackfillJob(string name, IResourceBuilder<IResourceWithConnectionString> database, IResourceBuilder<FoundryDeploymentResource> deployment, IResourceBuilder<ParameterResource> sharedSecret)
+{
+    builder.AddProject<Projects.SheetMusic_Agents>(name)
+        .WithReference(database, connectionName: "SheetMusicContext")
+        .WaitFor(database)
+        .WithReference(deployment)
+        .WaitFor(deployment)
+        .WithEnvironment("Agent__SharedSecret", sharedSecret)
+        .WithEndpointsInEnvironment(_ => false)
+        .WithArgs("--backfill", "--limit", "100")
+        .WithExplicitStart()
+        .PublishAsAzureContainerAppJob();
+}
+
+var agent = AddAgent("sheetmusic-agents", chat, agentSharedSecret);
+var agentTest = AddAgent("sheetmusic-agents-test", chatTest, testAgentSharedSecret);
+AddBackfillJob("sheetmusic-agents-backfill", db, chat, agentSharedSecret);
+AddBackfillJob("sheetmusic-agents-test-backfill", testDb, chatTest, testAgentSharedSecret);
+
+var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, agent, agentSharedSecret, "sheetmusic-agents");
 AddMigrationJob("sheetmusic-api-migrate", db);
 
-var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl);
+var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, agentTest, testAgentSharedSecret, "sheetmusic-agents-test");
 AddMigrationJob("sheetmusic-api-test-migrate", testDb);
 
 builder.Build().Run();

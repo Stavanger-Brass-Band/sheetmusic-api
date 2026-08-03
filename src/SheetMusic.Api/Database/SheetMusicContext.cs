@@ -28,6 +28,9 @@ public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : Id
             .HasForeignKey(e => e.SheetMusicSetId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<SheetMusicPart>().Property(part => part.Source).HasDefaultValue("Human");
+        modelBuilder.Entity<SheetMusicCategory>().Property(category => category.Source).HasDefaultValue("Human");
+
         modelBuilder.Entity<ApplicationUser>()
             .HasOne(u => u.Musician)
             .WithOne(m => m.ApplicationUser)

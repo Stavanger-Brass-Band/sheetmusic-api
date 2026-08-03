@@ -14,11 +14,20 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Sets.Commands;
 
-public class AddPartOnSet(string setIdentifier, string partIdentifier, Stream content) : IRequest
+public class AddPartOnSet(
+    string setIdentifier,
+    string partIdentifier,
+    Stream content,
+    string source = "Human",
+    string? modelVersion = null,
+    string? promptVersion = null) : IRequest
 {
     public string SetIdentifier { get; } = setIdentifier;
     public string PartIdentifier { get; } = partIdentifier;
     public Stream Content { get; } = content;
+    public string Source { get; } = source;
+    public string? ModelVersion { get; } = modelVersion;
+    public string? PromptVersion { get; } = promptVersion;
 
     public class Handler(SheetMusicContext db, IMediator mediator, IBlobClient blobClient) : IRequestHandler<AddPartOnSet>
     {
@@ -41,7 +50,11 @@ public class AddPartOnSet(string setIdentifier, string partIdentifier, Stream co
             {
                 Id = Guid.NewGuid(),
                 MusicPartId = part.Id,
-                SetId = set.Id
+                SetId = set.Id,
+                Source = request.Source,
+                ModelVersion = request.ModelVersion,
+                PromptVersion = request.PromptVersion,
+                SuggestedAt = request.Source == "Ai" ? DateTimeOffset.UtcNow : null,
             });
 
             await db.SaveChangesAsync(cancellationToken);
