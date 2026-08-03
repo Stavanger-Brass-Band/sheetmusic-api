@@ -127,10 +127,12 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Admin }).GetAwaiter().GetResult();
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Noteansvarlig }).GetAwaiter().GetResult();
         roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Musikant }).GetAwaiter().GetResult();
+        roleManager.CreateAsync(new IdentityRole<Guid> { Name = Roles.Prosjektleder }).GetAwaiter().GetResult();
 
         SeedUser(userManager, db, TestUser.Testesen, Roles.Musikant);
         SeedUser(userManager, db, TestUser.Noteansvarlig, Roles.Noteansvarlig);
         SeedUser(userManager, db, TestUser.Administrator, Roles.Admin);
+        SeedUser(userManager, db, TestUser.Prosjektleder, Roles.Prosjektleder);
 
         db.SaveChanges();
     }

@@ -103,6 +103,8 @@ public static class IServiceCollectionExtensions
             // environments' real frontend origins.
             options.AddPolicy("AllowMember", builder =>
                 builder.WithOrigins("https://medlem.stavanger-brassband.no",
+                                    "https://noter.stavanger-brassband.no",
+                                    "https://kind-grass-0a4be7103.7.azurestaticapps.net",
                                     "https://orange-mud-00eed1803.1.azurestaticapps.net",
                                     "http://localhost:5000",
                                     "http://localhost:5100",
@@ -178,6 +180,7 @@ public static class IServiceCollectionExtensions
         {
             options.AddPolicy(AuthPolicy.Admin, policy => policy.RequireRole(Roles.Admin));
             options.AddPolicy(AuthPolicy.ManageMusic, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig));
+            options.AddPolicy(AuthPolicy.ManageProjects, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig, Roles.Prosjektleder));
         });
         services.AddScoped<AuthResolver>();
 

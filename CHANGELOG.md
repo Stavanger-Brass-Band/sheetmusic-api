@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.2.6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.5...v0.2.6) (2026-08-03)
+
+
+### Bug Fixes
+
+* **apphost:** switch prod SQL database to Basic tier ([#300](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/300)) ([f68382f](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f68382f09acf9f075b332286fd4aeedc2c29ce28))
+
+## [0.2.5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.4...v0.2.5) (2026-08-02)
+
+
+### Bug Fixes
+
+* **cors:** allowing noter.stavanger-brassband.no to cors ([#298](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/298)) ([f1188c3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f1188c3ddda683144f751ecdc7aa8a0626466810))
+
+## [0.2.4](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.3...v0.2.4) (2026-08-02)
+
+
+### Bug Fixes
+
+* **database:** retry transient SQL failures and stop prod free-limit auto-pause ([#296](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/296)) ([6ce8d14](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6ce8d143e852b1ada8a23f92dd4ff8095abb9eac))
+
+## [0.2.3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.2...v0.2.3) (2026-07-31)
+
+
+### Bug Fixes
+
+* **auth:** accept grant_type=password as alias for basic grant ([#281](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/281)) ([7036779](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/70367798fa6875c0ba0fb6e7ab9e3815f9c6a72b))
+* **auth:** assume basic grant_type when omitted ([#280](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/280)) ([3e252b9](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/3e252b9a74ad35414e07c9ca85b56c70222973b5))
+* **search:** treat rebuild-index as idempotent when the index does not yet exist ([#282](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/282)) ([8911948](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/8911948b5f1290b88c862ab33669b6abb65d3729))
+* **sets:** validate title on set creation and persist recording url ([#284](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/284)) ([b0ca2a7](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/b0ca2a713c0648880bf27693402a54f0f8ad0792))
+* **users:** detach connected musician before hard-deleting a user ([#277](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/277)) ([aa05c4d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/aa05c4d97dea66f5847254390c5fdec2acb9cbac))
+
 ## [0.2.2](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.1...v0.2.2) (2026-07-29)
 
 

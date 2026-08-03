@@ -36,6 +36,7 @@ public class AddSet(SetRequest input) : IRequest
                 Arranger = input.Arranger,
                 SoleSellingAgent = input.SoleSellingAgent,
                 MissingParts = input.MissingParts,
+                RecordingUrl = input.RecordingUrl,
                 BorrowedFrom = input.BorrowedFrom,
                 BorrowedDateTime = string.IsNullOrEmpty(input.BorrowedFrom) ? null : (DateTimeOffset?)DateTimeOffset.Now
             };

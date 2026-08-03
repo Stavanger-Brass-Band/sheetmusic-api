@@ -14,8 +14,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="Asp.Versioning.Abstractions" Version="10.1.0" />
-		<PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
-		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
+		<PackageReference Include="Asp.Versioning.Mvc" Version="10.0.1" />
+		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.1" />
 		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.4.6" />
 		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.4.6" />
 		<!-- Microsoft.Data.SqlClient's transitive Azure.Identity is too old to understand Aspire's
@@ -38,7 +38,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
 		<PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
 		<PackageReference Include="Resend" Version="0.8.0" />
-		<PackageReference Include="Scalar.AspNetCore" Version="2.16.16" />
+		<PackageReference Include="Scalar.AspNetCore" Version="2.16.17" />
 	</ItemGroup>
 
 	<ItemGroup>
