@@ -21,24 +21,26 @@ var sql = builder.AddAzureSqlServer("sql")
 // invocations, so genuinely shared resources (this server, Search, the ACA environment, the registry,
 // Log Analytics) no longer need hand-created "existing" workarounds - each one is simply provisioned
 // once. Test keeps its own database so its data never touches production's.
-// Prod opts out of the free-limit SKU (issue: prod kept auto-pausing every 30-90 min in production even
-// with AutoPauseDelay=-1 and FreeLimitExhaustionBehavior=BillOverUsage - confirmed via Azure Monitor that
-// the free-limit SKU (UseFreeLimit) forces auto-pause capability regardless of those settings). Prod is
-// now a normal pay-as-you-go serverless database instead, which properly honors AutoPauseDelay. Test
-// keeps the free-limit SKU and its default auto-pause so it can idle down when unused.
-var db = sql.AddDatabase("SheetMusicContext")
-    .WithDefaultAzureSku();
+var db = sql.AddDatabase("SheetMusicContext");
 var testDb = sql.AddDatabase("SheetMusicContextTest");
 
-// Prod must stay online for real users. AzureSqlDatabaseResource itself doesn't support
+// Prod runs on the Basic tier - matching the pre-Aspire database (sheetmusicv4) - instead of the
+// free-limit serverless SKU Aspire assigns by default. The free-limit SKU (UseFreeLimit) kept
+// auto-pausing prod every 30-90 min in production even with AutoPauseDelay=-1 and
+// FreeLimitExhaustionBehavior=BillOverUsage set (confirmed via Azure Monitor - it forces auto-pause
+// capability regardless of those settings). An always-on serverless tier would avoid that but cost
+// ~$195+/month at its 0.5 vCore floor; Basic is DTU-provisioned, so it has no auto-pause capability at
+// all, at close to the old database's cost (~$5/month). AzureSqlDatabaseResource itself doesn't support
 // ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent server resource does
 // - so the prod database's generated SqlDatabase is picked out of the shared server's bicep resources by
 // its BicepIdentifier, the same normalized name Aspire itself assigns each database from its resource key.
+// Test keeps the default free-limit SKU and its auto-pause so it can idle down when unused.
 sql.ConfigureInfrastructure(infrastructure =>
 {
     var prodDatabase = infrastructure.GetProvisionableResources().OfType<SqlDatabase>()
         .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContext"));
-    prodDatabase.AutoPauseDelay = -1;
+    prodDatabase.Sku = new SqlSku { Name = "Basic", Tier = "Basic" };
+    prodDatabase.UseFreeLimit = false;
 });
 
 var storage = builder.AddAzureStorage("storage")
