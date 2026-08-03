@@ -4,6 +4,7 @@ using Azure.Provisioning.ContainerRegistry;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
 using Azure.Provisioning.Sql;
+using Aspire.Hosting.Foundry;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -82,6 +83,15 @@ var search = builder.AddAzureSearch("search")
         var service = infrastructure.GetProvisionableResources().OfType<SearchService>().Single();
         service.SearchSkuName = SearchServiceSkuName.Free;
     });
+
+// One shared Foundry account with isolated production and test deployments. Both use the same
+// model so local and test classification behavior stays representative of production; separate
+// capacities prevent a developer loop or backfill test from consuming production TPM quota.
+var foundry = builder.AddFoundry("foundry");
+var chat = foundry.AddDeployment("chat", FoundryModel.OpenAI.Gpt5Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 1);
+var chatTest = foundry.AddDeployment("chat-test", FoundryModel.OpenAI.Gpt5Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 1);
 
 // Scale rules (issue #246): test stays at zero idle replicas to get ACA's idle billing rate; production
 // keeps one warm replica so real users never hit a cold start. A shared max caps runaway scale-out cost.

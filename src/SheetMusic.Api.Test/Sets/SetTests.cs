@@ -374,6 +374,44 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task UploadPartsForSet_ShouldMarkUnknownZipEntryAsMissingPart_AndNotCreatePart()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var unknownPartName = $"unknown-part-{Guid.NewGuid():N}";
+
+        using var memoryStream = new MemoryStream();
+        using (var zip = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+        {
+            var entry = zip.CreateEntry($"{unknownPartName}.pdf");
+            using var entryStream = entry.Open();
+            await entryStream.WriteAsync(Encoding.UTF8.GetBytes("content"));
+        }
+
+        await memoryStream.FlushAsync();
+        memoryStream.Position = 0;
+        var uploadResponse = await FileUploader.UploadOneFileAndGetResponseFromStream(memoryStream, adminClient, $"sheetmusic/sets/{testSet.Id}");
+        uploadResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var partResponse = await adminClient.GetAsync($"parts/{unknownPartName}");
+        partResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var setResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}");
+        setResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var set = await setResponse.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
+        set.Should().NotBeNull();
+        set!.MissingParts.Should().NotBeNull();
+        set.MissingParts.Should().Contain(unknownPartName);
+
+        var setPartsResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts");
+        setPartsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var apiSet = await setPartsResponse.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
+        apiSet.Should().NotBeNull();
+        apiSet!.Parts.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task UploadPartsForSet_ShouldCreateCorrectPartsOnSet()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
