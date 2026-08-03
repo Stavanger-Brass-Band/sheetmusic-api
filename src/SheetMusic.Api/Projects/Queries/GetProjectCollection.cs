@@ -34,6 +34,12 @@ public class GetProjectCollection(ODataQueryParams? queryParams) : IRequest<List
             if (request.QueryParams != null && request.QueryParams.HasFilter)
                 query = query.ApplyODataFilters(request.QueryParams, FieldMapping);
 
+            if (request.QueryParams != null && request.QueryParams.HasSearch)
+            {
+                var term = request.QueryParams.Search ?? "";
+                query = query.Where(p => p.Name.Contains(term));
+            }
+
             if (request.QueryParams != null && request.QueryParams.OrderBy.Any())
                 query = query.ApplyODataOrderBy(request.QueryParams, FieldMapping);
 

@@ -724,4 +724,52 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     #endregion
+
+    #region OData $search
+
+    [Fact]
+    public async Task GetProjects_WithSearchOnName_ShouldReturnMatchingProjects()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Oppstart 2026", "Konsert 2026", "Sommerfest");
+
+        var response = await client.GetAsync($"projects?$search={Uri.EscapeDataString("Oppstart")}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects.Should().ContainSingle();
+        projects![0].Name.Should().Be("Oppstart 2026");
+    }
+
+    [Fact]
+    public async Task GetProjects_WithSearchOnName_ShouldReturnEmptyArray_WhenNoMatches()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Oppstart 2026", "Konsert 2026");
+
+        var response = await client.GetAsync($"projects?$search={Uri.EscapeDataString("no-project-will-match-this")}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProjects_WithSearchAndFilter_ShouldApplyBoth()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Administrator);
+        await SeedProjectsAsync(client, "Oppstart 2026", "Oppstart 2027", "Konsert 2026");
+
+        var response = await client.GetAsync($"projects?$search={Uri.EscapeDataString("Oppstart")}&$filter={Uri.EscapeDataString("name eq 'Oppstart 2027'")}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var projects = await response.Content.ReadFromJsonAsync<List<ApiProject>>(JsonDefaults.Options);
+        projects.Should().ContainSingle();
+        projects![0].Name.Should().Be("Oppstart 2027");
+    }
+
+    #endregion
 }
