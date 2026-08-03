@@ -21,24 +21,24 @@ var sql = builder.AddAzureSqlServer("sql")
 // invocations, so genuinely shared resources (this server, Search, the ACA environment, the registry,
 // Log Analytics) no longer need hand-created "existing" workarounds - each one is simply provisioned
 // once. Test keeps its own database so its data never touches production's.
-var db = sql.AddDatabase("SheetMusicContext");
+// Prod opts out of the free-limit SKU (issue: prod kept auto-pausing every 30-90 min in production even
+// with AutoPauseDelay=-1 and FreeLimitExhaustionBehavior=BillOverUsage - confirmed via Azure Monitor that
+// the free-limit SKU (UseFreeLimit) forces auto-pause capability regardless of those settings). Prod is
+// now a normal pay-as-you-go serverless database instead, which properly honors AutoPauseDelay. Test
+// keeps the free-limit SKU and its default auto-pause so it can idle down when unused.
+var db = sql.AddDatabase("SheetMusicContext")
+    .WithDefaultAzureSku();
 var testDb = sql.AddDatabase("SheetMusicContextTest");
 
-// Prod must stay online for real users, so both of the free offer's independent pause triggers are
-// disabled here: idle-based auto-pause (AutoPauseDelay) and, separately, the auto-pause Aspire enables by
-// default once the monthly free quota (100,000 vCore-seconds or 32 GB) is exhausted
-// (FreeLimitExhaustionBehavior) - prod instead bills for any overage rather than pausing. Test keeps both
-// defaults so it can idle down / stay paused once its own free quota runs out. AzureSqlDatabaseResource
-// itself doesn't support ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent
-// server resource does - so the prod database's generated SqlDatabase is picked out of the shared server's
-// bicep resources by its BicepIdentifier, the same normalized name Aspire itself assigns each database
-// from its resource key.
+// Prod must stay online for real users. AzureSqlDatabaseResource itself doesn't support
+// ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent server resource does
+// - so the prod database's generated SqlDatabase is picked out of the shared server's bicep resources by
+// its BicepIdentifier, the same normalized name Aspire itself assigns each database from its resource key.
 sql.ConfigureInfrastructure(infrastructure =>
 {
     var prodDatabase = infrastructure.GetProvisionableResources().OfType<SqlDatabase>()
         .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContext"));
     prodDatabase.AutoPauseDelay = -1;
-    prodDatabase.FreeLimitExhaustionBehavior = FreeLimitExhaustionBehavior.BillOverUsage;
 });
 
 var storage = builder.AddAzureStorage("storage")
