@@ -180,6 +180,7 @@ public static class IServiceCollectionExtensions
         {
             options.AddPolicy(AuthPolicy.Admin, policy => policy.RequireRole(Roles.Admin));
             options.AddPolicy(AuthPolicy.ManageMusic, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig));
+            options.AddPolicy(AuthPolicy.ManageProjects, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig, Roles.Prosjektleder));
         });
         services.AddScoped<LegacyAuthResolver>();
 
