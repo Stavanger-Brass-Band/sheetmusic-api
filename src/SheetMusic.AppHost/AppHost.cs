@@ -97,9 +97,11 @@ var foundry = builder.AddFoundry("foundry")
         var account = infrastructure.GetProvisionableResources().OfType<CognitiveServicesAccount>().Single();
         account.Location = new AzureLocation("swedencentral");
     });
-var chat = foundry.AddDeployment("chat", FoundryModel.OpenAI.Gpt5Mini)
+var foundryProject = foundry.AddProject("sheetmusic")
+    .WithParentRelationship(foundry);
+var chat = foundryProject.AddModelDeployment("chat", FoundryModel.OpenAI.Gpt5Mini)
     .WithProperties(deployment => deployment.SkuCapacity = 1);
-var chatTest = foundry.AddDeployment("chat-test", FoundryModel.OpenAI.Gpt5Mini)
+var chatTest = foundryProject.AddModelDeployment("chat-test", FoundryModel.OpenAI.Gpt5Mini)
     .WithProperties(deployment => deployment.SkuCapacity = 1);
 
 // Scale rules (issue #246): test stays at zero idle replicas to get ACA's idle billing rate; production
