@@ -24,21 +24,23 @@ var sql = builder.AddAzureSqlServer("sql")
 var db = sql.AddDatabase("SheetMusicContext");
 var testDb = sql.AddDatabase("SheetMusicContextTest");
 
-// Prod must stay online for real users, so both of the free offer's independent pause triggers are
-// disabled here: idle-based auto-pause (AutoPauseDelay) and, separately, the auto-pause Aspire enables by
-// default once the monthly free quota (100,000 vCore-seconds or 32 GB) is exhausted
-// (FreeLimitExhaustionBehavior) - prod instead bills for any overage rather than pausing. Test keeps both
-// defaults so it can idle down / stay paused once its own free quota runs out. AzureSqlDatabaseResource
-// itself doesn't support ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent
-// server resource does - so the prod database's generated SqlDatabase is picked out of the shared server's
-// bicep resources by its BicepIdentifier, the same normalized name Aspire itself assigns each database
-// from its resource key.
+// Prod runs on the Basic tier - matching the pre-Aspire database (sheetmusicv4) - instead of the
+// free-limit serverless SKU Aspire assigns by default. The free-limit SKU (UseFreeLimit) kept
+// auto-pausing prod every 30-90 min in production even with AutoPauseDelay=-1 and
+// FreeLimitExhaustionBehavior=BillOverUsage set (confirmed via Azure Monitor - it forces auto-pause
+// capability regardless of those settings). An always-on serverless tier would avoid that but cost
+// ~$195+/month at its 0.5 vCore floor; Basic is DTU-provisioned, so it has no auto-pause capability at
+// all, at close to the old database's cost (~$5/month). AzureSqlDatabaseResource itself doesn't support
+// ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent server resource does
+// - so the prod database's generated SqlDatabase is picked out of the shared server's bicep resources by
+// its BicepIdentifier, the same normalized name Aspire itself assigns each database from its resource key.
+// Test keeps the default free-limit SKU and its auto-pause so it can idle down when unused.
 sql.ConfigureInfrastructure(infrastructure =>
 {
     var prodDatabase = infrastructure.GetProvisionableResources().OfType<SqlDatabase>()
         .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContext"));
-    prodDatabase.AutoPauseDelay = -1;
-    prodDatabase.FreeLimitExhaustionBehavior = FreeLimitExhaustionBehavior.BillOverUsage;
+    prodDatabase.Sku = new SqlSku { Name = "Basic", Tier = "Basic" };
+    prodDatabase.UseFreeLimit = false;
 });
 
 var storage = builder.AddAzureStorage("storage")
