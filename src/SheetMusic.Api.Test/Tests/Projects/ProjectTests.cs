@@ -167,12 +167,13 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var activeTokenResponse = await musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip/token");
         activeTokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var activeToken = await activeTokenResponse.Content.ReadAsStringAsync();
-        (await musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={activeToken.Trim('"')}"))
+        var anonymousClient = factory.CreateClient();
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={activeToken.Trim('"')}"))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         var concurrentToken = (await (await musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip/token")).Content.ReadAsStringAsync()).Trim('"');
         var concurrentDownloads = await Task.WhenAll(
-            musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={concurrentToken}"),
-            musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={concurrentToken}"));
+            anonymousClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={concurrentToken}"),
+            anonymousClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip?downloadToken={concurrentToken}"));
         concurrentDownloads.Should().ContainSingle(response => response.StatusCode == HttpStatusCode.OK);
 
         var arkivleserClient = factory.CreateClientWithTestToken(TestUser.Arkivleser);

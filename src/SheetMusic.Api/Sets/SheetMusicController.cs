@@ -165,6 +165,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">The PDF file content</response>
     /// <response code="400">If the download token is missing or invalid</response>
     /// <response code="404">Set, part, or the relationship between them was not found</response>
+    [AllowAnonymous]
     [Produces("application/pdf")]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}/pdf")]
     public async Task<IActionResult> GetSinglePartFile(string setIdentifier, string partIdentifier, string downloadToken)
@@ -173,9 +174,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (partOnSet == null)
             return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
-
-        if (!await catalogAccess.CanAccessSetAsync(partOnSet.SetId))
-            return Forbid();
 
         if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(partOnSet.SetId, downloadToken))
         {
@@ -338,7 +336,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         //generated token using cryptographic library, save to memory cache and verify on download
         var token = KeyGenerator.GetUniqueKey(64);
-        memoryCache.Set(DownloadTokenCacheKey(set.Id), token, TimeSpan.FromMinutes(60));
+        memoryCache.Set(DownloadTokenCacheKey(token), set.Id, TimeSpan.FromMinutes(60));
 
         return new OkObjectResult(token);
     }
@@ -353,6 +351,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">The zipped collection of parts</response>
     /// <response code="400">If the download token is missing or invalid</response>
     /// <response code="404">Set not found</response>
+    [AllowAnonymous]
     [Produces("application/zip")]
     [HttpGet("sets/{setIdentifier}/zip")]
     public async Task<IActionResult> GetPartsForSetAzZip(string setIdentifier, string downloadToken)
@@ -361,9 +360,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
-
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
-            return Forbid();
 
         if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(set.Id, downloadToken))
         {
@@ -567,15 +563,15 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
     private string BaseUrl => $"{Request.Scheme}://{Request.Host}/sheetmusic";
 
-    private static string DownloadTokenCacheKey(Guid setId) => $"Download_{setId}";
+    private static string DownloadTokenCacheKey(string token) => $"Download_{token}";
 
     private bool TryConsumeDownloadToken(Guid setId, string providedToken)
     {
         lock (DownloadTokenLock)
         {
-            if (memoryCache.TryGetValue(DownloadTokenCacheKey(setId), out string? cachedToken) && providedToken == cachedToken)
+            if (memoryCache.TryGetValue(DownloadTokenCacheKey(providedToken), out Guid tokenSetId) && tokenSetId == setId)
             {
-                memoryCache.Remove(DownloadTokenCacheKey(setId));
+                memoryCache.Remove(DownloadTokenCacheKey(providedToken));
                 return true;
             }
         }
