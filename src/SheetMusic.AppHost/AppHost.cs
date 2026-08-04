@@ -98,11 +98,16 @@ var foundry = builder.AddFoundry("foundry")
         account.Location = new AzureLocation("swedencentral");
     });
 var foundryProject = foundry.AddProject("sheetmusic")
-    .WithParentRelationship(foundry);
-var chat = foundryProject.AddModelDeployment("chat", FoundryModel.OpenAI.Gpt5Mini)
-    .WithProperties(deployment => deployment.SkuCapacity = 1);
-var chatTest = foundryProject.AddModelDeployment("chat-test", FoundryModel.OpenAI.Gpt5Mini)
-    .WithProperties(deployment => deployment.SkuCapacity = 1);
+    .WithParentRelationship(foundry)
+    .ConfigureInfrastructure(infrastructure =>
+    {
+        var project = infrastructure.GetProvisionableResources().OfType<CognitiveServicesProject>().Single();
+        project.Location = new AzureLocation("swedencentral");
+    });
+var chat = foundryProject.AddModelDeployment("chat", FoundryModel.OpenAI.Gpt54Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 5);
+var chatTest = foundryProject.AddModelDeployment("chat-test", FoundryModel.OpenAI.Gpt54Mini)
+    .WithProperties(deployment => deployment.SkuCapacity = 5);
 
 // Scale rules (issue #246): test stays at zero idle replicas to get ACA's idle billing rate; production
 // keeps one warm replica so real users never hit a cold start. A shared max caps runaway scale-out cost.
@@ -263,9 +268,14 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
 
 // Builds an internal metadata-enrichment service. It intentionally has no external ingress and is
 // protected by a shared secret at the HTTP boundary.
-IResourceBuilder<ProjectResource> AddAgent(string name, IResourceBuilder<FoundryDeploymentResource> deployment, IResourceBuilder<ParameterResource> sharedSecret)
+IResourceBuilder<ProjectResource> AddAgent(
+    string name,
+    IResourceBuilder<AzureCognitiveServicesProjectResource> project,
+    IResourceBuilder<FoundryDeploymentResource> deployment,
+    IResourceBuilder<ParameterResource> sharedSecret)
 {
     return builder.AddProject<Projects.SheetMusic_Agents>(name)
+        .WithReference(project)
         .WithReference(deployment)
         .WaitFor(deployment)
         .WithEnvironment("Agent__SharedSecret", sharedSecret)
@@ -315,8 +325,8 @@ void AddBackfillJob(string name, IResourceBuilder<IResourceWithConnectionString>
         .PublishAsAzureContainerAppJob();
 }
 
-var agent = AddAgent("sheetmusic-agents", chat, agentSharedSecret);
-var agentTest = AddAgent("sheetmusic-agents-test", chatTest, testAgentSharedSecret);
+var agent = AddAgent("sheetmusic-agents", foundryProject, chat, agentSharedSecret);
+var agentTest = AddAgent("sheetmusic-agents-test", foundryProject, chatTest, testAgentSharedSecret);
 AddBackfillJob("sheetmusic-agents-backfill", db, chat, agentSharedSecret);
 AddBackfillJob("sheetmusic-agents-test-backfill", testDb, chatTest, testAgentSharedSecret);
 
