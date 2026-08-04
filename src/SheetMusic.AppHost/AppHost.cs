@@ -325,13 +325,21 @@ void AddBackfillJob(string name, IResourceBuilder<IResourceWithConnectionString>
         .PublishAsAzureContainerAppJob();
 }
 
-var agent = AddAgent("sheetmusic-agents", foundryProject, chat, agentSharedSecret);
-var agentTest = AddAgent("sheetmusic-agents-test", foundryProject, chatTest, testAgentSharedSecret);
-AddBackfillJob("sheetmusic-agents-backfill", db, chat, agentSharedSecret);
-AddBackfillJob("sheetmusic-agents-test-backfill", testDb, chatTest, testAgentSharedSecret);
+// Prod api/agents (and their migration/backfill jobs) are only built when publishing: `aspire run`
+// only needs the test stack locally, and skipping prod here avoids building/running a second full
+// copy of the API and agent service - plus the Foundry TPM quota and Search index prefix it would
+// otherwise burn - on every local dev loop.
+if (builder.ExecutionContext.IsPublishMode)
+{
+    var agent = AddAgent("sheetmusic-agents", foundryProject, chat, agentSharedSecret);
+    AddBackfillJob("sheetmusic-agents-backfill", db, chat, agentSharedSecret);
 
-var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, agent, agentSharedSecret, "sheetmusic-agents");
-AddMigrationJob("sheetmusic-api-migrate", db);
+    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, agent, agentSharedSecret, "sheetmusic-agents");
+    AddMigrationJob("sheetmusic-api-migrate", db);
+}
+
+var agentTest = AddAgent("sheetmusic-agents-test", foundryProject, chatTest, testAgentSharedSecret);
+AddBackfillJob("sheetmusic-agents-test-backfill", testDb, chatTest, testAgentSharedSecret);
 
 var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, agentTest, testAgentSharedSecret, "sheetmusic-agents-test");
 AddMigrationJob("sheetmusic-api-test-migrate", testDb);
