@@ -134,7 +134,7 @@ var logAnalytics = builder.AddAzureLogAnalyticsWorkspace("logs")
 // not adding the SPA clients here: Aspire publishes frontend resources as container apps, which would
 // replace the free Static Web Apps tier with paid compute and remove the single largest saving in issue
 // #234 - the clients deploy via their own Static Web Apps workflow instead.
-builder.AddAzureContainerAppEnvironment("sheetmusic-aca-env")
+var computeEnvironment = builder.AddAzureContainerAppEnvironment("sheetmusic-aca-env")
     .WithAzureContainerRegistry(acr)
     .WithAzureLogAnalyticsWorkspace(logAnalytics);
 
@@ -169,6 +169,7 @@ IResourceBuilder<ProjectResource> AddApi(
         .WaitFor(search)
         .WithReference(agent)
         .WaitFor(agent)
+        .WithComputeEnvironment(computeEnvironment)
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Email__FrontendBaseUrl", frontendBaseUrl)
@@ -253,6 +254,7 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+        .WithComputeEnvironment(computeEnvironment)
         .WithEndpointsInEnvironment(_ => false)
         .WithArgs("--migrate")
         .WithExplicitStart()
@@ -267,6 +269,7 @@ IResourceBuilder<ProjectResource> AddAgent(string name, IResourceBuilder<Foundry
         .WithReference(deployment)
         .WaitFor(deployment)
         .WithEnvironment("Agent__SharedSecret", sharedSecret)
+        .WithComputeEnvironment(computeEnvironment)
         .WithHttpHealthCheck("/health")
         .PublishAsAzureContainerApp((infrastructure, app) =>
         {
@@ -305,6 +308,7 @@ void AddBackfillJob(string name, IResourceBuilder<IResourceWithConnectionString>
         .WithReference(deployment)
         .WaitFor(deployment)
         .WithEnvironment("Agent__SharedSecret", sharedSecret)
+        .WithComputeEnvironment(computeEnvironment)
         .WithEndpointsInEnvironment(_ => false)
         .WithArgs("--backfill", "--limit", "100")
         .WithExplicitStart()
