@@ -26,6 +26,11 @@ public static class Roles
     public const string Musikant = "Musikant";
 
     /// <summary>
+    /// Library reader. Read-only access to the entire music catalogue, including sets outside active projects.
+    /// </summary>
+    public const string Arkivleser = "Arkivleser";
+
+    /// <summary>
     /// Project manager. Can create, update and delete Projects and manage which sets are assigned to them,
     /// but has no edit rights over Sets, Parts or Categories.
     /// </summary>
@@ -34,5 +39,5 @@ public static class Roles
     /// <summary>
     /// All role names that can be assigned to a user.
     /// </summary>
-    public static readonly string[] All = [Admin, Noteansvarlig, Musikant, Prosjektleder];
+    public static readonly string[] All = [Admin, Noteansvarlig, Musikant, Arkivleser, Prosjektleder];
 }

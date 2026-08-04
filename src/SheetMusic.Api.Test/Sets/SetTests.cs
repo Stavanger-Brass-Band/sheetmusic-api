@@ -308,8 +308,27 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
 
         var token = await GetDownloadTokenAsync(testSet);
 
-        var response = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}");
+        var anonymousClient = factory.CreateClient();
+        var response = await anonymousClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{testSet.Title}/parts/{part.Name}/pdf?downloadToken={token}"))
+            .StatusCode.Should().NotBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetPartsAsZip_ShouldAllowEachIssuedTokenToBeUsedOnce()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var otherSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var firstToken = await GetDownloadTokenAsync(testSet);
+        var secondToken = await GetDownloadTokenAsync(testSet);
+        var anonymousClient = factory.CreateClient();
+
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{otherSet.Id}/zip?downloadToken={firstToken}")).StatusCode.Should().NotBe(HttpStatusCode.OK);
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={firstToken}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={firstToken}")).StatusCode.Should().NotBe(HttpStatusCode.OK);
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={secondToken}")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -499,7 +518,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var tokenResponse = await adminClient.GetAsync($"sheetmusic/sets/{set.Id}/zip/token");
         var body = await tokenResponse.Content.ReadAsStringAsync();
 
-        return body;
+        return body.Trim('"');
     }
 
     private async Task UploadPartsAsync(List<ApiPart> parts, ApiSet set)
