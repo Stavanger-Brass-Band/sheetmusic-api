@@ -31,11 +31,13 @@ namespace SheetMusic.Api.Sets;
 [Route("sheetmusic")]
 [ApiVersion("1.0", Deprecated = true)]
 [ApiVersion("2.0")]
-public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator) : ControllerBase
+public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator, CatalogAccessService catalogAccess) : ControllerBase
 {
     private const long MaxFileSize = 300000000L; //300 MB
 
     private const string SupportedSetExpand = "parts";
+
+    private static readonly object DownloadTokenLock = new();
 
     /// <summary>
     /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided
@@ -74,8 +76,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         }
 
         var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId));
+    var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
 
-        var transformed = matchingSets.Select(s => new ApiSet(s)
+    var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
         {
             ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
             PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
@@ -108,6 +111,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{identifier}' was not found" });
+
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
 
         var query = new GetPartsForSet(set.Id);
         var parts = await mediator.Send(query);
@@ -143,6 +149,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (partOnSet == null)
             return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
 
+        if (!await catalogAccess.CanAccessSetAsync(partOnSet.SetId))
+            return Forbid();
+
         return new OkObjectResult(new ApiSheetMusicPart(partOnSet));
     }
 
@@ -156,7 +165,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">The PDF file content</response>
     /// <response code="400">If the download token is missing or invalid</response>
     /// <response code="404">Set, part, or the relationship between them was not found</response>
-    [AllowAnonymous]
     [Produces("application/pdf")]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}/pdf")]
     public async Task<IActionResult> GetSinglePartFile(string setIdentifier, string partIdentifier, string downloadToken)
@@ -166,14 +174,15 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (partOnSet == null)
             return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
 
-        if (string.IsNullOrEmpty(downloadToken) || !TokenIsValid(partOnSet.SetId, downloadToken))
+        if (!await catalogAccess.CanAccessSetAsync(partOnSet.SetId))
+            return Forbid();
+
+        if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(partOnSet.SetId, downloadToken))
         {
             return new BadRequestObjectResult("Download token must be provided and valid");
         }
 
         var pdf = await blobClient.GetMusicPartContentAsync(new PartRelatedToSet(partOnSet.SetId, partOnSet.MusicPartId));
-
-        memoryCache.Remove(DownloadTokenCacheKey(partOnSet.SetId)); //this is a one-time token
 
         return File(pdf, "application/pdf", $"{partOnSet.Part.Name}.pdf");
     }
@@ -194,6 +203,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
 
         return new OkObjectResult(new ApiSet(set)
         {
@@ -249,6 +261,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
+
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
 
         var categories = set.Categories.Where(c => c.Category != null).Select(c => new ApiCategory(c.Category)).ToList();
 
@@ -318,6 +333,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
+
         //generated token using cryptographic library, save to memory cache and verify on download
         var token = KeyGenerator.GetUniqueKey(64);
         memoryCache.Set(DownloadTokenCacheKey(set.Id), token, TimeSpan.FromMinutes(60));
@@ -335,7 +353,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">The zipped collection of parts</response>
     /// <response code="400">If the download token is missing or invalid</response>
     /// <response code="404">Set not found</response>
-    [AllowAnonymous]
     [Produces("application/zip")]
     [HttpGet("sets/{setIdentifier}/zip")]
     public async Task<IActionResult> GetPartsForSetAzZip(string setIdentifier, string downloadToken)
@@ -345,7 +362,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
-        if (string.IsNullOrEmpty(downloadToken) || !TokenIsValid(set.Id, downloadToken))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
+
+        if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(set.Id, downloadToken))
         {
             return new BadRequestObjectResult("Download token must be provided and valid");
         }
@@ -353,8 +373,6 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier));
         await zipStream.FlushAsync();
         zipStream.Position = 0;
-
-        memoryCache.Remove(DownloadTokenCacheKey(set.Id)); //this is a one-time token
 
         return File(zipStream, "application/zip", $"{set.Title}.zip");
     }
@@ -374,9 +392,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         queryParams.Expand.Add("parts");
 
         var setsWithParts = await mediator.Send(new GetSets(queryParams));
+        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(setsWithParts.Select(set => set.Id));
         var results = new List<ApiSet>();
 
-        foreach (var setWithParts in setsWithParts)
+        foreach (var setWithParts in setsWithParts.Where(set => accessibleSetIds.Contains(set.Id)))
         {
             var apiSet = new ApiSet(setWithParts);
 
@@ -550,16 +569,16 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
     private static string DownloadTokenCacheKey(Guid setId) => $"Download_{setId}";
 
-    private bool TokenIsValid(Guid setId, string providedToken)
+    private bool TryConsumeDownloadToken(Guid setId, string providedToken)
     {
-        if (memoryCache.TryGetValue(DownloadTokenCacheKey(setId), out string? cachedToken))
+        lock (DownloadTokenLock)
         {
-            if (providedToken == cachedToken)
+            if (memoryCache.TryGetValue(DownloadTokenCacheKey(setId), out string? cachedToken) && providedToken == cachedToken)
             {
+                memoryCache.Remove(DownloadTokenCacheKey(setId));
                 return true;
             }
         }
-
         return false;
     }
 }

@@ -182,7 +182,9 @@ public static class IServiceCollectionExtensions
             options.AddPolicy(AuthPolicy.ManageMusic, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig));
             options.AddPolicy(AuthPolicy.ManageProjects, policy => policy.RequireRole(Roles.Admin, Roles.Noteansvarlig, Roles.Prosjektleder));
         });
+        services.AddHttpContextAccessor();
         services.AddScoped<AuthResolver>();
+        services.AddScoped<CatalogAccessService>();
 
         return services;
     }
