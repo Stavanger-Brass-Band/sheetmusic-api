@@ -130,7 +130,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
     {
         var users = await mediator.Send(new GetUserCollection());
 
-        return Ok(users.Select(u => new ApiUser(u)));
+        return Ok(users.Select(u => new ApiUserDetail(u.User, u.Roles, u.Parts)));
     }
 
     /// <summary>
