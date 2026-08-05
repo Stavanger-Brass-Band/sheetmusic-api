@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.3.0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.6...v0.3.0) (2026-08-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **users:** remove legacy v1 user handling ([#285](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/285))
+
+### Features
+
+* **ai:** complete metadata enrichment agent ([#308](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/308)) ([ae028ac](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/ae028ac35a238d17ca5e1ff042e466a3c7dbf656))
+* **auth:** enforce music catalog access scopes ([#317](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/317)) ([f7df166](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f7df16614cbb227b0f62d95643e7629f273ce654))
+* **foundry:** add project for model deployments ([#310](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/310)) ([0d7567b](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0d7567bec957737b37ab443464a2adb1f164abbc))
+* **foundry:** wire agents to project resource ([#312](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/312)) ([8c6e2d0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/8c6e2d011437453a945b8ae86e84ab1cb6812e4d))
+* **parts:** add instrument group classification ([#318](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/318)) ([adaacef](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/adaaceff9a32283316b277c3ba5b05b29f5d92cc))
+* **projects:** add Prosjektleder role for managing projects ([#304](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/304)) ([86f2459](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/86f2459d7a6de3c98deec22ab6d3c63a37b2613b))
+* **users:** assign parts to musicians ([#323](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/323)) ([5eae072](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/5eae072582e0cd6824e778b9ee80d95a21f725c7))
+* **users:** remove legacy v1 user handling ([#285](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/285)) ([6963c3a](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6963c3af7ed46cfc4d6dbcec20ce991bf10ef181))
+
+
+### Bug Fixes
+
+* **auth:** seed arkivleser role ([#322](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/322)) ([834cb1d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/834cb1d2c11f75cd0d242d78700d00b3926d78d6))
+* **deploy:** assign resources to ACA compute environment ([#311](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/311)) ([a0365c2](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a0365c2e6379b065662ecd9180fce18da6b2a6f9))
+* **foundry:** deploy model in Sweden Central ([#309](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/309)) ([cd20ef5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/cd20ef5352184458ff5204394c8f6eb1f7bf0521))
+* **projects:** apply \ filter on GET /projects ([#306](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/306)) ([6a81f2a](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6a81f2aae6e4cf149937339c40f3a37b9a1c0ce2))
+* **projects:** show inactive projects to project managers ([#325](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/325)) ([b2df44d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/b2df44d7a83d0dc40d49bdb3ea14f20b43053ec0))
+* **users:** include roles in user list ([#324](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/324)) ([a5b581c](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/a5b581c8483ddb17d28c49cdc7b91654b8c9f474))
+* **users:** persist profile updates ([#321](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/321)) ([c13696b](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/c13696b74bc417bdeb7bff3dd8ee6cfb354518ca))
+
 ## [0.2.6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.5...v0.2.6) (2026-08-03)
 
 
