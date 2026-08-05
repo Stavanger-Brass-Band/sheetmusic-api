@@ -382,6 +382,71 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_UpdateUser_ShouldPersistNameAndEmail_WhenProfileFieldsAreProvided()
+    {
+        var anonymousClient = CreateV2Client();
+        var originalEmail = $"update-{Guid.NewGuid():N}@user.com";
+        var updatedEmail = $"updated-{Guid.NewGuid():N}@user.com";
+        var userId = Guid.NewGuid();
+
+        var registerResponse = await anonymousClient.PostAsJsonAsync("users/register", new
+        {
+            Id = userId,
+            Name = "Original User",
+            Email = originalEmail,
+            Password = "Original123!"
+        });
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var updateResponse = await adminClient.PutAsJsonAsync($"users/{userId}", new
+        {
+            Name = "Updated User",
+            Email = updatedEmail
+        });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await adminClient.GetAsync($"users/{userId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var updatedUser = await getResponse.Content.ReadFromJsonAsync<UserResponse>(JsonDefaults.Options);
+        updatedUser.Should().NotBeNull();
+        updatedUser!.Name.Should().Be("Updated User");
+        updatedUser.Email.Should().Be(updatedEmail);
+
+        using var scope = factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var identityUser = await userManager.FindByIdAsync(userId.ToString());
+        identityUser!.UserName.Should().Be(updatedEmail);
+    }
+
+    [Fact]
+    public async Task V2_UpdateUser_ShouldReturnBadRequest_WhenEmailIsAlreadyInUse()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}", new
+        {
+            Email = TestUser.Administrator.Email
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_UpdateUser_ShouldReturnBadRequest_WhenEmailIsInvalid()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}", new
+        {
+            Email = "not-an-email"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task V2_UpdateUser_ShouldBeForbidden_WhenNonAdmin()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Testesen);
@@ -1166,5 +1231,11 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
 
         responses.Count(r => r.StatusCode == HttpStatusCode.OK).Should().Be(1);
         responses.Count(r => r.StatusCode == HttpStatusCode.BadRequest).Should().Be(1);
+    }
+
+    private sealed class UserResponse
+    {
+        public string Name { get; set; } = null!;
+        public string Email { get; set; } = null!;
     }
 }

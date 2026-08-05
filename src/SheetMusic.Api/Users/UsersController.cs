@@ -85,42 +85,21 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
     }
 
     /// <summary>
-    /// Update a user's password. Admins can update any user.
+    /// Update a user's name, email address, or password. Admins can update any user.
     /// </summary>
     /// <param name="identifier">The guid of the user to update</param>
-    /// <param name="request">The new password</param>
-    /// <response code="200">Password was updated successfully</response>
-    /// <response code="400">Unable to identify the authenticated user, or the new password does not
-    /// meet the requirements returned by <c>GET users/password-requirements</c> (<see cref="PasswordRequirementsNotMetError"/>).
-    /// The existing password remains valid in that case.</response>
+    /// <param name="request">The updated user details</param>
+    /// <response code="200">User was updated successfully</response>
+    /// <response code="400">Unable to identify the authenticated user, the new email is invalid or already in use,
+    /// or the new password does not meet the requirements returned by <c>GET users/password-requirements</c>
+    /// (<see cref="PasswordRequirementsNotMetError"/>).</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     /// <response code="403">Forbidden. Only the user themselves or an Administrator can update the password</response>
     /// <response code="404">User not found</response>
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
-        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
-            return BadRequest("Unable to find Name claim and identify user");
-
-        var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
-        var userToChange = await userManager.FindByIdAsync(identifier.ToString());
-
-        if (userToChange == null)
-            return NotFound();
-
-        if (authenticatedUserId != identifier && !isAdmin)
-            return Forbid();
-
-        if (!string.IsNullOrWhiteSpace(request.Password))
-        {
-            var token = await userManager.GeneratePasswordResetTokenAsync(userToChange);
-            var result = await userManager.ResetPasswordAsync(userToChange, token, request.Password);
-
-            if (!result.Succeeded)
-                throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
-        }
-
+        await mediator.Send(new UpdateUser(identifier, User, request));
         return Ok();
     }
 
