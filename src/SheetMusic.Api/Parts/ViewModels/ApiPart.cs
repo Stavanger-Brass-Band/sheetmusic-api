@@ -1,4 +1,5 @@
 ﻿using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ public class ApiPart
         Name = part.Name;
         SortOrder = part.SortOrder;
         Indexable = part.Indexable;
+        InstrumentGroup = part.InstrumentGroup;
         Aliases = part.Aliases?.Where(a => a.Enabled).Select(a => a.Alias).ToList() ?? new List<string>();
     }
 
@@ -30,6 +32,8 @@ public class ApiPart
     public int SortOrder { get; set; }
 
     public bool Indexable { get; set; }
+
+    public InstrumentGroup? InstrumentGroup { get; set; }
 
     public List<string> Aliases { get; set; } = new List<string>();
 }

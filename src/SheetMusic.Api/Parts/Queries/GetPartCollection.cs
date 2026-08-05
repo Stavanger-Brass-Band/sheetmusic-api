@@ -25,6 +25,7 @@ public class GetPartCollection(ODataQueryParams queryParams) : IRequest<List<Mus
             m.MapField("name", p => p.Name);
             m.MapField("indexable", p => p.Indexable);
             m.MapField("sortOrder", p => p.SortOrder);
+            m.MapField("instrumentGroup", p => p.InstrumentGroup);
         };
 
         public async Task<List<MusicPart>> Handle(GetPartCollection request, CancellationToken cancellationToken)

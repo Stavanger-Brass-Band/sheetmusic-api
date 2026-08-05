@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Parts.Errors;
@@ -9,17 +10,18 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Parts.Commands;
 
-public class AddPart(string name, int sortOrder, bool indexable) : IRequest<MusicPart>
+public class AddPart(string name, int sortOrder, bool indexable, InstrumentGroup? instrumentGroup) : IRequest<MusicPart>
 {
     public string Name { get; } = name;
     public int SortOrder { get; } = sortOrder;
     public bool Indexable { get; } = indexable;
+    public InstrumentGroup? InstrumentGroup { get; } = instrumentGroup;
 
     public class Handler(SheetMusicContext db) : IRequestHandler<AddPart, MusicPart>
     {
         public async Task<MusicPart> Handle(AddPart request, CancellationToken cancellationToken)
         {
-            if (db.MusicParts.Any(p => p.Name.ToLower() == request.Name.ToLower()))
+            if (await db.MusicParts.AnyAsync(p => p.Name.ToLower() == request.Name.ToLower(), cancellationToken))
                 throw new PartAlreadyExistsError(request.Name);
 
             var part = new MusicPart
@@ -27,7 +29,8 @@ public class AddPart(string name, int sortOrder, bool indexable) : IRequest<Musi
                 Id = Guid.NewGuid(),
                 Name = request.Name,
                 Indexable = request.Indexable,
-                SortOrder = request.SortOrder
+                SortOrder = request.SortOrder,
+                InstrumentGroup = request.InstrumentGroup
             };
 
             db.MusicParts.Add(part);

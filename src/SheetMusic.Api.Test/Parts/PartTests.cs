@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts;
 using SheetMusic.Api.Parts.ViewModels;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -15,6 +16,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -109,6 +111,117 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
 
         var response = await adminClient.PutAsJsonAsync($"parts/{part.Id}", input);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Part_ShouldRoundTripInstrumentGroup_WhenCreatedAndUpdated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var createResponse = await adminClient.PostAsJsonAsync("parts", new
+        {
+            Name = $"instrument-group-{Guid.NewGuid():N}",
+            SortOrder = 1,
+            Indexable = true,
+            InstrumentGroup = "Horn og flygelhorn"
+        });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var responseBody = await createResponse.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("\"instrumentGroup\":\"Horn og flygelhorn\"");
+        var created = JsonSerializer.Deserialize<ApiPart>(responseBody, JsonDefaults.Options);
+        created.Should().NotBeNull();
+        created!.InstrumentGroup.Should().Be(InstrumentGroup.HornOgFlygelhorn);
+
+        var updateResponse = await adminClient.PutAsJsonAsync($"parts/{created.Id}", new
+        {
+            created.Name,
+            created.SortOrder,
+            created.Indexable,
+            InstrumentGroup = "Euphonium og baryton"
+        });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updateResponseBody = await updateResponse.Content.ReadAsStringAsync();
+        updateResponseBody.Should().Contain("\"instrumentGroup\":\"Euphonium og baryton\"");
+
+        var getResponse = await adminClient.GetAsync($"parts/{created.Id}");
+        var updated = await getResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        updated!.InstrumentGroup.Should().Be(InstrumentGroup.EuphoniumOgBaryton);
+    }
+
+    [Fact]
+    public async Task Part_ShouldReturnNullInstrumentGroup_WhenNoGroupIsProvided()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var response = await adminClient.PostAsJsonAsync("parts", new
+        {
+            Name = $"unclassified-part-{Guid.NewGuid():N}",
+            SortOrder = 1,
+            Indexable = true
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var part = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        part.Should().NotBeNull();
+        part!.InstrumentGroup.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdatePart_ShouldClearInstrumentGroup_WhenNoGroupIsProvided()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var createResponse = await adminClient.PostAsJsonAsync("parts", new
+        {
+            Name = $"clear-instrument-group-{Guid.NewGuid():N}",
+            SortOrder = 1,
+            Indexable = true,
+            InstrumentGroup = "Tuba"
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+
+        var updateResponse = await adminClient.PutAsJsonAsync($"parts/{created!.Id}", new
+        {
+            created.Name,
+            created.SortOrder,
+            created.Indexable,
+            InstrumentGroup = (string?)null
+        });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        updated!.InstrumentGroup.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreatePart_ShouldReturnBadRequest_WhenInstrumentGroupIsUnsupported()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var response = await adminClient.PostAsJsonAsync("parts", new
+        {
+            Name = $"invalid-instrument-group-{Guid.NewGuid():N}",
+            SortOrder = 1,
+            Indexable = true,
+            InstrumentGroup = "Ukjent"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdatePart_ShouldReturnBadRequest_WhenInstrumentGroupIsUnsupported()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+
+        var response = await adminClient.PutAsJsonAsync($"parts/{part.Id}", new
+        {
+            part.Name,
+            part.SortOrder,
+            part.Indexable,
+            InstrumentGroup = "Ukjent"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

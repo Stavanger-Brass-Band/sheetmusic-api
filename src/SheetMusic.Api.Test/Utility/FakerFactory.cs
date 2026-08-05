@@ -1,4 +1,5 @@
 ﻿using Bogus;
+using SheetMusic.Api.Parts;
 using SheetMusic.Api.Parts.RequestModels;
 using SheetMusic.Api.Test.Sets.Models;
 using System;
@@ -27,7 +28,8 @@ internal static class FakerFactory
         var faker = new Faker<PartRequest>(Norwegian)
             .RuleFor(p => p.Name, f => $"{f.Lorem.Word()}-{f.UniqueIndex}")
             .RuleFor(p => p.SortOrder, f => f.Random.Int(1, 99))
-            .RuleFor(p => p.Indexable, f => f.Random.Bool());
+            .RuleFor(p => p.Indexable, f => f.Random.Bool())
+            .RuleFor(p => p.InstrumentGroup, f => f.PickRandom<InstrumentGroup>());
 
         return faker;
     }
