@@ -370,6 +370,141 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_AssignParts_ShouldBeForbidden_WhenNonAdmin()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Musikant);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/parts", new { PartIds = Array.Empty<Guid>() });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldReturnUnauthorized_WhenUnauthenticated()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = Array.Empty<Guid>() });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldReturnBadRequest_WhenPartIdsAreNull()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = (Guid[]?)null });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldReturnNotFound_WhenPartDoesNotExist()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+
+        var response = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = new[] { Guid.NewGuid() } });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldReturnAssignedParts_WhenRetrievingUser()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var parts = new[]
+        {
+            new MusicPart { Id = Guid.NewGuid(), Name = "Part one", SortOrder = 2, Indexable = true },
+            new MusicPart { Id = Guid.NewGuid(), Name = "Part two", SortOrder = 1, Indexable = true }
+        };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddRangeAsync(parts);
+            await db.SaveChangesAsync();
+        }
+
+        var assignResponse = await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = parts.Select(part => part.Id) });
+        assignResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await client.GetFromJsonAsync<ApiUserDetailModel>($"users/{TestUser.Musikant.Identifier}");
+        user!.Parts.Select(part => part.Id).Should().Equal(parts.OrderBy(part => part.SortOrder).Select(part => part.Id));
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldReplaceExistingAssignments_WhenCalledAgain()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var parts = new[]
+        {
+            new MusicPart { Id = Guid.NewGuid(), Name = "Original part", Indexable = true },
+            new MusicPart { Id = Guid.NewGuid(), Name = "Replacement part", Indexable = true }
+        };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddRangeAsync(parts);
+            await db.SaveChangesAsync();
+        }
+
+        (await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = new[] { parts[0].Id } })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = new[] { parts[1].Id } })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await client.GetFromJsonAsync<ApiUserDetailModel>($"users/{TestUser.Musikant.Identifier}");
+        user!.Parts.Select(part => part.Id).Should().Equal(parts[1].Id);
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldClearExistingAssignments_WhenPartIdsAreEmpty()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var part = new MusicPart { Id = Guid.NewGuid(), Name = "Part to clear", Indexable = true };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddAsync(part);
+            await db.SaveChangesAsync();
+        }
+
+        (await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = new[] { part.Id } })).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PutAsJsonAsync($"users/{TestUser.Musikant.Identifier}/parts", new { PartIds = Array.Empty<Guid>() })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await client.GetFromJsonAsync<ApiUserDetailModel>($"users/{TestUser.Musikant.Identifier}");
+        user!.Parts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task V2_AssignParts_ShouldNotReplaceExistingAssignments_WhenPartIdsAreDuplicated()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var (userId, _) = await RegisterInactiveUserAsync(CreateV2Client(), "duplicate-part-ids");
+        var parts = new[]
+        {
+            new MusicPart { Id = Guid.NewGuid(), Name = "Existing part", Indexable = true },
+            new MusicPart { Id = Guid.NewGuid(), Name = "Duplicate part", Indexable = true }
+        };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddRangeAsync(parts);
+            await db.SaveChangesAsync();
+        }
+
+        (await client.PutAsJsonAsync($"users/{userId}/parts", new { PartIds = new[] { parts[0].Id } })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await client.PutAsJsonAsync($"users/{userId}/parts", new { PartIds = new[] { parts[1].Id, parts[1].Id } });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var user = await client.GetFromJsonAsync<ApiUserDetailModel>($"users/{userId}");
+        user!.Parts.Select(part => part.Id).Should().Equal(parts[0].Id);
+    }
+
+    [Fact]
     public async Task V2_UpdateUser_ShouldBeSuccessful_WhenAdminUpdatesAnother()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Administrator);
@@ -493,6 +628,10 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var loginResponse = await anonymousClient.PostAsync("token", BuildLoginForm(email, originalPassword));
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    private record ApiUserDetailModel(IReadOnlyList<ApiPartModel> Parts);
+
+    private record ApiPartModel(Guid Id);
 
     // --- User management: activate / deactivate / roles / delete ---
 
