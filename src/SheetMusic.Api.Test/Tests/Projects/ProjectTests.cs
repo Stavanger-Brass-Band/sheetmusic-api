@@ -132,7 +132,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task GetCatalogResources_ShouldRespectActiveProjectScope_ForMusikantAndArkivleser()
+    public async Task GetCatalogResources_ShouldRespectActiveProjectScope_ForMusikantArkivleserAndProsjektleder()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var activeProject = new
@@ -190,6 +190,9 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         (await dualRoleClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var noCatalogAccessClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
+        var prosjektlederProjects = await noCatalogAccessClient.GetFromJsonAsync<List<ApiProject>>("projects", JsonDefaults.Options);
+        prosjektlederProjects!.Should().Contain(project => project.Name == activeProject.Name);
+        prosjektlederProjects.Should().Contain(project => project.Name == inactiveProject.Name);
         (await noCatalogAccessClient.GetAsync($"sheetmusic/sets/{activeSet.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 

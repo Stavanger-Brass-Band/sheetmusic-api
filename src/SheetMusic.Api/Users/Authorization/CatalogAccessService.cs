@@ -34,7 +34,7 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
 
     /// <summary>Gets whether the current user can access the specified project.</summary>
     public bool CanAccessProject(DateTime startDate, DateTime endDate) =>
-        HasFullLibraryAccess() || (IsMusikant() && startDate <= DateTime.UtcNow && endDate >= DateTime.UtcNow);
+        HasFullLibraryAccess() || IsProsjektleder() || (IsMusikant() && startDate <= DateTime.UtcNow && endDate >= DateTime.UtcNow);
 
     /// <summary>Filters set identifiers to the catalogue resources visible to the current user.</summary>
     public async Task<HashSet<Guid>> GetAccessibleSetIdsAsync(IEnumerable<Guid> setIds, CancellationToken cancellationToken = default)
@@ -55,6 +55,8 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
     }
 
     private bool HasFullLibraryAccess() => User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Noteansvarlig) || User.IsInRole(Roles.Arkivleser);
+
+    private bool IsProsjektleder() => User.IsInRole(Roles.Prosjektleder);
 
     private bool IsMusikant() => User.IsInRole(Roles.Musikant);
 
