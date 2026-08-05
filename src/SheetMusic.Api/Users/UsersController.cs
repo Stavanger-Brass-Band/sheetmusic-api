@@ -167,7 +167,25 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
 
         var result = await mediator.Send(new GetUser(id));
 
-        return Ok(new ApiUserDetail(result.User, result.Roles));
+        return Ok(new ApiUserDetail(result.User, result.Roles, result.Parts));
+    }
+
+    /// <summary>
+    /// Replaces the parts assigned to a user's musician record. Admin only.
+    /// </summary>
+    /// <param name="id">The guid of the user to assign parts to</param>
+    /// <param name="request">The identifiers of the parts to assign</param>
+    /// <response code="200">Parts were assigned successfully</response>
+    /// <response code="400">The supplied part identifiers are invalid</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User or one or more parts were not found</response>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("users/{id}/parts")]
+    public async Task<IActionResult> AssignPartsAsync(Guid id, [FromBody] AssignPartsToUserRequest request)
+    {
+        await mediator.Send(new AssignPartsToUser(id, request.PartIds));
+        return Ok();
     }
 
     /// <summary>
