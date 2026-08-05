@@ -8,6 +8,7 @@ using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Utility;
+using SheetMusic.Api.Users.Authorization;
 using SheetMusic.Api.Users.Errors;
 using SheetMusic.Api.Users.ViewModels;
 using System;
@@ -18,6 +19,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -263,9 +265,27 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     public async Task V2_GetAllUsers_ShouldBeSuccessful_WhenAdmin()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var part = new MusicPart { Id = Guid.NewGuid(), Name = "List test part", Indexable = true };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddAsync(part);
+            await db.SaveChangesAsync();
+        }
+
+        var assignResponse = await client.PutAsJsonAsync($"users/{TestUser.Testesen.Identifier}/parts", new { PartIds = new[] { part.Id } });
+        assignResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var response = await client.GetAsync("users");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var testesen = document.RootElement.EnumerateArray()
+            .Single(user => user.GetProperty("id").GetGuid() == TestUser.Testesen.Identifier);
+        var roles = testesen.GetProperty("roles").EnumerateArray().Select(role => role.GetString());
+        roles.Should().BeEquivalentTo([Roles.Musikant, Roles.Arkivleser]);
+        testesen.GetProperty("parts").EnumerateArray().Select(part => part.GetProperty("id").GetGuid()).Should().Equal(part.Id);
     }
 
     [Fact]
