@@ -1,8 +1,11 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SheetMusic.Api.Database;
+using SheetMusic.Api.Migrations;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
@@ -16,6 +19,29 @@ namespace SheetMusic.Api.Test.Database;
 /// </summary>
 public class MigrationRunnerTests
 {
+    [Fact]
+    public void Up_ShouldSeedArkivleserRole_WhenRoleDoesNotExist()
+    {
+        var migrationBuilder = new MigrationBuilder("Microsoft.EntityFrameworkCore.SqlServer");
+
+        new TestableAddArkivleserRole().ApplyUp(migrationBuilder);
+
+        var seedOperation = migrationBuilder.Operations.Should().ContainSingle().Which
+            .Should().BeOfType<SqlOperation>().Subject;
+        seedOperation.Sql.Should().Contain("IF NOT EXISTS (SELECT 1 FROM [AspNetRoles] WHERE [NormalizedName] = 'ARKIVLESER')")
+            .And.Contain("VALUES ('7a596bb6-bb75-41e1-a299-776990db4d76', 'Arkivleser', 'ARKIVLESER', CONVERT(nvarchar(36), NEWID()))");
+    }
+
+    [Fact]
+    public void Down_ShouldPreserveArkivleserRole_WhenReverting()
+    {
+        var migrationBuilder = new MigrationBuilder("Microsoft.EntityFrameworkCore.SqlServer");
+
+        new TestableAddArkivleserRole().ApplyDown(migrationBuilder);
+
+        migrationBuilder.Operations.Should().BeEmpty();
+    }
+
     [Fact]
     public void ShouldRunOnStartup_ReturnsFalse_WhenSkipMigrationsIsAbsent()
     {
@@ -58,5 +84,12 @@ public class MigrationRunnerTests
         var exitCode = await MigrationRunner.RunAsAppEntryPointAsync(provider);
 
         exitCode.Should().NotBe(0);
+    }
+
+    private sealed class TestableAddArkivleserRole : AddArkivleserRole
+    {
+        public void ApplyUp(MigrationBuilder migrationBuilder) => Up(migrationBuilder);
+
+        public void ApplyDown(MigrationBuilder migrationBuilder) => Down(migrationBuilder);
     }
 }
