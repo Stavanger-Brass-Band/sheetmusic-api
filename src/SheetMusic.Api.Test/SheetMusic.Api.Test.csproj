@@ -27,5 +27,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\SheetMusic.Api\SheetMusic.Api.csproj" />
+		<ProjectReference Include="..\SheetMusic.AppHost\SheetMusic.AppHost.csproj" Aliases="AppHost" />
 	</ItemGroup>
 </Project>
