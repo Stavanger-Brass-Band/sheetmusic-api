@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.0...v0.3.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **deploy:** avoid sql role script module conflict ([#328](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/328)) ([75d4090](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/75d40901546f3be3f4943cde4da349a36f15b1f1))
+* **deploy:** reconcile existing sql role users ([#330](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/330)) ([4e5a406](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/4e5a4068874147dc9a87c30554d193a44919ed51))
+
 ## [0.3.0](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.2.6...v0.3.0) (2026-08-05)
 
 
