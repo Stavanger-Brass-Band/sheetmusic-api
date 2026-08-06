@@ -6,9 +6,22 @@ using Azure.Provisioning.CognitiveServices;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
 using Azure.Provisioning.Sql;
+using Azure.Provisioning.Primitives;
+using Azure.Provisioning.Resources;
 using Aspire.Hosting.Foundry;
+using Aspire.Hosting.Azure;
+using Microsoft.Extensions.DependencyInjection;
+using System.Text.RegularExpressions;
 
 var builder = DistributedApplication.CreateBuilder(args);
+
+// Azure PowerShell 14 imports a MemoryCache assembly incompatible with the SqlServer module's
+// Always Encrypted provider. Patch only the generated Azure SQL role scripts to use the in-box
+// SqlClient provider until the upstream Aspire fix is available in a released package.
+builder.Services.Configure<AzureProvisioningOptions>(options =>
+{
+    options.ProvisioningBuildOptions.InfrastructureResolvers.Add(new SqlRoleScriptCompatibilityResolver());
+});
 
 // Azure SQL once published; a local SQL Server container - with the same persistent lifetime, data
 // volume and host port as before - for `aspire run`. Publishing `AddSqlServer` as-is would deploy a SQL
@@ -337,3 +350,66 @@ var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", m
 AddMigrationJob("sheetmusic-api-test-migrate", testDb);
 
 builder.Build().Run();
+
+internal sealed class SqlRoleScriptCompatibilityResolver : InfrastructureResolver
+{
+    private static readonly Regex SqlServerModule = new(
+        @"(?m)^\s*Install-Module -Name SqlServer.*\r?\n\s*Import-Module SqlServer\s*\r?\n?",
+        RegexOptions.CultureInvariant);
+
+    private const string SqlConnectionString = """
+        $connectionString = "Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;"
+        """;
+
+    private const string SqlClientConnectionString = """
+        $connectionString = "Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Encrypt=True;TrustServerCertificate=False;"
+        """;
+
+    private const string InvokeSqlCommand = "Invoke-Sqlcmd -ConnectionString $connectionString -Query $sqlCmd";
+
+    private const string ExecuteSqlCommand = """
+        $tokenResponse = Get-AzAccessToken -ResourceUrl "https://database.windows.net/"
+        $accessToken = if ($tokenResponse.Token -is [System.Security.SecureString]) {
+            [System.Net.NetworkCredential]::new("", $tokenResponse.Token).Password
+        } else {
+            $tokenResponse.Token
+        }
+
+        $connection = New-Object System.Data.SqlClient.SqlConnection
+        $connection.ConnectionString = $connectionString
+        $connection.AccessToken = $accessToken
+        $connection.Open()
+
+        $command = $connection.CreateCommand()
+        $command.CommandText = $sqlCmd
+        [void]$command.ExecuteNonQuery()
+        $command.Dispose()
+        $connection.Dispose()
+        """;
+
+    public override IEnumerable<Provisionable> ResolveResources(
+        IEnumerable<Provisionable> resources,
+        ProvisioningBuildOptions options)
+    {
+        foreach (var resource in resources.OfType<AzurePowerShellScript>())
+        {
+            var scriptContent = resource.ScriptContent.Value;
+            if (scriptContent is null || !scriptContent.Contains(InvokeSqlCommand, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            resource.ScriptContent.Assign(new BicepValue<string>(RewriteScriptContent(scriptContent)));
+        }
+
+        return base.ResolveResources(resources, options);
+    }
+
+    internal static string RewriteScriptContent(string scriptContent)
+    {
+        var rewritten = scriptContent.Replace(SqlConnectionString, SqlClientConnectionString, StringComparison.Ordinal);
+        rewritten = SqlServerModule.Replace(rewritten, string.Empty);
+
+        return rewritten.Replace(InvokeSqlCommand, ExecuteSqlCommand, StringComparison.Ordinal);
+    }
+}
