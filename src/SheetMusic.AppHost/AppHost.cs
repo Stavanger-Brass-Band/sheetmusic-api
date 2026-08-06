@@ -357,6 +357,18 @@ internal sealed class SqlRoleScriptCompatibilityResolver : InfrastructureResolve
         @"(?m)^\s*Install-Module -Name SqlServer.*\r?\n\s*Import-Module SqlServer\s*\r?\n?",
         RegexOptions.CultureInvariant);
 
+    private static readonly Regex LegacySqlBatch = new(
+        @"(?s)DECLARE @name SYSNAME = '\$principalName';.*?EXEC \(@role1\);",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CreateUser = new(
+        @"\bCREATE\s+USER\b",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    private static readonly Regex SqlComments = new(
+        @"(?m:--[^\r\n]*)|(?s:/\*.*?\*/)",
+        RegexOptions.CultureInvariant);
+
     private const string SqlConnectionString = """
         $connectionString = "Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;"
         """;
@@ -366,6 +378,44 @@ internal sealed class SqlRoleScriptCompatibilityResolver : InfrastructureResolve
         """;
 
     private const string InvokeSqlCommand = "Invoke-Sqlcmd -ConnectionString $connectionString -Query $sqlCmd";
+
+    private const string IdempotentSqlBatch = """
+        DECLARE @name SYSNAME = '$principalName';
+        DECLARE @id UNIQUEIDENTIFIER = '$id';
+        DECLARE @sid VARBINARY(16) = CONVERT(VARBINARY(16), @id);
+        DECLARE @castId NVARCHAR(MAX) = CONVERT(VARCHAR(MAX), @sid, 1);
+        DECLARE @existingPrincipalType CHAR(1) = (
+            SELECT type FROM sys.database_principals WHERE name = @name);
+        DECLARE @existingSid VARBINARY(85) = (
+            SELECT sid FROM sys.database_principals WHERE name = @name AND type = 'E');
+
+        IF @existingPrincipalType IS NOT NULL AND @existingPrincipalType <> 'E'
+            THROW 50000, 'A non-external-user database principal already uses the managed identity name.', 1;
+
+        IF @existingSid IS NOT NULL AND @existingSid <> @sid
+        BEGIN
+            DECLARE @dropCmd NVARCHAR(MAX) = N'DROP USER ' + QUOTENAME(@name);
+            EXEC (@dropCmd);
+            SET @existingSid = NULL;
+        END
+
+        IF @existingSid IS NULL
+        BEGIN
+            DECLARE @createCmd NVARCHAR(MAX) = N'CREATE USER ' + QUOTENAME(@name) + N' WITH SID = ' + @castId + N', TYPE = E;';
+            EXEC (@createCmd);
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.database_role_members AS members
+            INNER JOIN sys.database_principals AS roles ON roles.principal_id = members.role_principal_id
+            INNER JOIN sys.database_principals AS principals ON principals.principal_id = members.member_principal_id
+            WHERE roles.name = N'db_owner' AND principals.name = @name)
+        BEGIN
+            DECLARE @roleCmd NVARCHAR(MAX) = N'ALTER ROLE db_owner ADD MEMBER ' + QUOTENAME(@name);
+            EXEC (@roleCmd);
+        END
+        """;
 
     private const string ExecuteSqlCommand = """
         $tokenResponse = Get-AzAccessToken -ResourceUrl "https://database.windows.net/"
@@ -409,6 +459,14 @@ internal sealed class SqlRoleScriptCompatibilityResolver : InfrastructureResolve
     {
         var rewritten = scriptContent.Replace(SqlConnectionString, SqlClientConnectionString, StringComparison.Ordinal);
         rewritten = SqlServerModule.Replace(rewritten, string.Empty);
+
+        var executableSql = SqlComments.Replace(rewritten, " ");
+        if (CreateUser.Matches(executableSql).Count != LegacySqlBatch.Matches(rewritten).Count)
+        {
+            throw new InvalidOperationException("The generated Azure SQL role script has an unsupported CREATE USER batch.");
+        }
+
+        rewritten = LegacySqlBatch.Replace(rewritten, IdempotentSqlBatch);
 
         return rewritten.Replace(InvokeSqlCommand, ExecuteSqlCommand, StringComparison.Ordinal);
     }
