@@ -6,6 +6,7 @@ using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -35,6 +36,22 @@ public class BlobClientAzuriteTests(AzuriteFixture azurite)
         await AssertRoundTripsContentAsync(blobClient);
     }
 
+    [Fact]
+    public async Task AddMusicPartContentAsync_ThrowsCancellation_WhenRequestIsCancelled()
+    {
+        var blobClient = new SheetMusic.Api.BlobStorage.BlobClient(azurite.CreateClientFromConnectionString());
+        await blobClient.EnsureContainerExistsAsync();
+        using var cancellationSource = new CancellationTokenSource();
+        cancellationSource.Cancel();
+
+        Func<Task> upload = () => blobClient.AddMusicPartContentAsync(
+            new PartRelatedToSet(Guid.NewGuid(), Guid.NewGuid()),
+            new MemoryStream(Encoding.UTF8.GetBytes("content")),
+            cancellationSource.Token);
+
+        await upload.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     private static async Task AssertRoundTripsContentAsync(IBlobClient blobClient)
     {
         await blobClient.EnsureContainerExistsAsync();
@@ -42,7 +59,7 @@ public class BlobClientAzuriteTests(AzuriteFixture azurite)
         var identifier = new PartRelatedToSet(Guid.NewGuid(), Guid.NewGuid());
         var content = Encoding.UTF8.GetBytes("Azurite round-trip content");
 
-        await blobClient.AddMusicPartContentAsync(identifier, new MemoryStream(content));
+        await blobClient.AddMusicPartContentAsync(identifier, new MemoryStream(content), CancellationToken.None);
 
         (await blobClient.HasPdfFileAsync(identifier)).Should().BeTrue();
 

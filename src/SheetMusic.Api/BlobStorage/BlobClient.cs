@@ -4,6 +4,7 @@ using SheetMusic.Api.Errors;
 using SheetMusic.Api.Sets;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.BlobStorage;
@@ -47,12 +48,16 @@ public class BlobClient(BlobServiceClient blobServiceClient) : IBlobClient
         return await blob.OpenReadAsync();
     }
 
-    public async Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream)
+    public async Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken)
     {
         try
         {
             var blob = GetBlob(identifier);
-            await blob.UploadAsync(contentStream, overwrite: true);
+            await blob.UploadAsync(contentStream, overwrite: true, cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

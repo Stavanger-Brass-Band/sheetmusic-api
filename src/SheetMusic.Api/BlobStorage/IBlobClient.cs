@@ -1,13 +1,14 @@
 ﻿using SheetMusic.Api.Sets;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.BlobStorage;
 
 public interface IBlobClient
 {
-    Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream);
+    Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken);
     Task EnsureContainerExistsAsync();
     Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier);
     Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier);

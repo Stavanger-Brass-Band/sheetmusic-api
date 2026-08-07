@@ -44,7 +44,7 @@ public class AddPartOnSet(
             if (partOnSet is not null)
                 throw new MusicSetPartAlreadyAddedError(set.Title, part.Name);
 
-            await blobClient.AddMusicPartContentAsync(new PartRelatedToSet(set.Id, part.Id), request.Content);
+            await blobClient.AddMusicPartContentAsync(new PartRelatedToSet(set.Id, part.Id), request.Content, cancellationToken);
 
             db.SheetMusicParts.Add(new SheetMusicPart
             {
