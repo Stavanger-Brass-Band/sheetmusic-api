@@ -91,8 +91,6 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
 
       # Deploy sequence, part 2 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
       # globally-unique names (unlike Storage/Search/ACR/SQL, which Aspire suffixes with a generated
@@ -142,37 +140,6 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
-      - name: Deploy test agent infrastructure and new image
-        run: aspire do provision-sheetmusic-agents-test-containerapp --non-interactive
-        env:
-          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          Azure__Location: ${{ vars.AZURE_LOCATION }}
-          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
-          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
-          Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
-          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
-      - name: Deploy test category backfill job infrastructure and image
-        run: aspire do provision-sheetmusic-agents-test-backfill-containerapp --non-interactive
-        env:
-          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          Azure__Location: ${{ vars.AZURE_LOCATION }}
-          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
-          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
-          Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
-          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
-      - name: Start test category backfill job
-        run: az containerapp job start --name "sheetmusic-agents-test-backfill" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
 
   deploy-prod:
     name: Deploy to production
@@ -233,9 +200,6 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
       - name: Start production migration job
         run: |
           az containerapp job start \
@@ -276,34 +240,4 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
 
-      - name: Deploy production agent infrastructure and new image
-        run: aspire do provision-sheetmusic-agents-containerapp --non-interactive
-        env:
-          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          Azure__Location: ${{ vars.AZURE_LOCATION }}
-          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
-          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
-          Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
-          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
-      - name: Deploy production category backfill job infrastructure and image
-        run: aspire do provision-sheetmusic-agents-backfill-containerapp --non-interactive
-        env:
-          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          Azure__Location: ${{ vars.AZURE_LOCATION }}
-          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-          Parameters__resend_api_key: ${{ secrets.RESEND_API_KEY }}
-          Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
-          Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
-          Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
-          Parameters__agent_shared_secret: ${{ secrets.AGENT_SHARED_SECRET }}
-          Parameters__test_agent_shared_secret: ${{ secrets.TEST_AGENT_SHARED_SECRET }}
-
-      - name: Start production category backfill job
-        run: az containerapp job start --name "sheetmusic-agents-backfill" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"

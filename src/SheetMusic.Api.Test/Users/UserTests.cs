@@ -95,6 +95,33 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task OpenApiPasswordFlow_ShouldIssueTokens_WhenUsingAdvertisedTokenUrl()
+    {
+        var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("openapi/2.0.json"));
+        var tokenUrl = document.RootElement
+            .GetProperty("components")
+            .GetProperty("securitySchemes")
+            .GetProperty("oauth2")
+            .GetProperty("flows")
+            .GetProperty("password")
+            .GetProperty("tokenUrl")
+            .GetString();
+
+        var response = await client.PostAsync(tokenUrl, new FormUrlEncodedContent(
+        [
+            new("grant_type", "password"),
+            new("username", TestUser.Testesen.Email),
+            new("password", TestUser.Testesen.Password)
+        ]));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var tokens = await response.Content.ReadFromJsonAsync<ApiAccessTokens>();
+        tokens!.access_token.Should().NotBeNullOrWhiteSpace();
+        tokens.token_type.Should().Be("bearer");
+    }
+
+    [Fact]
     public async Task V2_GetToken_WithWrongPassword_ShouldReturnBadRequest()
     {
         var client = CreateV2Client();
