@@ -18,6 +18,7 @@ using System.Linq;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddAzureChatCompletionsClient("chat").AddChatClient();
 
 builder.Services.AddDbContext<SheetMusicContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SheetMusicContext"), sqlOptions =>
@@ -75,11 +76,7 @@ builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContain
 
 builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient<IMetadataAgentClient, MetadataAgentClient>(client =>
-{
-    client.BaseAddress = new Uri($"http://{builder.Configuration["Agent:ServiceName"] ?? "sheetmusic-agents"}");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
+builder.Services.AddSingleton<SheetMusicAgent>();
 
 builder.Services.AddFluentValidationAutoValidation().AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -138,7 +135,6 @@ app.MapScalarApiReference(options =>
 });
 
 app.MapControllers();
-app.MapHealthChecks("/health");
 
 app.MapDefaultEndpoints();
 

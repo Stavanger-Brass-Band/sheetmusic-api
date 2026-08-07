@@ -20,8 +20,7 @@ public class OAuthSecuritySchemeTransformer : IOpenApiDocumentTransformer
             {
                 Password = new OpenApiOAuthFlow
                 {
-                    AuthorizationUrl = new Uri("/token", UriKind.Relative),
-                    TokenUrl = new Uri("/token", UriKind.Relative)
+                    TokenUrl = new Uri("/token?api-version=2.0", UriKind.Relative)
                 }
             }
         };

@@ -50,6 +50,23 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task AskAgentAboutSet_ReturnsAnswer_WhenCallerCanAccessNamedSet()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var client = factory.CreateClientWithTestToken(TestUser.Testesen);
+
+        var response = await client.PostAsJsonAsync("sheetmusic/agent/chat", new
+        {
+            SetName = testSet.Title,
+            Question = "Who composed this set?"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("Test agent answer");
+    }
+
+    [Fact]
     public async Task UpdateSet_ShouldBeForbidden_ForMusikantUser()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);

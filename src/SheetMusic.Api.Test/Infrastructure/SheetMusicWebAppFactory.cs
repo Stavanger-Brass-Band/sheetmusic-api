@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using SheetMusic.Api.BlobStorage;
@@ -16,9 +17,11 @@ using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
 using SheetMusic.Api.Users.Authorization;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 
 namespace SheetMusic.Api.Test.Infrastructure;
 
@@ -42,6 +45,7 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
         // Jwt:SigningKey has no committed fallback (issue #237) - startup fails fast without it, so
         // every test host needs its own value. Only ever used to sign tokens within this test process.
         builder.UseSetting("Jwt:SigningKey", "sheetmusic-api-test-signing-key-not-used-in-production");
+        builder.UseSetting("Agent:SharedSecret", "sheetmusic-api-test-agent-secret");
 
         // appsettings.Development.json points ConnectionStrings:blobs at the local Azurite emulator, but
         // no emulator is running for this in-memory test host. Program.cs resolves a real BlobServiceClient
@@ -79,6 +83,12 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
             FakeEmail = new FakeEmailSender();
             services.TryRemoveService<IEmailSender>();
             services.AddSingleton<IEmailSender>(FakeEmail);
+
+            services.TryRemoveService<IChatClient>();
+            var chatClient = new Mock<IChatClient>();
+            chatClient.Setup(client => client.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "Test agent answer")));
+            services.AddSingleton(chatClient.Object);
 
             // Remove Resend services to avoid requiring an API key in tests
             var resendDescriptors = services.Where(d =>
