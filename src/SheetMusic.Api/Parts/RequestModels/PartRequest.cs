@@ -10,6 +10,8 @@ public class PartRequest
 
     public bool? Indexable { get; set; }
 
+    public InstrumentGroup? InstrumentGroup { get; set; }
+
     public class Validator : AbstractValidator<PartRequest>
     {
         public Validator()
@@ -20,6 +22,9 @@ public class PartRequest
                 .LessThanOrEqualTo(99)
                 .WithMessage("SortOrder must be a value between 1 and 99. 1 appears before 99 and so on");
             RuleFor(p => p.Indexable).NotNull().WithMessage("Indexable flag is required");
+            RuleFor(p => p.InstrumentGroup)
+                .Must(group => group is null || Enum.IsDefined(group.Value))
+                .WithMessage("InstrumentGroup must be one of the supported instrument groups");
         }
     }
 }

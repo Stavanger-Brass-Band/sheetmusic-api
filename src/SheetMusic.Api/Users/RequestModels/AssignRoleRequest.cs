@@ -6,7 +6,7 @@ namespace SheetMusic.Api.Users.RequestModels;
 public class AssignRoleRequest
 {
     /// <summary>
-    /// The name of the role to assign. Must be one of <c>Admin</c>, <c>Noteansvarlig</c>, <c>Musikant</c> or <c>Prosjektleder</c>.
+    /// The name of the role to assign. Must be one of <c>Admin</c>, <c>Noteansvarlig</c>, <c>Musikant</c>, <c>Arkivleser</c> or <c>Prosjektleder</c>.
     /// </summary>
     public string RoleName { get; set; } = null!;
 

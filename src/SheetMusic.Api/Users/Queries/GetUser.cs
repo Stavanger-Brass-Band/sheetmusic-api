@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
 using System;
@@ -14,9 +16,9 @@ public class GetUser(Guid userId) : IRequest<GetUser.Result>
 {
     public Guid UserId { get; } = userId;
 
-    public record Result(ApplicationUser User, IReadOnlyList<string> Roles);
+    public record Result(ApplicationUser User, IReadOnlyList<string> Roles, IReadOnlyList<MusicPart> Parts);
 
-    public class Handler(UserManager<ApplicationUser> userManager) : IRequestHandler<GetUser, Result>
+    public class Handler(UserManager<ApplicationUser> userManager, SheetMusicContext db) : IRequestHandler<GetUser, Result>
     {
         public async Task<Result> Handle(GetUser request, CancellationToken cancellationToken)
         {
@@ -24,8 +26,16 @@ public class GetUser(Guid userId) : IRequest<GetUser.Result>
                 ?? throw new NotFoundError($"users/{request.UserId}", "User not found");
 
             var roles = await userManager.GetRolesAsync(user);
+            var parts = await db.Musicians
+                .Where(musician => musician.ApplicationUserId == request.UserId)
+                .SelectMany(musician => musician.MusicianMusicParts)
+                .Include(musicianPart => musicianPart.MusicPart)
+                .ThenInclude(part => part.Aliases)
+                .OrderBy(musicianPart => musicianPart.MusicPart.SortOrder)
+                .Select(musicianPart => musicianPart.MusicPart)
+                .ToListAsync(cancellationToken);
 
-            return new Result(user, roles.ToList());
+            return new Result(user, roles.ToList(), parts);
         }
     }
 }

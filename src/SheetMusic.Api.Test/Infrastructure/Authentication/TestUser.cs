@@ -33,11 +33,29 @@ public class TestUser
         IsAdministrator = false
     };
 
+    public static TestUser Musikant => new TestUser
+    {
+        Identifier = Guid.Parse("D1E3F2B8-9F5B-4DFA-A812-2D946C7C1D59"),
+        Name = "Mina Musikant",
+        Email = "mina@musikant.com",
+        Password = "IntgTest123!",
+        IsAdministrator = false
+    };
+
     public static TestUser Noteansvarlig => new TestUser
     {
         Identifier = Guid.Parse("6E0A1B6C-6C1D-4B0E-9A2F-3F1D2C4B5A67"),
         Name = "Nora Noteansvarlig",
         Email = "nora@noteansvarlig.com",
+        Password = "IntgTest123!",
+        IsAdministrator = false
+    };
+
+    public static TestUser Arkivleser => new TestUser
+    {
+        Identifier = Guid.Parse("C4BFB27F-0FAF-4EA2-A0E8-5257052C3E13"),
+        Name = "Arne Arkivleser",
+        Email = "arne@arkivleser.com",
         Password = "IntgTest123!",
         IsAdministrator = false
     };

@@ -25,7 +25,7 @@ namespace SheetMusic.Api.Projects;
 /// </summary>
 [Authorize]
 [ApiController]
-public class ProjectsController(IMediator mediator) : ControllerBase
+public class ProjectsController(IMediator mediator, CatalogAccessService catalogAccess) : ControllerBase
 {
     /// <summary>
     /// Gets a list of all projects. OData filtering is supported, e.g. $filter=name eq 'Christmas concert'.
@@ -38,7 +38,7 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     {
         var projects = await mediator.Send(new GetProjectCollection(query));
 
-        return projects.Select(p => new ApiProject(p)).ToList();
+        return projects.Where(project => catalogAccess.CanAccessProject(project.StartDate, project.EndDate)).Select(p => new ApiProject(p)).ToList();
     }
 
     /// <summary>
@@ -52,6 +52,9 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<ApiProject>> GetProject(string projectIdentifier)
     {
         var project = await mediator.Send(new GetProject(projectIdentifier));
+
+        if (!catalogAccess.CanAccessProject(project.StartDate, project.EndDate))
+            return Forbid();
 
         return new ApiProject(project);
     }
@@ -67,6 +70,10 @@ public class ProjectsController(IMediator mediator) : ControllerBase
     public async Task<ActionResult<List<ApiSet>>> GetSetsForProject(string projectIdentifier)
     {
         var project = await mediator.Send(new GetProject(projectIdentifier));
+
+        if (!catalogAccess.CanAccessProject(project.StartDate, project.EndDate))
+            return Forbid();
+
         var sets = await mediator.Send(new GetSetsForProject(project.Id));
 
         return sets.Select(s => new ApiSet(s)).ToList();

@@ -85,42 +85,21 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
     }
 
     /// <summary>
-    /// Update a user's password. Admins can update any user.
+    /// Update a user's name, email address, or password. Admins can update any user.
     /// </summary>
     /// <param name="identifier">The guid of the user to update</param>
-    /// <param name="request">The new password</param>
-    /// <response code="200">Password was updated successfully</response>
-    /// <response code="400">Unable to identify the authenticated user, or the new password does not
-    /// meet the requirements returned by <c>GET users/password-requirements</c> (<see cref="PasswordRequirementsNotMetError"/>).
-    /// The existing password remains valid in that case.</response>
+    /// <param name="request">The updated user details</param>
+    /// <response code="200">User was updated successfully</response>
+    /// <response code="400">Unable to identify the authenticated user, the new email is invalid or already in use,
+    /// or the new password does not meet the requirements returned by <c>GET users/password-requirements</c>
+    /// (<see cref="PasswordRequirementsNotMetError"/>).</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     /// <response code="403">Forbidden. Only the user themselves or an Administrator can update the password</response>
     /// <response code="404">User not found</response>
     [HttpPut("users/{identifier}")]
     public async Task<IActionResult> UpdateUser(Guid identifier, [FromBody] UpdateUserRequest request)
     {
-        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.Name), out Guid authenticatedUserId))
-            return BadRequest("Unable to find Name claim and identify user");
-
-        var currentUser = await userManager.FindByIdAsync(authenticatedUserId.ToString());
-        var isAdmin = currentUser != null && await userManager.IsInRoleAsync(currentUser, Roles.Admin);
-        var userToChange = await userManager.FindByIdAsync(identifier.ToString());
-
-        if (userToChange == null)
-            return NotFound();
-
-        if (authenticatedUserId != identifier && !isAdmin)
-            return Forbid();
-
-        if (!string.IsNullOrWhiteSpace(request.Password))
-        {
-            var token = await userManager.GeneratePasswordResetTokenAsync(userToChange);
-            var result = await userManager.ResetPasswordAsync(userToChange, token, request.Password);
-
-            if (!result.Succeeded)
-                throw PasswordRequirementsNotMetError.FromFailedResult(result, ApiPasswordRequirements.FromPasswordOptions(identityOptions.Value.Password));
-        }
-
+        await mediator.Send(new UpdateUser(identifier, User, request));
         return Ok();
     }
 
@@ -151,7 +130,7 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
     {
         var users = await mediator.Send(new GetUserCollection());
 
-        return Ok(users.Select(u => new ApiUser(u)));
+        return Ok(users.Select(u => new ApiUserDetail(u.User, u.Roles, u.Parts)));
     }
 
     /// <summary>
@@ -188,7 +167,25 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
 
         var result = await mediator.Send(new GetUser(id));
 
-        return Ok(new ApiUserDetail(result.User, result.Roles));
+        return Ok(new ApiUserDetail(result.User, result.Roles, result.Parts));
+    }
+
+    /// <summary>
+    /// Replaces the parts assigned to a user's musician record. Admin only.
+    /// </summary>
+    /// <param name="id">The guid of the user to assign parts to</param>
+    /// <param name="request">The identifiers of the parts to assign</param>
+    /// <response code="200">Parts were assigned successfully</response>
+    /// <response code="400">The supplied part identifiers are invalid</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Administrator)</response>
+    /// <response code="404">User or one or more parts were not found</response>
+    [Authorize(AuthPolicy.Admin)]
+    [HttpPut("users/{id}/parts")]
+    public async Task<IActionResult> AssignPartsAsync(Guid id, [FromBody] AssignPartsToUserRequest request)
+    {
+        await mediator.Send(new AssignPartsToUser(id, request.PartIds));
+        return Ok();
     }
 
     /// <summary>
