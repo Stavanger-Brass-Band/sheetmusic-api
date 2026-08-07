@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.2...v0.3.3) (2026-08-07)
+
+
+### Features
+
+* host sheet music agent in API ([#333](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/333)) ([f98b439](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f98b439ae3770293af1ae646c69af8d80d5c52c9))
+
+
+### Bug Fixes
+
+* propagate upload cancellation to blob storage ([#334](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/334)) ([e6967f7](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/e6967f7e7f31104de7b81d74e95030b6f6e339b3))
+
 ## [0.3.1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.0...v0.3.1) (2026-08-06)
 
 
