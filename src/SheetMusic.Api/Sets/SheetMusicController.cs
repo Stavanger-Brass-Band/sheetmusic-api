@@ -417,6 +417,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="file">The file that has all parts. Needs to be a zip file.</param>
+    /// <param name="cancellationToken">Cancellation token for the upload operation.</param>
     /// <returns>200 if successfull, 404 if not found, 500 if something bad happens</returns>
     /// <response code="200">Parts were uploaded successfully</response>
     /// <response code="404">Set not found</response>
@@ -425,13 +426,13 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [Authorize(AuthPolicy.ManageMusic)]
     [HttpPost("sets/{identifier}")]
-    public async Task<IActionResult> UploadPartsForSets(string identifier, IFormFile file)
+    public async Task<IActionResult> UploadPartsForSets(string identifier, IFormFile file, CancellationToken cancellationToken)
     {
         await blobClient.EnsureContainerExistsAsync();
 
         using (var stream = file.OpenReadStream())
         {
-            await mediator.Send(new AddPartsContentForSet(identifier, stream));
+            await mediator.Send(new AddPartsContentForSet(identifier, stream), cancellationToken);
         }
 
         return new OkResult();

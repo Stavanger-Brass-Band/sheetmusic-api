@@ -17,6 +17,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -501,7 +502,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{set.Id}/parts/{part.Name}/content?api-version=2.0");
 
         factory.BlobMock.Verify(b =>
-            b.AddMusicPartContentAsync(It.Is<PartRelatedToSet>(r => r.SetId == set.Id && r.PartId == part.Id), It.IsAny<Stream>()),
+            b.AddMusicPartContentAsync(It.Is<PartRelatedToSet>(r => r.SetId == set.Id && r.PartId == part.Id), It.IsAny<Stream>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         var response = await adminClient.GetAsync($"sheetmusic/sets/{set.Id}/parts/{part.Id}");
