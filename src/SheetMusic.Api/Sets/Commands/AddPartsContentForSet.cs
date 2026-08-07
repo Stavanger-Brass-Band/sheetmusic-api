@@ -26,7 +26,7 @@ public class AddPartsContentForSet(string setIdentifier, Stream zipFileStream) :
         ILogger<AddPartsContentForSet.Handler> logger,
         IMediator mediator,
         SheetMusicContext db,
-        IMetadataAgentClient metadataAgentClient) : IRequestHandler<AddPartsContentForSet>
+        SheetMusicAgent agent) : IRequestHandler<AddPartsContentForSet>
     {
         public async Task Handle(AddPartsContentForSet request, CancellationToken cancellationToken)
         {
@@ -66,7 +66,7 @@ public class AddPartsContentForSet(string setIdentifier, Stream zipFileStream) :
 
                 if (part is null)
                 {
-                    var modelMatch = await metadataAgentClient.ClassifyPartAsync(partName, candidateNames, cancellationToken);
+                    var modelMatch = await agent.ClassifyPartAsync(partName, candidateNames, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(modelMatch))
                     {
                         part = await mediator.Send(new GetMusicPart(modelMatch), cancellationToken);

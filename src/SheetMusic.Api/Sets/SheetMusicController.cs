@@ -10,6 +10,7 @@ using SheetMusic.Api.OData.MVC;
 using SheetMusic.Api.Sets.Commands;
 using SheetMusic.Api.Sets.Queries;
 using SheetMusic.Api.Sets.RequestModels;
+using SheetMusic.Api.Sets.Services;
 using SheetMusic.Api.Sets.ViewModels;
 using SheetMusic.Api.Users.Authorization;
 using SheetMusic.Api.Utilities;
@@ -31,7 +32,7 @@ namespace SheetMusic.Api.Sets;
 [Route("sheetmusic")]
 [ApiVersion("1.0", Deprecated = true)]
 [ApiVersion("2.0")]
-public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator, CatalogAccessService catalogAccess) : ControllerBase
+public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCache, IMediator mediator, CatalogAccessService catalogAccess, SheetMusicAgent agent) : ControllerBase
 {
     private const long MaxFileSize = 300000000L; //300 MB
 
@@ -210,6 +211,30 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             ZipDownloadUrl = $"{BaseUrl}/sets/{set.Id}/zip",
             PartsUrl = $"{BaseUrl}/sets/{set.Id}/parts"
         });
+    }
+
+    /// <summary>
+    /// Asks the sheet-music agent a question about a set identified by its name.
+    /// </summary>
+    /// <param name="request">The set name and question for the agent.</param>
+    /// <param name="cancellationToken">The request cancellation token.</param>
+    /// <returns>The agent's answer grounded in the set metadata.</returns>
+    /// <response code="200">The agent response.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">The caller cannot access the requested set.</response>
+    /// <response code="404">The set was not found.</response>
+    [Produces("application/json", Type = typeof(ApiSetAgentResponse))]
+    [HttpPost("agent/chat")]
+    public async Task<ActionResult<ApiSetAgentResponse>> AskAgentAboutSet(SetAgentQuestionRequest request, CancellationToken cancellationToken)
+    {
+        var set = await mediator.Send(new GetSet(request.SetName), cancellationToken);
+        if (set is null)
+            return NotFound(new ProblemDetails { Detail = $"Set '{request.SetName}' was not found" });
+
+        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+            return Forbid();
+
+        return new ApiSetAgentResponse(await agent.AnswerSetQuestionAsync(set, request.Question, cancellationToken));
     }
 
     /// <summary>

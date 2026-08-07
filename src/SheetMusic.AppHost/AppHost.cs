@@ -86,8 +86,6 @@ var testEmailFrontendBaseUrl = builder.AddParameter("test-email-frontend-base-ur
 // provisioned environment silently booting with a well-known, forgeable signing key if its own override
 // were ever missed. Failing fast with a clear "parameter not set" error is safer than that.
 var jwtSigningKey = builder.AddParameter("jwt-signing-key", secret: true);
-var agentSharedSecret = builder.AddParameter("agent-shared-secret", secret: true);
-var testAgentSharedSecret = builder.AddParameter("test-agent-shared-secret", secret: true);
 
 // Azure AI Search (issue #246): now provisioned by Aspire directly, Free tier. This only works because
 // test and prod share one AppHost deploy - Azure allows exactly one Free-tier Search service per
@@ -102,8 +100,7 @@ var search = builder.AddAzureSearch("search")
     });
 
 // One shared Foundry account with isolated production and test deployments. Both use the same
-// model so local and test classification behavior stays representative of production; separate
-// capacities prevent a developer loop or backfill test from consuming production TPM quota.
+// model so local and test behavior stays representative of production while capacities remain isolated.
 var foundry = builder.AddFoundry("foundry")
     .ConfigureInfrastructure(infrastructure =>
     {
@@ -167,9 +164,7 @@ IResourceBuilder<ProjectResource> AddApi(
     int minReplicas,
     int maxReplicas,
     IResourceBuilder<ParameterResource> frontendBaseUrl,
-    IResourceBuilder<ProjectResource> agent,
-    IResourceBuilder<ParameterResource> agentSecret,
-    string agentServiceName)
+    IResourceBuilder<FoundryDeploymentResource> chatDeployment)
 {
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
@@ -185,15 +180,13 @@ IResourceBuilder<ProjectResource> AddApi(
         .WaitFor(storage)
         .WithReference(search)
         .WaitFor(search)
-        .WithReference(agent)
-        .WaitFor(agent)
+        .WithReference(chatDeployment, connectionName: "chat")
+        .WaitFor(chatDeployment)
         .WithComputeEnvironment(computeEnvironment)
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Email__FrontendBaseUrl", frontendBaseUrl)
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
-        .WithEnvironment("Agent__SharedSecret", agentSecret)
-        .WithEnvironment("Agent__ServiceName", agentServiceName)
         .WithEnvironment("Search__IndexPrefix", searchIndexPrefix)
         // Public ingress (issue #246): without this the Container App is provisioned with internal-only
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
@@ -201,7 +194,7 @@ IResourceBuilder<ProjectResource> AddApi(
         // Aspire's own health check probing (used by the dashboard/`aspire wait`), reusing the API's
         // existing unconditional `/health` mapping (see Program.cs). Distinct from the ACA-level probes
         // configured below, which the platform itself polls.
-        .WithHttpHealthCheck("/health")
+        // .WithHttpHealthCheck("/alive", endpointName: "http")
         .PublishAsAzureContainerApp((infrastructure, app) =>
         {
             // Ingress target port and ACA liveness/readiness probes (issue #246): Aspire's default
@@ -279,82 +272,15 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
         .PublishAsAzureContainerAppJob();
 }
 
-// Builds an internal metadata-enrichment service. It intentionally has no external ingress and is
-// protected by a shared secret at the HTTP boundary.
-IResourceBuilder<ProjectResource> AddAgent(
-    string name,
-    IResourceBuilder<AzureCognitiveServicesProjectResource> project,
-    IResourceBuilder<FoundryDeploymentResource> deployment,
-    IResourceBuilder<ParameterResource> sharedSecret)
-{
-    return builder.AddProject<Projects.SheetMusic_Agents>(name)
-        .WithReference(project)
-        .WithReference(deployment)
-        .WaitFor(deployment)
-        .WithEnvironment("Agent__SharedSecret", sharedSecret)
-        .WithComputeEnvironment(computeEnvironment)
-        .WithHttpHealthCheck("/health")
-        .PublishAsAzureContainerApp((infrastructure, app) =>
-        {
-            app.Configuration.Ingress.TargetPort = 8080;
-
-            var container = app.Template.Containers[0].Value!;
-            container.Probes.Add(new ContainerAppProbe
-            {
-                ProbeType = ContainerAppProbeType.Liveness,
-                HttpGet = new ContainerAppHttpRequestInfo
-                {
-                    Path = "/health",
-                    Port = 8080,
-                },
-            });
-            container.Probes.Add(new ContainerAppProbe
-            {
-                ProbeType = ContainerAppProbeType.Readiness,
-                HttpGet = new ContainerAppHttpRequestInfo
-                {
-                    Path = "/health",
-                    Port = 8080,
-                },
-            });
-
-            app.Template.Scale.MinReplicas = 0;
-            app.Template.Scale.MaxReplicas = 1;
-        });
-}
-
-void AddBackfillJob(string name, IResourceBuilder<IResourceWithConnectionString> database, IResourceBuilder<FoundryDeploymentResource> deployment, IResourceBuilder<ParameterResource> sharedSecret)
-{
-    builder.AddProject<Projects.SheetMusic_Agents>(name)
-        .WithReference(database, connectionName: "SheetMusicContext")
-        .WaitFor(database)
-        .WithReference(deployment)
-        .WaitFor(deployment)
-        .WithEnvironment("Agent__SharedSecret", sharedSecret)
-        .WithComputeEnvironment(computeEnvironment)
-        .WithEndpointsInEnvironment(_ => false)
-        .WithArgs("--backfill", "--limit", "100")
-        .WithExplicitStart()
-        .PublishAsAzureContainerAppJob();
-}
-
-// Prod api/agents (and their migration/backfill jobs) are only built when publishing: `aspire run`
-// only needs the test stack locally, and skipping prod here avoids building/running a second full
-// copy of the API and agent service - plus the Foundry TPM quota and Search index prefix it would
-// otherwise burn - on every local dev loop.
+// Production API is only built when publishing. Local development only needs the test stack,
+// avoiding a second full API deployment and additional Foundry TPM usage.
 if (builder.ExecutionContext.IsPublishMode)
 {
-    var agent = AddAgent("sheetmusic-agents", foundryProject, chat, agentSharedSecret);
-    AddBackfillJob("sheetmusic-agents-backfill", db, chat, agentSharedSecret);
-
-    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, agent, agentSharedSecret, "sheetmusic-agents");
+    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, chat);
     AddMigrationJob("sheetmusic-api-migrate", db);
 }
 
-var agentTest = AddAgent("sheetmusic-agents-test", foundryProject, chatTest, testAgentSharedSecret);
-AddBackfillJob("sheetmusic-agents-test-backfill", testDb, chatTest, testAgentSharedSecret);
-
-var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, agentTest, testAgentSharedSecret, "sheetmusic-agents-test");
+var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, chatTest);
 AddMigrationJob("sheetmusic-api-test-migrate", testDb);
 
 builder.Build().Run();
