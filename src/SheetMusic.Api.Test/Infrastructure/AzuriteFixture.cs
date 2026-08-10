@@ -19,7 +19,7 @@ public class AzuriteFixture : IAsyncLifetime
     // the current Azure.Storage.Blobs SDK (which advertises a newer REST API version than Azurite's
     // hard-coded allow-list understands), so every request would otherwise fail with a 400
     // InvalidHeaderValue before this fixture's tests get a chance to run anything.
-    private readonly AzuriteContainer container = new AzuriteBuilder()
+    private readonly AzuriteContainer container = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.28.0")
         .WithCommand("--skipApiVersionCheck")
         .Build();
 

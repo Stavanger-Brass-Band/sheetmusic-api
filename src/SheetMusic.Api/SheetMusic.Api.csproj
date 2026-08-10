@@ -9,7 +9,7 @@
 
 	<PropertyGroup>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>1701;1702;1591</NoWarn>
+		<NoWarn>1701;1702;1591;AV0029;AV0030</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

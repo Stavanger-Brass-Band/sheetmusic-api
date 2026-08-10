@@ -3,6 +3,7 @@ using Asp.Versioning.ApiExplorer;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
@@ -106,6 +107,7 @@ public static class IServiceCollectionExtensions
                                     "https://noter.stavanger-brassband.no",
                                     "https://kind-grass-0a4be7103.7.azurestaticapps.net",
                                     "https://orange-mud-00eed1803.1.azurestaticapps.net",
+                                    "https://noter-test.stavanger-brassband.no",
                                     "http://localhost:5000",
                                     "http://localhost:5100",
                                     "https://localhost:5001")
