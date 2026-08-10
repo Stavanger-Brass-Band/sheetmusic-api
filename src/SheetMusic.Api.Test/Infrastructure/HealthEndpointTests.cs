@@ -27,7 +27,8 @@ public sealed class HealthEndpointTests(SheetMusicWebAppFactory factory) : IClas
     [Fact]
     public async Task AlivenessEndpoint_ReturnsSuccess_WhenApiHostStartsInProduction()
     {
-        using var productionFactory = factory.WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Production));
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        using var productionFactory = isolatedFactory.WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Production));
         using var client = productionFactory.CreateClient();
 
         var alivenessResponse = await client.GetAsync("/alive");
