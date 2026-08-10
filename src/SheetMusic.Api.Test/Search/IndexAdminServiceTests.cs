@@ -79,7 +79,7 @@ public class IndexAdminServiceTests
     /// </summary>
     private class FailOnDeleteSearchIndexClient(int status) : SearchIndexClient(new Uri("https://example.search.windows.net"), new AzureKeyCredential("test-admin-key"))
     {
-        public override Task<Response> DeleteIndexAsync(string indexName, MatchConditions matchConditions = default, CancellationToken cancellationToken = default)
+        public override Task<Response> DeleteIndexAsync(string indexName, MatchConditions? matchConditions = default, CancellationToken cancellationToken = default)
         {
             throw new RequestFailedException(status, "Delete index failed");
         }

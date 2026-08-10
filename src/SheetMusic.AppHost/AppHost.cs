@@ -192,7 +192,7 @@ IResourceBuilder<ProjectResource> AddApi(
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
         .WithExternalHttpEndpoints()
         // Aspire's own health check probing (used by the dashboard/`aspire wait`), reusing the API's
-        // existing unconditional `/health` mapping (see Program.cs). Distinct from the ACA-level probes
+        // existing unconditional `/alive` mapping (see Program.cs). Distinct from the ACA-level probes
         // configured below, which the platform itself polls.
         // .WithHttpHealthCheck("/alive", endpointName: "http")
         .PublishAsAzureContainerApp((infrastructure, app) =>
@@ -209,7 +209,7 @@ IResourceBuilder<ProjectResource> AddApi(
                 ProbeType = ContainerAppProbeType.Liveness,
                 HttpGet = new ContainerAppHttpRequestInfo
                 {
-                    Path = "/health",
+                    Path = "/alive",
                     Port = 8080,
                 },
             });
@@ -218,7 +218,7 @@ IResourceBuilder<ProjectResource> AddApi(
                 ProbeType = ContainerAppProbeType.Readiness,
                 HttpGet = new ContainerAppHttpRequestInfo
                 {
-                    Path = "/health",
+                    Path = "/alive",
                     Port = 8080,
                 },
             });

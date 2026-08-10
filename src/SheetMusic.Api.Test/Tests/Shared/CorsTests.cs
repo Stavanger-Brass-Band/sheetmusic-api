@@ -17,17 +17,17 @@ namespace SheetMusic.Api.Test.Tests.Shared;
 public class CorsTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
     [Fact]
-    public async Task GetCategoryList_ShouldIncludeCorsHeader_WhenUnauthenticatedFromAllowedOrigin()
+    public async Task GetCategoryList_ShouldIncludeCorsHeader_WhenUnauthenticatedFromTestFrontend()
     {
         var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "categories");
-        request.Headers.Add("Origin", "https://medlem.stavanger-brassband.no");
+        request.Headers.Add("Origin", "https://noter-test.stavanger-brassband.no");
 
         var response = await client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         response.Headers.Should().ContainSingle(h => h.Key == "Access-Control-Allow-Origin")
-            .Which.Value.Should().ContainSingle("https://medlem.stavanger-brassband.no");
+            .Which.Value.Should().ContainSingle("https://noter-test.stavanger-brassband.no");
     }
 
     [Fact]
