@@ -90,7 +90,16 @@ public sealed class PdfPartSplitter(IPdfPageHeaderRecognizer pageHeaderRecognize
             var normalizedPartName = NormalizePartName(header.NormalizedPartName);
             if (string.IsNullOrWhiteSpace(normalizedPartName))
             {
+                if (currentGroup is not null && currentGroup.NormalizedPartName != "UNRECOGNIZED")
+                {
+                    diagnostics.Add(new PdfPartSplitDiagnostic(header.PageNumber, currentGroup.NormalizedPartName, header.Confidence, "PartNameInherited", "The part name could not be read; the page was assigned to the previous part."));
+                    currentGroup.EndPage = header.PageNumber;
+                    currentGroup.Confidence = Math.Min(currentGroup.Confidence, header.Confidence);
+                    continue;
+                }
+
                 diagnostics.Add(new PdfPartSplitDiagnostic(header.PageNumber, null, 0, "HeaderUnreadable", "The header could not be read; the page was placed in an unrecognized group for review."));
+
                 if (currentGroup?.NormalizedPartName == "UNRECOGNIZED")
                 {
                     currentGroup.EndPage = header.PageNumber;

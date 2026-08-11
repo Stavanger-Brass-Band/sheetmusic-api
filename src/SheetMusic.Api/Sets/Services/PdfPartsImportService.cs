@@ -1,3 +1,5 @@
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Database;
@@ -18,6 +20,7 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
         var parts = await db.MusicParts.Include(part => part.Aliases).ToListAsync(cancellationToken);
         var candidates = parts.Select(part => part.Name).ToList();
         var unresolved = new List<string>();
+        var pendingParts = new Dictionary<Guid, PendingPart>();
 
         foreach (var group in split.Groups)
         {
@@ -54,16 +57,28 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
             if (set.Parts.Any(existing => existing.MusicPartId == part.Id))
                 continue;
 
-            await blobClient.AddMusicPartContentAsync(new PartRelatedToSet(set.Id, part.Id), new MemoryStream(group.Content!), cancellationToken);
+            if (pendingParts.TryGetValue(part.Id, out var pendingPart))
+            {
+                pendingPart.Content.Add(group.Content!);
+                pendingPart.MatchedByAi |= matchedByAi;
+                continue;
+            }
+
+            pendingParts.Add(part.Id, new PendingPart(part, matchedByAi, [group.Content!]));
+        }
+
+        foreach (var pendingPart in pendingParts.Values)
+        {
+            await blobClient.AddMusicPartContentAsync(new PartRelatedToSet(set.Id, pendingPart.Part.Id), new MemoryStream(CombinePdfContent(pendingPart.Content)), cancellationToken);
             var setPart = new SheetMusicPart
             {
                 Id = Guid.NewGuid(),
                 SetId = set.Id,
-                MusicPartId = part.Id,
-                Source = matchedByAi ? "Ai" : "Human",
-                ModelVersion = matchedByAi ? "gpt-5-mini" : null,
-                PromptVersion = matchedByAi ? "part-v1" : null,
-                SuggestedAt = matchedByAi ? DateTimeOffset.UtcNow : null,
+                MusicPartId = pendingPart.Part.Id,
+                Source = pendingPart.MatchedByAi ? "Ai" : "Human",
+                ModelVersion = pendingPart.MatchedByAi ? "gpt-5-mini" : null,
+                PromptVersion = pendingPart.MatchedByAi ? "part-v1" : null,
+                SuggestedAt = pendingPart.MatchedByAi ? DateTimeOffset.UtcNow : null,
             };
             db.SheetMusicParts.Add(setPart);
             set.Parts.Add(setPart);
@@ -80,4 +95,29 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
         parts.FirstOrDefault(part =>
             string.Equals(part.Name, name, StringComparison.OrdinalIgnoreCase) ||
             part.Aliases.Any(alias => alias.Enabled && string.Equals(alias.Alias, name, StringComparison.OrdinalIgnoreCase)));
+
+    private static byte[] CombinePdfContent(IReadOnlyList<byte[]> content)
+    {
+        if (content.Count == 1)
+            return content[0];
+
+        using var combined = new PdfDocument();
+        foreach (var partContent in content)
+        {
+            using var source = PdfReader.Open(new MemoryStream(partContent), PdfDocumentOpenMode.Import);
+            foreach (var page in source.Pages)
+                combined.AddPage(page);
+        }
+
+        using var output = new MemoryStream();
+        combined.Save(output, false);
+        return output.ToArray();
+    }
+
+    private sealed class PendingPart(MusicPart part, bool matchedByAi, List<byte[]> content)
+    {
+        public MusicPart Part { get; } = part;
+        public bool MatchedByAi { get; set; } = matchedByAi;
+        public List<byte[]> Content { get; } = content;
+    }
 }

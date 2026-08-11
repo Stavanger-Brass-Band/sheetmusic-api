@@ -195,7 +195,7 @@ IResourceBuilder<ProjectResource> AddApi(
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
         .WithEnvironment("Search__IndexPrefix", searchIndexPrefix)
         // Keep the local Aspire HTTPS address stable for the API consumers and match the API launch profile.
-        .WithHttpsEndpoint(port: 5001, name: "https")
+        .WithHttpsEndpoint(port: 5005, name: "https")
         // Public ingress (issue #246): without this the Container App is provisioned with internal-only
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
         .WithExternalHttpEndpoints()

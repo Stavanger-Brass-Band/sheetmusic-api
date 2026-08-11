@@ -81,7 +81,7 @@ public sealed class PdfPartSplitterTests
     }
 
     [Fact]
-    public async Task SplitAsync_CreatesReviewGroup_WhenPartExtractorCannotExtractPart()
+    public async Task SplitAsync_AssignsPageToPreviousPart_WhenPartExtractorCannotExtractPart()
     {
         var result = await SplitAsync([
             new PdfPageHeader(1, "OVERTURE COMPOSER A FLUTE", 1),
@@ -89,10 +89,10 @@ public sealed class PdfPartSplitterTests
             new PdfPageHeader(3, "OVERTURE COMPOSER A FLUTE", 1),
         ], new StubPartNameExtractor("FLUTE", null));
 
-        result.Groups.Should().HaveCount(3);
+        result.Groups.Should().HaveCount(1);
         result.Groups[0].NormalizedPartName.Should().Be("FLUTE");
-        result.Groups[1].NormalizedPartName.Should().Be("UNRECOGNIZED");
-        result.Groups[2].NormalizedPartName.Should().Be("FLUTE");
+        result.Groups[0].StartPage.Should().Be(1);
+        result.Groups[0].EndPage.Should().Be(3);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class PdfPartSplitterTests
     }
 
     [Fact]
-    public async Task SplitAsync_CreatesReviewGroup_WhenHeaderIsUnreadable()
+    public async Task SplitAsync_AssignsUnreadablePageToPreviousPart()
     {
         var result = await SplitAsync([
             new PdfPageHeader(1, "FLUTE", 1),
@@ -132,14 +132,10 @@ public sealed class PdfPartSplitterTests
             new PdfPageHeader(3, "FLUTE", 1),
         ]);
 
-        result.Groups.Should().HaveCount(3);
+        result.Groups.Should().ContainSingle();
         result.Groups[0].NormalizedPartName.Should().Be("FLUTE");
-        result.Groups[0].EndPage.Should().Be(1);
-        result.Groups[1].NormalizedPartName.Should().Be("UNRECOGNIZED");
-        result.Groups[1].StartPage.Should().Be(2);
-        result.Groups[2].NormalizedPartName.Should().Be("FLUTE");
-        result.Groups[2].StartPage.Should().Be(3);
-        result.Diagnostics.Should().ContainSingle(diagnostic => diagnostic.PageNumber == 2 && diagnostic.Code == "HeaderUnreadable");
+        result.Groups[0].EndPage.Should().Be(3);
+        result.Diagnostics.Should().ContainSingle(diagnostic => diagnostic.PageNumber == 2 && diagnostic.Code == "PartNameInherited");
     }
 
     [Fact]
@@ -157,20 +153,20 @@ public sealed class PdfPartSplitterTests
     }
 
     [Fact]
-    public async Task SplitAsync_PreservesPage_WhenOcrOmitsItsHeader()
+    public async Task SplitAsync_AssignsConsecutiveMissingPagesToPreviousPart()
     {
         var result = await SplitAsync([
             new PdfPageHeader(1, "FLUTE", 1),
-            new PdfPageHeader(3, "TUBA", 1),
-        ], pageCount: 3);
+            new PdfPageHeader(4, "TUBA", 1),
+        ], pageCount: 4);
 
-        result.Groups.Should().HaveCount(3);
+        result.Groups.Should().HaveCount(2);
         result.Groups[0].StartPage.Should().Be(1);
-        result.Groups[0].EndPage.Should().Be(1);
-        result.Groups[1].NormalizedPartName.Should().Be("UNRECOGNIZED");
-        result.Groups[1].StartPage.Should().Be(2);
-        result.Groups[2].NormalizedPartName.Should().Be("TUBA");
-        result.Diagnostics.Should().Contain(diagnostic => diagnostic.PageNumber == 2 && diagnostic.Code == "HeaderUnreadable");
+        result.Groups[0].EndPage.Should().Be(3);
+        result.Groups[1].NormalizedPartName.Should().Be("TUBA");
+        result.Groups[1].StartPage.Should().Be(4);
+        result.Diagnostics.Should().Contain(diagnostic => diagnostic.PageNumber == 2 && diagnostic.Code == "PartNameInherited");
+        result.Diagnostics.Should().Contain(diagnostic => diagnostic.PageNumber == 3 && diagnostic.Code == "PartNameInherited");
     }
 
     [Fact]

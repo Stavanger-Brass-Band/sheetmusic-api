@@ -110,7 +110,7 @@ public static class IServiceCollectionExtensions
                                     "https://noter-test.stavanger-brassband.no",
                                     "http://localhost:5000",
                                     "http://localhost:5100",
-                                    "https://localhost:5001")
+                                    "https://localhost:5005")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials());
