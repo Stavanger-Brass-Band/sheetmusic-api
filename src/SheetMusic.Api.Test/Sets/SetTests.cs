@@ -1,7 +1,10 @@
 using FluentAssertions;
 using Moq;
+using PdfSharp.Pdf;
 using SheetMusic.Api.Parts.ViewModels;
 using SheetMusic.Api.Sets;
+using SheetMusic.Api.Sets.Errors;
+using SheetMusic.Api.Sets.Services;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -26,6 +29,75 @@ namespace SheetMusic.Api.Test.Sets;
 [Collection(Collections.Set)]
 public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusicWebAppFactory>
 {
+    [Fact]
+    public async Task CreateSetFromPdf_ShouldCreateSetAndPersistMatchedParts()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var parts = await new PartDataBuilder(client).WithParts(2).ProvisionAsync();
+        var firstHeader = $"PDF OVERTURE COMPOSER {parts[0].Name}";
+        var secondHeader = $"PDF OVERTURE COMPOSER {parts[1].Name}";
+        var expectedHeaders = new[] { firstHeader, secondHeader };
+        factory.PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new PdfPageHeader(1, firstHeader, 0.98),
+                new PdfPageHeader(2, secondHeader, 0.97),
+            ]);
+        factory.PartNameExtractorMock.Setup(extractor => extractor.ExtractPartNamesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([parts[0].Name, parts[1].Name]);
+        factory.SetMetadataExtractorMock.Setup(extractor => extractor.ExtractAsync(It.Is<IReadOnlyList<string>>(headers => headers.SequenceEqual(expectedHeaders)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PdfSetMetadata("PDF OVERTURE", "COMPOSER", null));
+        factory.BlobMock.Invocations.Clear();
+        await using var pdf = CreatePdf(pageCount: 2);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, "sheetmusic/sets/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdSet = await response.Content.ReadFromJsonAsync<ApiSet>();
+        createdSet!.Title.Should().Be("PDF OVERTURE");
+        createdSet.ArchiveNumber.Should().BeGreaterThan(0);
+        factory.SetMetadataExtractorMock.Verify(extractor => extractor.ExtractAsync(It.Is<IReadOnlyList<string>>(headers => headers.SequenceEqual(expectedHeaders)), It.IsAny<CancellationToken>()), Times.Once);
+        factory.BlobMock.Verify(blob => blob.AddMusicPartContentAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task AddPartsFromPdf_ShouldPersistMatchedParts_OnExistingSet()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await new SetDataBuilder(client).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(client).ProvisionSinglePartAsync();
+        factory.PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new PdfPageHeader(1, part.Name, 0.98)]);
+        factory.BlobMock.Invocations.Clear();
+        await using var pdf = CreatePdf(pageCount: 1);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, $"sheetmusic/sets/{set.Id}/parts/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        factory.BlobMock.Verify(blob => blob.AddMusicPartContentAsync(It.Is<PartRelatedToSet>(relation => relation.SetId == set.Id && relation.PartId == part.Id), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateSetFromPdf_ShouldReturnBadRequest_WhenPdfIsInvalid()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+        await using var invalidPdf = new MemoryStream([1, 2, 3]);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(invalidPdf, client, "sheetmusic/sets/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateSetFromPdf_ShouldBeForbidden_WhenNoteansvarlig()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        await using var pdf = CreatePdf(pageCount: 1);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, "sheetmusic/sets/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task GetSingleSet_AsMusikant_ShouldBeSuccessfull()
     {
@@ -508,6 +580,18 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         {
             parts.Should().Contain(s => $"{s.Name}.pdf" == entry.Name);
         }
+    }
+
+    private static MemoryStream CreatePdf(int pageCount)
+    {
+        using var document = new PdfDocument();
+        for (var page = 0; page < pageCount; page++)
+            document.AddPage();
+
+        var content = new MemoryStream();
+        document.Save(content, false);
+        content.Position = 0;
+        return content;
     }
 
     private async Task<ApiSetPart?> AddPartToSetAsync(ApiSet set, ApiPart part)

@@ -521,6 +521,64 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         }
     }
 
+    /// <summary>Creates a new set and imports recognized parts from a combined score PDF.</summary>
+    /// <param name="cancellationToken">Cancellation token for the split operation.</param>
+    /// <returns>The created set.</returns>
+    /// <response code="200">The set and its recognized parts were created.</response>
+    /// <response code="400">The uploaded file is missing or invalid.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="422">A set title could not be extracted from the PDF.</response>
+    /// <response code="503">Document Intelligence OCR is not configured.</response>
+    [Authorize(AuthPolicy.Admin)]
+    [DisableFormValueModelBinding]
+    [RequestSizeLimit(MaxFileSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
+    [Consumes("multipart/form-data")]
+    [HttpPost("sets/pdf")]
+    [MapToApiVersion("2.0")]
+    public async Task<ActionResult<ApiSet>> CreateSetFromPdf(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var pdfContent = await MultipartRequestHelper.ExtractSingleFileStreamFromRequestAsync(Request);
+            var set = await mediator.Send(new CreateSetFromPdf(pdfContent), cancellationToken);
+            return new ApiSet(set);
+        }
+        catch (MultipartFileError error)
+        {
+            return BadRequest(error.Message);
+        }
+    }
+
+    /// <summary>Imports recognized parts from a combined score PDF into an existing set.</summary>
+    /// <param name="setId">The target set identifier.</param>
+    /// <param name="cancellationToken">Cancellation token for the import operation.</param>
+    /// <returns>No content when the import completes.</returns>
+    /// <response code="204">Recognized parts were added to the set.</response>
+    /// <response code="400">The uploaded file is missing or invalid.</response>
+    /// <response code="404">The set was not found.</response>
+    /// <response code="503">Document Intelligence OCR is unavailable.</response>
+    [Authorize(AuthPolicy.Admin)]
+    [DisableFormValueModelBinding]
+    [RequestSizeLimit(MaxFileSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
+    [Consumes("multipart/form-data")]
+    [HttpPost("sets/{setId:guid}/parts/pdf")]
+    [MapToApiVersion("2.0")]
+    public async Task<ActionResult> AddPartsFromPdf(Guid setId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var pdfContent = await MultipartRequestHelper.ExtractSingleFileStreamFromRequestAsync(Request);
+            await mediator.Send(new AddPartsFromPdf(setId, pdfContent), cancellationToken);
+            return NoContent();
+        }
+        catch (MultipartFileError error)
+        {
+            return BadRequest(error.Message);
+        }
+    }
+
     /// <summary>
     /// Deletes the PDF content and the relationship for <paramref name="partIdentifier"/> of set with <paramref name="setIdentifier"/>.
     /// </summary>

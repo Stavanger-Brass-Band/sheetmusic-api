@@ -13,6 +13,7 @@ using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Email;
 using SheetMusic.Api.Search;
 using SheetMusic.Api.Sets;
+using SheetMusic.Api.Sets.Services;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Utility;
 using SheetMusic.Api.Users.Authorization;
@@ -29,6 +30,9 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
 {
     public ServiceProvider TestServices = null!;
     public Mock<IBlobClient> BlobMock = null!;
+    public Mock<IPdfPageHeaderRecognizer> PageHeaderRecognizerMock = null!;
+    public Mock<IPdfPartNameExtractor> PartNameExtractorMock = null!;
+    public Mock<IPdfSetMetadataExtractor> SetMetadataExtractorMock = null!;
     public FakeIndexAdminService FakeIndexAdmin = null!;
     public FakeEmailSender FakeEmail = null!;
     private readonly Guid sessionId;
@@ -89,6 +93,24 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
             chatClient.Setup(client => client.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "Test agent answer")));
             services.AddSingleton(chatClient.Object);
+
+            PageHeaderRecognizerMock = new Mock<IPdfPageHeaderRecognizer>();
+            PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([]);
+            services.TryRemoveService<IPdfPageHeaderRecognizer>();
+            services.AddSingleton(PageHeaderRecognizerMock.Object);
+
+            PartNameExtractorMock = new Mock<IPdfPartNameExtractor>();
+            PartNameExtractorMock.Setup(extractor => extractor.ExtractPartNamesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((IReadOnlyList<string> headerTexts, CancellationToken _) => headerTexts.Select(headerText => (string?)headerText).ToList());
+            services.TryRemoveService<IPdfPartNameExtractor>();
+            services.AddSingleton(PartNameExtractorMock.Object);
+
+            SetMetadataExtractorMock = new Mock<IPdfSetMetadataExtractor>();
+            SetMetadataExtractorMock.Setup(extractor => extractor.ExtractAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PdfSetMetadata("Test PDF Set", "Test Composer", "Test Arranger"));
+            services.TryRemoveService<IPdfSetMetadataExtractor>();
+            services.AddSingleton(SetMetadataExtractorMock.Object);
 
             // Remove Resend services to avoid requiring an API key in tests
             var resendDescriptors = services.Where(d =>

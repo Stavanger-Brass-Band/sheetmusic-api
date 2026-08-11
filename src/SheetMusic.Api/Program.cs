@@ -77,6 +77,11 @@ builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContain
 builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<SheetMusicAgent>();
+builder.Services.AddSingleton<IPdfPartNameExtractor>(services => services.GetRequiredService<SheetMusicAgent>());
+builder.Services.AddSingleton<IPdfSetMetadataExtractor>(services => services.GetRequiredService<SheetMusicAgent>());
+builder.Services.AddSingleton<IPdfPageHeaderRecognizer, AzureDocumentIntelligencePageHeaderRecognizer>();
+builder.Services.AddSingleton<PdfPartSplitter>();
+builder.Services.AddScoped<PdfPartsImportService>();
 
 builder.Services.AddFluentValidationAutoValidation().AddFluentValidationClientsideAdapters();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
