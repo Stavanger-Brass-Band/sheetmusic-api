@@ -67,8 +67,8 @@ var storage = builder.AddAzureStorage("storage")
 // Named "blobs", not "AzureStorageConnectionString": once published this resolves to a service endpoint
 // URI plus managed identity rather than a connection string, and the old name becomes actively
 // misleading (see BlobStorage/BlobClient.cs and issue #249). Coordinate any further rename with that
-// issue - the two are two halves of one change. Shared by both test and prod for now; splitting into
-// per-environment containers is a possible future refinement, not required by issue #246.
+// issue - the two are two halves of one change. The APIs use different containers in this shared
+// storage account so test files and Data Protection keys cannot be read by production, or vice versa.
 var blobs = storage.AddBlobs("blobs");
 
 var resendApiKey = builder.AddParameter("resend-api-key", secret: true);
@@ -169,7 +169,9 @@ IResourceBuilder<ProjectResource> AddApi(
     int maxReplicas,
     IResourceBuilder<ParameterResource> frontendBaseUrl,
     IResourceBuilder<ParameterResource> ocrEndpoint,
-    IResourceBuilder<FoundryDeploymentResource> chatDeployment)
+    IResourceBuilder<FoundryDeploymentResource> chatDeployment,
+    string blobContainerName,
+    string dataProtectionContainerName)
 {
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
@@ -196,6 +198,8 @@ IResourceBuilder<ProjectResource> AddApi(
         .WithEnvironment("Search__IndexPrefix", searchIndexPrefix)
         // Keep the local Aspire HTTPS address stable for the API consumers and match the API launch profile.
         .WithHttpsEndpoint(port: 5005, name: "https")
+        .WithEnvironment("BlobStorage__ContainerName", blobContainerName)
+        .WithEnvironment("BlobStorage__DataProtectionContainerName", dataProtectionContainerName)
         // Public ingress (issue #246): without this the Container App is provisioned with internal-only
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
         .WithExternalHttpEndpoints()
@@ -261,7 +265,7 @@ IResourceBuilder<ProjectResource> AddApi(
 //   `az containerapp job start`).
 // - PublishAsAzureContainerAppJob turns it into a manually-triggered Azure Container App Job on publish,
 //   instead of a second long-running service.
-void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString> database)
+void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString> database, string blobContainerName, string dataProtectionContainerName)
 {
     builder.AddProject<Projects.SheetMusic_Api>(name)
         // Same fixed connectionName override as AddApi above, for the same reason.
@@ -274,6 +278,8 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
+        .WithEnvironment("BlobStorage__ContainerName", blobContainerName)
+        .WithEnvironment("BlobStorage__DataProtectionContainerName", dataProtectionContainerName)
         .WithComputeEnvironment(computeEnvironment)
         .WithEndpointsInEnvironment(_ => false)
         .WithArgs("--migrate")
@@ -285,12 +291,12 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
 // avoiding a second full API deployment and additional Foundry TPM usage.
 if (builder.ExecutionContext.IsPublishMode)
 {
-    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, documentIntelligenceEndpoint, chat);
-    AddMigrationJob("sheetmusic-api-migrate", db);
+    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chat, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
+    AddMigrationJob("sheetmusic-api-migrate", db, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
 }
 
-var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, documentIntelligenceEndpoint, chatTest);
-AddMigrationJob("sheetmusic-api-test-migrate", testDb);
+var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chatTest, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
+AddMigrationJob("sheetmusic-api-test-migrate", testDb, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
 
 builder.Build().Run();
 

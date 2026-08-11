@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SheetMusic.Api.BlobStorage;
@@ -10,6 +11,8 @@ using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace SheetMusic.Api.Test.Users;
@@ -61,7 +64,8 @@ public class DataProtectionPersistenceTests(AzuriteFixture azurite)
     {
         var services = new ServiceCollection();
         services.AddAzureClients(clientBuilder => clientBuilder.AddBlobServiceClient(azurite.ConnectionString));
-        services.AddSheetMusicDataProtection("SheetMusic.Api.Test");
+        var configuration = new ConfigurationBuilder().Build();
+        services.AddSheetMusicDataProtection("SheetMusic.Api.Test", configuration);
 
         using var provider = services.BuildServiceProvider();
 
@@ -70,6 +74,29 @@ public class DataProtectionPersistenceTests(AzuriteFixture azurite)
 
         var resolveAfterOptions = () => provider.GetRequiredService<BlobServiceClient>();
         resolveAfterOptions.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task AddSheetMusicDataProtection_PersistsKeysToConfiguredContainer_WhenContainerNameIsConfigured()
+    {
+        var containerName = $"data-protection-keys-{Guid.NewGuid():N}";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["BlobStorage:DataProtectionContainerName"] = containerName,
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddAzureClients(clientBuilder => clientBuilder.AddBlobServiceClient(azurite.ConnectionString));
+        services.AddSheetMusicDataProtection("SheetMusic.Api.Test", configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var protector = provider.GetRequiredService<IDataProtectionProvider>().CreateProtector("password-reset");
+
+        _ = protector.Protect("password-reset-token");
+
+        var container = azurite.CreateClientFromConnectionString().GetBlobContainerClient(containerName);
+        (await container.ExistsAsync()).Value.Should().BeTrue();
     }
 
     private static IDataProtector BuildProtector(BlobContainerClient container)

@@ -70,7 +70,7 @@ builder.Services.AddSingleton<IIndexAdminService, IndexAdminService>();
 // See AddSheetMusicDataProtection for why the key ring is persisted to blob storage rather than the
 // local filesystem (issue #235). Must run after AddAzureBlobServiceClient above, since it resolves the
 // BlobServiceClient from the services registered so far.
-builder.Services.AddSheetMusicDataProtection("SheetMusic.Api");
+builder.Services.AddSheetMusicDataProtection("SheetMusic.Api", builder.Configuration);
 
 builder.Services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<Program>());
 

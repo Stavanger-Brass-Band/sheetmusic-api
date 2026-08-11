@@ -75,16 +75,18 @@ public static class IServiceCollectionExtensions
     /// on resolution) fall back to Data Protection's default local key storage instead of failing
     /// application startup - matching the historical, storage-optional behaviour.
     /// </summary>
-    public static IServiceCollection AddSheetMusicDataProtection(this IServiceCollection services, string applicationName)
+    public static IServiceCollection AddSheetMusicDataProtection(this IServiceCollection services, string applicationName, IConfiguration configuration)
     {
         services.AddDataProtection().SetApplicationName(applicationName);
+
+        var keyRingContainerName = configuration["BlobStorage:DataProtectionContainerName"] ?? "data-protection-keys";
 
         services.AddOptions<KeyManagementOptions>().Configure<IServiceProvider>((options, serviceProvider) =>
         {
             try
             {
                 var blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
-                var keyRingContainer = blobServiceClient.GetBlobContainerClient("data-protection-keys");
+                var keyRingContainer = blobServiceClient.GetBlobContainerClient(keyRingContainerName);
                 options.XmlRepository = new AzureBlobXmlRepository(keyRingContainer, "keys.xml");
             }
             catch (InvalidOperationException)

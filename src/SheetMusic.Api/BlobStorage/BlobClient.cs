@@ -1,6 +1,7 @@
 ﻿using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.Configuration;
 using SheetMusic.Api.Errors;
 using SheetMusic.Api.Sets;
 using System;
@@ -17,15 +18,15 @@ namespace SheetMusic.Api.BlobStorage;
 /// endpoint URI combined with a managed identity credential - so this class never needs to know which
 /// case it is running under.
 /// </summary>
-public class BlobClient(BlobServiceClient blobServiceClient) : IBlobClient
+public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration configuration) : IBlobClient
 {
-    private const string ContainerName = "sheet-music";
+    private readonly string containerName = configuration["BlobStorage:ContainerName"] ?? "sheet-music";
     private readonly SemaphoreSlim containerInitializationLock = new(1, 1);
     private bool containerInitialized;
 
     private BlobContainerClient GetContainer()
     {
-        return blobServiceClient.GetBlobContainerClient(ContainerName);
+        return blobServiceClient.GetBlobContainerClient(containerName);
     }
 
     public async Task EnsureContainerExistsAsync()
