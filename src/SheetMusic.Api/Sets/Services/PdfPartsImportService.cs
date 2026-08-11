@@ -15,7 +15,8 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
     /// </summary>
     public async Task ImportAsync(SheetMusicSet set, PdfPartSplitResult split, CancellationToken cancellationToken)
     {
-        var candidates = await db.MusicParts.AsNoTracking().Select(part => part.Name).ToListAsync(cancellationToken);
+        var parts = await db.MusicParts.Include(part => part.Aliases).ToListAsync(cancellationToken);
+        var candidates = parts.Select(part => part.Name).ToList();
         var unresolved = new List<string>();
 
         foreach (var group in split.Groups)
@@ -28,12 +29,12 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
                 continue;
             }
 
-            var part = await FindPartAsync(detectedName, cancellationToken);
+            var part = FindPart(parts, detectedName);
             var matchedByAi = false;
             if (part is null)
             {
                 var match = await agent.ClassifyPartAsync(detectedName, candidates, cancellationToken);
-                part = string.IsNullOrWhiteSpace(match) ? null : await FindPartAsync(match, cancellationToken);
+                part = string.IsNullOrWhiteSpace(match) ? null : FindPart(parts, match);
                 matchedByAi = part is not null;
             }
 
@@ -43,9 +44,11 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
                 continue;
             }
 
-            if (matchedByAi && !await db.MusicPartAliases.AnyAsync(alias => alias.MusicPartId == part.Id && alias.Alias.ToLower() == detectedName.ToLower(), cancellationToken))
+            if (matchedByAi && !part.Aliases.Any(alias => string.Equals(alias.Alias, detectedName, StringComparison.OrdinalIgnoreCase)))
             {
-                db.MusicPartAliases.Add(new MusicPartAlias { Id = Guid.NewGuid(), Alias = detectedName, Enabled = true, MusicPartId = part.Id });
+                var alias = new MusicPartAlias { Id = Guid.NewGuid(), Alias = detectedName, Enabled = true, MusicPartId = part.Id };
+                db.MusicPartAliases.Add(alias);
+                part.Aliases.Add(alias);
             }
 
             if (set.Parts.Any(existing => existing.MusicPartId == part.Id))
@@ -73,7 +76,8 @@ public sealed class PdfPartsImportService(SheetMusicContext db, IBlobClient blob
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private Task<MusicPart?> FindPartAsync(string name, CancellationToken cancellationToken) =>
-        db.MusicParts.Include(part => part.Aliases).FirstOrDefaultAsync(part =>
-            part.Name.ToLower() == name.ToLower() || part.Aliases.Any(alias => alias.Enabled && alias.Alias.ToLower() == name.ToLower()), cancellationToken);
+    private static MusicPart? FindPart(IEnumerable<MusicPart> parts, string name) =>
+        parts.FirstOrDefault(part =>
+            string.Equals(part.Name, name, StringComparison.OrdinalIgnoreCase) ||
+            part.Aliases.Any(alias => alias.Enabled && string.Equals(alias.Alias, name, StringComparison.OrdinalIgnoreCase)));
 }

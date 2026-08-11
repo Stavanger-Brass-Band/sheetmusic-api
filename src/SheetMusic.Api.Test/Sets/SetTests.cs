@@ -77,6 +77,41 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task AddPartsFromPdf_ShouldImportParts_WhenNoteansvarlig()
+    {
+        var administratorClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var set = await new SetDataBuilder(administratorClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(administratorClient).ProvisionSinglePartAsync();
+        factory.PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new PdfPageHeader(1, part.Name, 0.98)]);
+        await using var pdf = CreatePdf(pageCount: 1);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, $"sheetmusic/sets/{set.Id}/parts/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task AddPartsFromPdf_ShouldPersistMatchedParts_WhenPartNameMatchesAlias()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await new SetDataBuilder(client).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(client).ProvisionSinglePartAsync();
+        const string alias = "PDF import alias";
+        await client.PostAsJsonAsync($"parts/{part.Id}/aliases?alias={Uri.EscapeDataString(alias)}", new { });
+        factory.PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new PdfPageHeader(1, alias, 0.98)]);
+        factory.BlobMock.Invocations.Clear();
+        await using var pdf = CreatePdf(pageCount: 1);
+
+        var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, $"sheetmusic/sets/{set.Id}/parts/pdf?api-version=2.0");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        factory.BlobMock.Verify(blob => blob.AddMusicPartContentAsync(It.Is<PartRelatedToSet>(relation => relation.SetId == set.Id && relation.PartId == part.Id), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task CreateSetFromPdf_ShouldReturnBadRequest_WhenPdfIsInvalid()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -88,14 +123,16 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
-    public async Task CreateSetFromPdf_ShouldBeForbidden_WhenNoteansvarlig()
+    public async Task CreateSetFromPdf_ShouldCreateSet_WhenNoteansvarlig()
     {
         var client = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        factory.PageHeaderRecognizerMock.Setup(recognizer => recognizer.RecognizeAsync(It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new PdfPageHeader(1, "FLUTE", 0.98)]);
         await using var pdf = CreatePdf(pageCount: 1);
 
         var response = await FileUploader.UploadOneFileAndGetResponseFromStream(pdf, client, "sheetmusic/sets/pdf?api-version=2.0");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

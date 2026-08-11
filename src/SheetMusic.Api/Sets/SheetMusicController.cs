@@ -527,9 +527,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="200">The set and its recognized parts were created.</response>
     /// <response code="400">The uploaded file is missing or invalid.</response>
     /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator).</response>
     /// <response code="422">A set title could not be extracted from the PDF.</response>
     /// <response code="503">Document Intelligence OCR is not configured.</response>
-    [Authorize(AuthPolicy.Admin)]
+    [Authorize(AuthPolicy.ManageMusic)]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(MaxFileSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
@@ -556,9 +557,11 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <returns>No content when the import completes.</returns>
     /// <response code="204">Recognized parts were added to the set.</response>
     /// <response code="400">The uploaded file is missing or invalid.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator).</response>
     /// <response code="404">The set was not found.</response>
     /// <response code="503">Document Intelligence OCR is unavailable.</response>
-    [Authorize(AuthPolicy.Admin)]
+    [Authorize(AuthPolicy.ManageMusic)]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(MaxFileSize)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize)]
