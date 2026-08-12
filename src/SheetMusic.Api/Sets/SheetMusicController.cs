@@ -36,12 +36,13 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 {
     private const long MaxFileSize = 300000000L; //300 MB
 
-    private const string SupportedSetExpand = "parts";
+    private const string SupportedSetExpandV1 = "parts";
+    private const string SupportedSetExpandV2 = "parts, projects";
 
     private static readonly object DownloadTokenLock = new();
 
     /// <summary>
-    /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided
+    /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided.
     /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
     /// </summary>
     /// <param name="queryParams">Optional. OData support for $filter</param>
@@ -53,16 +54,38 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(List<ApiSet>))]
     [HttpGet("sets")]
-    public async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category)
+    [MapToApiVersion("1.0")]
+    public Task<IActionResult> GetSetListV1(ODataQueryParams queryParams, string? category) =>
+        GetSetList(queryParams, category, SupportedSetExpandV1, false);
+
+    /// <summary>
+    /// Gets complete list of sheet music sets, optionally expanding parts or projects, or the ones matching <paramref name="queryParams.Search"/> if provided.
+    /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts.
+    /// </summary>
+    /// <param name="queryParams">Optional. OData support for $filter and $expand=parts,projects</param>
+    /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
+    /// <returns>Sets matching criteria</returns>
+    /// <response code="200">A list of sets matching filter, or all sets. Empty list if no matching results</response>
+    /// <response code="400">If an unsupported $expand value is provided</response>
+    /// <response code="404">Category was not found</response>
+    /// <response code="401">Authorization header (bearer token) is invalid</response>
+    [Produces("application/json", Type = typeof(List<ApiSet>))]
+    [HttpGet("sets")]
+    [MapToApiVersion("2.0")]
+    public Task<IActionResult> GetSetListV2(ODataQueryParams queryParams, string? category) =>
+        GetSetList(queryParams, category, SupportedSetExpandV2, true);
+
+    private async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category, string supportedExpands, bool supportsProjectExpansion)
     {
         var unsupportedExpands = queryParams.Expand
-            .Where(e => !string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase))
+            .Where(e => !supportedExpands.Split(", ").Contains(e, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
         if (unsupportedExpands.Count > 0)
-            throw new InvalidQueryParametersError($"Unsupported $expand value(s): {string.Join(", ", unsupportedExpands)}. Supported values: {SupportedSetExpand}");
+            throw new InvalidQueryParametersError($"Unsupported $expand value(s): {string.Join(", ", unsupportedExpands)}. Supported values: {supportedExpands}");
 
-        var expandParts = queryParams.Expand.Any(e => string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase));
+        var expandParts = queryParams.Expand.Any(e => string.Equals(e, "parts", StringComparison.OrdinalIgnoreCase));
+        var expandProjects = supportsProjectExpansion && queryParams.Expand.Any(e => string.Equals(e, "projects", StringComparison.OrdinalIgnoreCase));
 
         Guid? categoryId = null;
 
@@ -76,22 +99,28 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             categoryId = matchedCategory.Id;
         }
 
-        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId));
-    var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
+        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId, expandProjects));
+        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
 
-    var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
-        {
-            ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
-            PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
-            Parts = expandParts ?
-                s.Parts.Select(p => new ApiSheetMusicPart(p)
-                {
-                    PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
-                    DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
-                }).ToList()
-                : null
-        })
-        .ToList();
+        var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
+            {
+                ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
+                PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
+                Parts = expandParts ?
+                    s.Parts.Select(p => new ApiSheetMusicPart(p)
+                    {
+                        PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
+                        DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
+                    }).ToList()
+                    : null,
+                Projects = expandProjects
+                    ? s.ProjectConnections
+                        .Where(connection => catalogAccess.CanAccessProject(connection.Project.StartDate, connection.Project.EndDate))
+                        .Select(connection => new ApiProjectSummary(connection.Project))
+                        .ToList()
+                    : null
+            })
+            .ToList();
 
         return new OkObjectResult(transformed);
     }

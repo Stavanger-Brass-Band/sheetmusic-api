@@ -613,6 +613,82 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         items.Should().OnlyContain(s => s.Parts == null);
     }
 
+    [Fact]
+    public async Task GetSetList_WithoutExpand_ShouldLeaveProjectsNull()
+    {
+        await GetCorpusAsync();
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var items = await GetSetsAsync(client, Search(Marker));
+
+        items.Should().OnlyContain(s => s.Projects == null);
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandProjects_ShouldIncludeVisibleProjectSummaries()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandProjects-{Guid.NewGuid():N}");
+        var activeProject = await CreateProjectAsync(adminClient, "Active", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        var inactiveProject = await CreateProjectAsync(adminClient, "Inactive", DateTime.UtcNow.AddDays(-3), DateTime.UtcNow.AddDays(-2));
+        await AssignSetToProjectAsync(adminClient, activeProject.Name, set.Id);
+        await AssignSetToProjectAsync(adminClient, inactiveProject.Name, set.Id);
+
+        var musikantClient = factory.CreateClientWithTestToken(TestUser.Musikant);
+        var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+
+        musikantItems.Should().ContainSingle();
+        musikantItems[0].Projects.Should().ContainSingle(project => project.Id == activeProject.Id && project.Name == activeProject.Name);
+
+        var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        adminItems.Should().ContainSingle();
+        adminItems[0].Projects.Should().HaveCount(2);
+
+        var arkivleserClient = factory.CreateClientWithTestToken(TestUser.Arkivleser);
+        var arkivleserItems = await GetSetsAsync(arkivleserClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        arkivleserItems.Should().ContainSingle();
+        arkivleserItems[0].Projects.Should().HaveCount(2);
+
+        var noteansvarligClient = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var noteansvarligItems = await GetSetsAsync(noteansvarligClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        noteansvarligItems.Should().ContainSingle();
+        noteansvarligItems[0].Projects.Should().HaveCount(2);
+
+        var prosjektlederClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
+        var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        prosjektlederItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandProjects_ShouldReturnEmptyCollection_WhenNoVisibleProjects()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandProjectsEmpty-{Guid.NewGuid():N}");
+
+        var items = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+
+        items.Should().ContainSingle();
+        items[0].Projects.Should().NotBeNull().And.BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandPartsAndProjects_ShouldIncludeBothCollections()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandBoth-{Guid.NewGuid():N}");
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var project = await CreateProjectAsync(adminClient, "Active", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        await AddPartToSetAsync(adminClient, set, part.Name);
+        await AssignSetToProjectAsync(adminClient, project.Name, set.Id);
+
+        var items = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=parts,projects&api-version=2.0");
+
+        items.Should().ContainSingle();
+        items[0].Parts.Should().ContainSingle();
+        items[0].Parts![0].PdfDownloadUrl.Should().EndWith($"/sheetmusic/sets/{set.Id}/parts/{items[0].Parts[0].MusicPartId}/pdf");
+        items[0].Projects.Should().ContainSingle(summary => summary.Id == project.Id && summary.Name == project.Name);
+    }
+
     [Theory]
     [InlineData("$expand=categories")]
     [InlineData("$expand=parts,unknown")]
@@ -623,6 +699,16 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         await AssertBadRequestAsync(client, $"?{clause}");
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandProjects_ShouldReturnBadRequest_ForApiVersion1()
+    {
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var problem = await AssertBadRequestAsync(client, "?$expand=projects&api-version=1.0");
+
+        problem.Detail.Should().Contain("Supported values: parts");
     }
 
     #endregion
@@ -860,6 +946,28 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         await File.WriteAllTextAsync(path, "not-a-real-pdf");
 
         await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{set.Id}/parts/{partName}/content?api-version=2.0");
+    }
+
+    private static async Task<ApiProjectSummary> CreateProjectAsync(HttpClient adminClient, string prefix, DateTime startDate, DateTime endDate)
+    {
+        var response = await adminClient.PostAsJsonAsync("projects", new
+        {
+            Name = $"{prefix}-{Guid.NewGuid():N}",
+            StartDate = startDate,
+            EndDate = endDate
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var project = await response.Content.ReadFromJsonAsync<ApiProjectSummary>(JsonDefaults.Options);
+        project.Should().NotBeNull();
+
+        return project!;
+    }
+
+    private static async Task AssignSetToProjectAsync(HttpClient adminClient, string projectName, Guid setId)
+    {
+        var response = await adminClient.PostAsJsonAsync($"projects/{projectName}/sets", new { SetIdentifiers = new[] { setId.ToString() } });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
 
     private static async Task<ApiCategory> CreateCategoryAsync(HttpClient adminClient)
