@@ -36,15 +36,15 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 {
     private const long MaxFileSize = 300000000L; //300 MB
 
-    private const string SupportedSetExpand = "parts";
+    private const string SupportedSetExpand = "parts, projects";
 
     private static readonly object DownloadTokenLock = new();
 
     /// <summary>
-    /// Gets complete list of sheet music sets (without parts), or the ones matching <paramref name="queryParams.Search"/> if provided
-    /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts
+    /// Gets complete list of sheet music sets, optionally expanding parts or projects, or the ones matching <paramref name="queryParams.Search"/> if provided.
+    /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts.
     /// </summary>
-    /// <param name="queryParams">Optional. OData support for $filter</param>
+    /// <param name="queryParams">Optional. OData support for $filter and $expand=parts,projects</param>
     /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
     /// <returns>Sets matching criteria</returns>
     /// <response code="200">A list of sets matching filter, or all sets. Empty list if no matching results</response>
@@ -53,16 +53,20 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(List<ApiSet>))]
     [HttpGet("sets")]
-    public async Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category)
+    public Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category) =>
+        GetSetListInternal(queryParams, category);
+
+    private async Task<IActionResult> GetSetListInternal(ODataQueryParams queryParams, string? category)
     {
         var unsupportedExpands = queryParams.Expand
-            .Where(e => !string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase))
+            .Where(e => !SupportedSetExpand.Split(", ").Contains(e, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
         if (unsupportedExpands.Count > 0)
             throw new InvalidQueryParametersError($"Unsupported $expand value(s): {string.Join(", ", unsupportedExpands)}. Supported values: {SupportedSetExpand}");
 
-        var expandParts = queryParams.Expand.Any(e => string.Equals(e, SupportedSetExpand, StringComparison.OrdinalIgnoreCase));
+        var expandParts = queryParams.Expand.Any(e => string.Equals(e, "parts", StringComparison.OrdinalIgnoreCase));
+        var expandProjects = queryParams.Expand.Any(e => string.Equals(e, "projects", StringComparison.OrdinalIgnoreCase));
 
         Guid? categoryId = null;
 
@@ -76,22 +80,28 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             categoryId = matchedCategory.Id;
         }
 
-        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId));
-    var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
+        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId, expandProjects));
+        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
 
-    var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
-        {
-            ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
-            PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
-            Parts = expandParts ?
-                s.Parts.Select(p => new ApiSheetMusicPart(p)
-                {
-                    PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
-                    DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
-                }).ToList()
-                : null
-        })
-        .ToList();
+        var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
+            {
+                ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
+                PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
+                Parts = expandParts ?
+                    s.Parts.Select(p => new ApiSheetMusicPart(p)
+                    {
+                        PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
+                        DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
+                    }).ToList()
+                    : null,
+                Projects = expandProjects
+                    ? s.ProjectConnections
+                        .Where(connection => catalogAccess.CanAccessProject(connection.Project.StartDate, connection.Project.EndDate))
+                        .Select(connection => new ApiProjectSummary(connection.Project))
+                        .ToList()
+                    : null
+            })
+            .ToList();
 
         return new OkObjectResult(transformed);
     }

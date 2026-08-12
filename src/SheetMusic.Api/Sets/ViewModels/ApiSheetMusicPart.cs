@@ -6,6 +6,10 @@ namespace SheetMusic.Api.Sets.ViewModels;
 
 public class ApiSheetMusicPart
 {
+    public ApiSheetMusicPart()
+    {
+    }
+
     public ApiSheetMusicPart(SheetMusicPart sheetMusicPart)
     {
         if (sheetMusicPart == null)
@@ -33,7 +37,7 @@ public class ApiSheetMusicPart
     public Guid RelationshipId { get; set; }
     public Guid SetId { get; set; }
     public Guid MusicPartId { get; set; }
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
     public string? Aliases { get; set; }
     public string? PdfDownloadUrl { get; set; }
     public string? DeletePartUrl { get; set; }

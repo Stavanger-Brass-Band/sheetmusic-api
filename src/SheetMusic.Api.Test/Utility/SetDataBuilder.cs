@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using SheetMusic.Api.Test.Sets.Models;
+using ApiSet = SheetMusic.Api.Sets.ViewModels.ApiSet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,7 @@ internal class SetDataBuilder
 {
     private readonly HttpClient httpClient;
     private readonly List<PutSetModel> sets = new List<PutSetModel>();
+    private readonly Dictionary<Guid, PutSetModel> setsById = new Dictionary<Guid, PutSetModel>();
 
     internal SetDataBuilder(HttpClient httpClient)
     {
@@ -44,7 +46,7 @@ internal class SetDataBuilder
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var apiSet = await response.Content.ReadFromJsonAsync<ApiSet>(JsonDefaults.Options);
             apiSet.Should().NotBeNull();
-            apiSet!.OriginatingId = set.OriginatingId;
+            setsById.Add(apiSet!.Id, set);
             AssertPropsAreEqual(set, apiSet);
 
             createdSets.Add(apiSet);
@@ -53,9 +55,9 @@ internal class SetDataBuilder
         return createdSets;
     }
 
-    internal PutSetModel GetRequestSet(Guid originatingId)
+    internal PutSetModel GetRequestSet(Guid setId)
     {
-        return sets.Single(s => s.OriginatingId == originatingId);
+        return setsById[setId];
     }
     
     private static void AssertPropsAreEqual(PutSetModel set, ApiSet apiSet)

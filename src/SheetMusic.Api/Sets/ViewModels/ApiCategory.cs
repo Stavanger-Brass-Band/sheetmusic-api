@@ -3,11 +3,22 @@ using System;
 
 namespace SheetMusic.Api.Sets.ViewModels;
 
-public class ApiCategory(Category category)
+public class ApiCategory
 {
-    public Guid Id { get; set; } = category.Id;
+    public ApiCategory()
+    {
+    }
 
-    public string? Name { get; set; } = category.Name;
+    public ApiCategory(Category category)
+    {
+        Id = category.Id;
+        Name = category.Name;
+        Inactive = category.Inactive;
+    }
 
-    public bool Inactive { get; set; } = category.Inactive;
+    public Guid Id { get; set; }
+
+    public string? Name { get; set; }
+
+    public bool Inactive { get; set; }
 }

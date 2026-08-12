@@ -2,8 +2,10 @@ using FluentAssertions;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
+using ApiCategory = SheetMusic.Api.Test.Sets.Models.ApiCategory;
+using ApiProjectSummary = SheetMusic.Api.Sets.ViewModels.ApiProjectSummary;
+using ApiSet = SheetMusic.Api.Sets.ViewModels.ApiSet;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -613,6 +615,89 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         items.Should().OnlyContain(s => s.Parts == null);
     }
 
+    [Fact]
+    public async Task GetSetList_WithoutExpand_ShouldLeaveProjectsNull()
+    {
+        await GetCorpusAsync();
+        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
+
+        var items = await GetSetsAsync(client, Search(Marker));
+
+        items.Should().OnlyContain(s => s.Projects == null);
+    }
+
+    [Theory]
+    [InlineData("1.0")]
+    [InlineData("2.0")]
+    public async Task GetSetList_WithExpandProjects_ShouldIncludeVisibleProjectSummaries_ForEveryApiVersion(string apiVersion)
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandProjects-{Guid.NewGuid():N}");
+        var activeProject = await CreateProjectAsync(adminClient, "Active", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        var inactiveProject = await CreateProjectAsync(adminClient, "Inactive", DateTime.UtcNow.AddDays(-3), DateTime.UtcNow.AddDays(-2));
+        await AssignSetToProjectAsync(adminClient, activeProject.Name, set.Id);
+        await AssignSetToProjectAsync(adminClient, inactiveProject.Name, set.Id);
+
+        var musikantClient = factory.CreateClientWithTestToken(TestUser.Musikant);
+        var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
+
+        musikantItems.Should().ContainSingle();
+        var musikantProjects = musikantItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        musikantProjects.Should().ContainSingle(summary => summary.Id == activeProject.Id && summary.Name == activeProject.Name);
+
+        var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
+        adminItems.Should().ContainSingle();
+        var adminProjects = adminItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        adminProjects.Should().HaveCount(2);
+
+        var arkivleserClient = factory.CreateClientWithTestToken(TestUser.Arkivleser);
+        var arkivleserItems = await GetSetsAsync(arkivleserClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
+        arkivleserItems.Should().ContainSingle();
+        var arkivleserProjects = arkivleserItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        arkivleserProjects.Should().HaveCount(2);
+
+        var noteansvarligClient = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
+        var noteansvarligItems = await GetSetsAsync(noteansvarligClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
+        noteansvarligItems.Should().ContainSingle();
+        var noteansvarligProjects = noteansvarligItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        noteansvarligProjects.Should().HaveCount(2);
+
+        var prosjektlederClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
+        var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
+        prosjektlederItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandProjects_ShouldReturnEmptyCollection_WhenNoVisibleProjects()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandProjectsEmpty-{Guid.NewGuid():N}");
+
+        var items = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+
+        items.Should().ContainSingle();
+        items[0].Projects.Should().NotBeNull().And.BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetSetList_WithExpandPartsAndProjects_ShouldIncludeBothCollections()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var set = await CreateSetAsync(adminClient, $"ExpandBoth-{Guid.NewGuid():N}");
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var project = await CreateProjectAsync(adminClient, "Active", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+        await AddPartToSetAsync(adminClient, set, part.Name);
+        await AssignSetToProjectAsync(adminClient, project.Name, set.Id);
+
+        var items = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=parts,projects&api-version=2.0");
+
+        items.Should().ContainSingle();
+        var setPart = items[0].Parts.Should().ContainSingle().Which;
+        var projects = items[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        setPart.PdfDownloadUrl.Should().EndWith($"/sheetmusic/sets/{set.Id}/parts/{setPart.MusicPartId}/pdf");
+        projects.Should().ContainSingle(summary => summary.Id == project.Id && summary.Name == project.Name);
+    }
+
     [Theory]
     [InlineData("$expand=categories")]
     [InlineData("$expand=parts,unknown")]
@@ -860,6 +945,28 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         await File.WriteAllTextAsync(path, "not-a-real-pdf");
 
         await FileUploader.UploadOneFile(path, adminClient, $"sheetmusic/sets/{set.Id}/parts/{partName}/content?api-version=2.0");
+    }
+
+    private static async Task<ApiProjectSummary> CreateProjectAsync(HttpClient adminClient, string prefix, DateTime startDate, DateTime endDate)
+    {
+        var response = await adminClient.PostAsJsonAsync("projects", new
+        {
+            Name = $"{prefix}-{Guid.NewGuid():N}",
+            StartDate = startDate,
+            EndDate = endDate
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var project = await response.Content.ReadFromJsonAsync<ApiProjectSummary>(JsonDefaults.Options);
+        project.Should().NotBeNull();
+
+        return project!;
+    }
+
+    private static async Task AssignSetToProjectAsync(HttpClient adminClient, string projectName, Guid setId)
+    {
+        var response = await adminClient.PostAsJsonAsync($"projects/{projectName}/sets", new { SetIdentifiers = new[] { setId.ToString() } });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
 
     private static async Task<ApiCategory> CreateCategoryAsync(HttpClient adminClient)

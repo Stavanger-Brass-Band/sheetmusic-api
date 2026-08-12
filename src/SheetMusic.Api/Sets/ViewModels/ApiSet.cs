@@ -66,6 +66,11 @@ public class ApiSet
     public List<ApiSheetMusicPart>? Parts { get; set; }
 
     /// <summary>
+    /// The projects connected to the set, if included
+    /// </summary>
+    public List<ApiProjectSummary>? Projects { get; set; }
+
+    /// <summary>
     /// The categories assigned to this set
     /// </summary>
     public List<ApiCategory> Categories { get; set; } = new List<ApiCategory>();

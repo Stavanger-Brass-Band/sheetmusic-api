@@ -14,10 +14,11 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Sets.Queries;
 
-public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null) : IRequest<List<SheetMusicSet>>
+public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null, bool includeProjects = false) : IRequest<List<SheetMusicSet>>
 {
     public ODataQueryParams QueryParams { get; } = queryParams;
     public Guid? CategoryId { get; } = categoryId;
+    public bool IncludeProjects { get; } = includeProjects;
 
     public class Handler(SheetMusicContext db) : IRequestHandler<GetSets, List<SheetMusicSet>>
     {
@@ -61,12 +62,17 @@ public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null) : IR
             if (request.QueryParams.Top.HasValue)
                 baseQuery = baseQuery.Take(request.QueryParams.Top.Value);
 
-            return await baseQuery
+            IQueryable<SheetMusicSet> query = baseQuery
                 .Include(s => s.Parts)
                     .ThenInclude(p => p.Part)
                 .Include(s => s.Categories)
-                    .ThenInclude(c => c.Category)
-                .ToListAsync(cancellationToken);
+                    .ThenInclude(c => c.Category);
+
+            if (request.IncludeProjects)
+                query = query.Include(s => s.ProjectConnections)
+                    .ThenInclude(connection => connection.Project);
+
+            return await query.AsSplitQuery().ToListAsync(cancellationToken);
         }
     }
 }
