@@ -8,8 +8,9 @@ using SheetMusic.Api.Sets.Services;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
+using ApiSet = SheetMusic.Api.Sets.ViewModels.ApiSet;
+using ApiSetPart = SheetMusic.Api.Sets.ViewModels.ApiSheetMusicPart;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -181,7 +182,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testBuilder = new SetDataBuilder(adminClient);
         var testSet = await testBuilder.ProvisionSingleSetAsync();
-        var inputSet = testBuilder.GetRequestSet(testSet.OriginatingId);
+        var inputSet = testBuilder.GetRequestSet(testSet.Id);
 
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
         var response = await client.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
@@ -194,7 +195,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testBuilder = new SetDataBuilder(adminClient);
         var testSet = await testBuilder.ProvisionSingleSetAsync();
-        var inputSet = testBuilder.GetRequestSet(testSet.OriginatingId);
+        var inputSet = testBuilder.GetRequestSet(testSet.Id);
 
         inputSet.Title = $"{inputSet.Title} (updated)";
         var response = await adminClient.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
@@ -208,11 +209,27 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var testBuilder = new SetDataBuilder(adminClient);
         var testSet = await testBuilder.ProvisionSingleSetAsync();
-        var inputSet = testBuilder.GetRequestSet(testSet.OriginatingId);
+        var inputSet = testBuilder.GetRequestSet(testSet.Id);
 
         var client = factory.CreateClient();
         var response = await client.PutAsJsonAsync($"sheetmusic/sets/{testSet.ArchiveNumber}", inputSet);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task SetDataBuilder_ShouldReturnOriginalRequest_WhenSetIsIdentifiedByResponseId()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testBuilder = new SetDataBuilder(adminClient);
+        var createdSets = await testBuilder.WithSets(2).ProvisionAsync();
+
+        foreach (var createdSet in createdSets)
+        {
+            var request = testBuilder.GetRequestSet(createdSet.Id);
+
+            request.Title.Should().Be(createdSet.Title);
+            request.Composer.Should().Be(createdSet.Composer);
+        }
     }
 
     [Fact]

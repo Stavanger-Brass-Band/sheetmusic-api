@@ -2,9 +2,10 @@ using FluentAssertions;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
-using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
+using ApiCategory = SheetMusic.Api.Test.Sets.Models.ApiCategory;
 using ApiProjectSummary = SheetMusic.Api.Sets.ViewModels.ApiProjectSummary;
+using ApiSet = SheetMusic.Api.Sets.ViewModels.ApiSet;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -641,21 +642,25 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
 
         musikantItems.Should().ContainSingle();
-        musikantItems[0].Projects.Should().ContainSingle(project => project.Id == activeProject.Id && project.Name == activeProject.Name);
+        var musikantProjects = musikantItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        musikantProjects.Should().ContainSingle(summary => summary.Id == activeProject.Id && summary.Name == activeProject.Name);
 
         var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         adminItems.Should().ContainSingle();
-        adminItems[0].Projects.Should().HaveCount(2);
+        var adminProjects = adminItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        adminProjects.Should().HaveCount(2);
 
         var arkivleserClient = factory.CreateClientWithTestToken(TestUser.Arkivleser);
         var arkivleserItems = await GetSetsAsync(arkivleserClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         arkivleserItems.Should().ContainSingle();
-        arkivleserItems[0].Projects.Should().HaveCount(2);
+        var arkivleserProjects = arkivleserItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        arkivleserProjects.Should().HaveCount(2);
 
         var noteansvarligClient = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
         var noteansvarligItems = await GetSetsAsync(noteansvarligClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         noteansvarligItems.Should().ContainSingle();
-        noteansvarligItems[0].Projects.Should().HaveCount(2);
+        var noteansvarligProjects = noteansvarligItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
+        noteansvarligProjects.Should().HaveCount(2);
 
         var prosjektlederClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
         var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
@@ -688,8 +693,9 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
 
         items.Should().ContainSingle();
         var setPart = items[0].Parts.Should().ContainSingle().Which;
+        var projects = items[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
         setPart.PdfDownloadUrl.Should().EndWith($"/sheetmusic/sets/{set.Id}/parts/{setPart.MusicPartId}/pdf");
-        items[0].Projects.Should().ContainSingle(summary => summary.Id == project.Id && summary.Name == project.Name);
+        projects.Should().ContainSingle(summary => summary.Id == project.Id && summary.Name == project.Name);
     }
 
     [Theory]
