@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using SheetMusic.Api.Sets.ViewModels;
 
 namespace SheetMusic.Api.Test.Sets.Models;
 
@@ -26,10 +27,4 @@ public class ApiSet
     public List<ApiSetPart>? Parts { get; set; }
     public List<ApiProjectSummary>? Projects { get; set; }
     public List<ApiCategory> Categories { get; set; } = new List<ApiCategory>();
-}
-
-public class ApiProjectSummary
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
 }

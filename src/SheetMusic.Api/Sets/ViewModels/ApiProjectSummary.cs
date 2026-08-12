@@ -6,15 +6,25 @@ namespace SheetMusic.Api.Sets.ViewModels;
 /// <summary>
 /// A project summary included in an expanded sheet music set.
 /// </summary>
-public class ApiProjectSummary(Project project)
+public class ApiProjectSummary
 {
+    public ApiProjectSummary()
+    {
+    }
+
+    public ApiProjectSummary(Project project)
+    {
+        Id = project.Id;
+        Name = project.Name;
+    }
+
     /// <summary>
     /// Identifier in the database.
     /// </summary>
-    public Guid Id { get; } = project.Id;
+    public Guid Id { get; set; }
 
     /// <summary>
     /// Project name.
     /// </summary>
-    public string Name { get; } = project.Name;
+    public string Name { get; set; } = null!;
 }

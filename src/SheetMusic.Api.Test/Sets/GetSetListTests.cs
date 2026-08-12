@@ -4,6 +4,7 @@ using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
 using SheetMusic.Api.Test.Sets.Models;
 using SheetMusic.Api.Test.Utility;
+using ApiProjectSummary = SheetMusic.Api.Sets.ViewModels.ApiProjectSummary;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -624,8 +625,10 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         items.Should().OnlyContain(s => s.Projects == null);
     }
 
-    [Fact]
-    public async Task GetSetList_WithExpandProjects_ShouldIncludeVisibleProjectSummaries()
+    [Theory]
+    [InlineData("1.0")]
+    [InlineData("2.0")]
+    public async Task GetSetList_WithExpandProjects_ShouldIncludeVisibleProjectSummaries_ForEveryApiVersion(string apiVersion)
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var set = await CreateSetAsync(adminClient, $"ExpandProjects-{Guid.NewGuid():N}");
@@ -635,27 +638,27 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         await AssignSetToProjectAsync(adminClient, inactiveProject.Name, set.Id);
 
         var musikantClient = factory.CreateClientWithTestToken(TestUser.Musikant);
-        var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
 
         musikantItems.Should().ContainSingle();
         musikantItems[0].Projects.Should().ContainSingle(project => project.Id == activeProject.Id && project.Name == activeProject.Name);
 
-        var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         adminItems.Should().ContainSingle();
         adminItems[0].Projects.Should().HaveCount(2);
 
         var arkivleserClient = factory.CreateClientWithTestToken(TestUser.Arkivleser);
-        var arkivleserItems = await GetSetsAsync(arkivleserClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        var arkivleserItems = await GetSetsAsync(arkivleserClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         arkivleserItems.Should().ContainSingle();
         arkivleserItems[0].Projects.Should().HaveCount(2);
 
         var noteansvarligClient = factory.CreateClientWithTestToken(TestUser.Noteansvarlig);
-        var noteansvarligItems = await GetSetsAsync(noteansvarligClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        var noteansvarligItems = await GetSetsAsync(noteansvarligClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         noteansvarligItems.Should().ContainSingle();
         noteansvarligItems[0].Projects.Should().HaveCount(2);
 
         var prosjektlederClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
-        var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version=2.0");
+        var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         prosjektlederItems.Should().BeEmpty();
     }
 
@@ -699,16 +702,6 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var client = factory.CreateClientWithTestToken(TestUser.Testesen);
 
         await AssertBadRequestAsync(client, $"?{clause}");
-    }
-
-    [Fact]
-    public async Task GetSetList_WithExpandProjects_ShouldReturnBadRequest_ForApiVersion1()
-    {
-        var client = factory.CreateClientWithTestToken(TestUser.Administrator);
-
-        var problem = await AssertBadRequestAsync(client, "?$expand=projects&api-version=1.0");
-
-        problem.Detail.Should().Contain("Supported values: parts");
     }
 
     #endregion
