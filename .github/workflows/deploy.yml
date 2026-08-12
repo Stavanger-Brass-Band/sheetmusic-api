@@ -91,6 +91,7 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+          Parameters__document_intelligence_endpoint: ${{ vars.DOCUMENT_INTELLIGENCE_ENDPOINT }}
 
       # Deploy sequence, part 2 of 4: start the test migration ACA Job. Container Apps/Jobs don't need
       # globally-unique names (unlike Storage/Search/ACR/SQL, which Aspire suffixes with a generated
@@ -140,6 +141,7 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__test_email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+          Parameters__document_intelligence_endpoint: ${{ vars.DOCUMENT_INTELLIGENCE_ENDPOINT }}
 
   deploy-prod:
     name: Deploy to production
@@ -200,6 +202,7 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+          Parameters__document_intelligence_endpoint: ${{ vars.DOCUMENT_INTELLIGENCE_ENDPOINT }}
       - name: Start production migration job
         run: |
           az containerapp job start \
@@ -240,4 +243,5 @@ jobs:
           Parameters__email_from_address: ${{ vars.EMAIL_FROM_ADDRESS }}
           Parameters__email_frontend_base_url: ${{ vars.EMAIL_FRONTEND_BASE_URL }}
           Parameters__jwt_signing_key: ${{ secrets.JWT_SIGNING_KEY }}
+          Parameters__document_intelligence_endpoint: ${{ vars.DOCUMENT_INTELLIGENCE_ENDPOINT }}
 
