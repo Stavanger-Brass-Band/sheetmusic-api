@@ -1,4 +1,5 @@
-﻿using Azure.Storage.Blobs;
+﻿using Azure;
+using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Configuration;
 using SheetMusic.Api.Errors;
@@ -20,6 +21,8 @@ namespace SheetMusic.Api.BlobStorage;
 public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration configuration) : IBlobClient
 {
     private readonly string containerName = configuration["BlobStorage:ContainerName"] ?? "sheet-music";
+    private readonly SemaphoreSlim containerInitializationLock = new(1, 1);
+    private bool containerInitialized;
 
     private BlobContainerClient GetContainer()
     {
@@ -28,8 +31,7 @@ public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration conf
 
     public async Task EnsureContainerExistsAsync()
     {
-        var container = GetContainer();
-        await container.CreateIfNotExistsAsync();
+        await EnsureContainerExistsAsync(CancellationToken.None);
     }
 
     public async Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier)
@@ -51,10 +53,33 @@ public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration conf
 
     public async Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken)
     {
+        using var bufferedContent = contentStream.CanSeek ? null : new MemoryStream();
+        Stream uploadContent = contentStream;
         try
         {
-            var blob = GetBlob(identifier);
-            await blob.UploadAsync(contentStream, overwrite: true, cancellationToken: cancellationToken);
+            if (bufferedContent is not null)
+            {
+                await contentStream.CopyToAsync(bufferedContent, cancellationToken);
+                bufferedContent.Position = 0;
+                uploadContent = bufferedContent;
+            }
+
+            var initialPosition = uploadContent.Position;
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    await EnsureContainerExistsAsync(cancellationToken);
+                    await UploadAsync(identifier, uploadContent, cancellationToken);
+                    return;
+                }
+                catch (RequestFailedException error) when (error.Status == 404 && attempt == 0)
+                {
+                    // Azurite can be recreated while the local API process remains alive, invalidating the cached container state.
+                    Volatile.Write(ref containerInitialized, false);
+                    uploadContent.Position = initialPosition;
+                }
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -70,6 +95,29 @@ public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration conf
     {
         var container = GetContainer();
         return container.GetBlobClient(identifier.BlobPath);
+    }
+
+    private Task UploadAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken) =>
+        GetBlob(identifier).UploadAsync(contentStream, overwrite: true, cancellationToken: cancellationToken);
+
+    private async Task EnsureContainerExistsAsync(CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref containerInitialized))
+            return;
+
+        await containerInitializationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!Volatile.Read(ref containerInitialized))
+            {
+                await GetContainer().CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+                Volatile.Write(ref containerInitialized, true);
+            }
+        }
+        finally
+        {
+            containerInitializationLock.Release();
+        }
     }
 
     public async Task DeleteSetContentAsync(Guid id)

@@ -18,6 +18,7 @@
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
 		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.4.6" />
 		<PackageReference Include="Aspire.Azure.AI.Inference" Version="13.4.6-preview.1.26319.6" />
+		<PackageReference Include="Azure.AI.DocumentIntelligence" Version="1.0.0" />
 		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.4.6" />
 		<!-- Microsoft.Data.SqlClient's transitive Azure.Identity is too old to understand Aspire's
 		     AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential (only 1.15.0+ accepts named credential
@@ -39,11 +40,16 @@
 		</PackageReference>
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
 		<PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
+		<PackageReference Include="PdfSharp" Version="6.2.0" />
 		<PackageReference Include="Resend" Version="0.8.0" />
 		<PackageReference Include="Scalar.AspNetCore" Version="2.16.18" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\SheetMusic.ServiceDefaults\SheetMusic.ServiceDefaults.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="SheetMusic.Api.Test" />
 	</ItemGroup>
 </Project>

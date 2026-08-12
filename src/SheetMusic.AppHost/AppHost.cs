@@ -73,6 +73,10 @@ var blobs = storage.AddBlobs("blobs");
 
 var resendApiKey = builder.AddParameter("resend-api-key", secret: true);
 var emailFromAddress = builder.AddParameter("email-from-address");
+// The OCR service is supplied as an existing Azure Document Intelligence endpoint because Aspire 13.4
+// has no first-class Document Intelligence integration. The API authenticates using its managed identity,
+// which must have the Cognitive Services User role on that manually provisioned resource.
+var documentIntelligenceEndpoint = builder.AddParameter("document-intelligence-endpoint");
 
 // Per app, not shared (issue #246): test and prod are different frontend deployments at different
 // URLs, so a password-reset/invite email sent by one must never link to the other's frontend.
@@ -164,6 +168,7 @@ IResourceBuilder<ProjectResource> AddApi(
     int minReplicas,
     int maxReplicas,
     IResourceBuilder<ParameterResource> frontendBaseUrl,
+    IResourceBuilder<ParameterResource> ocrEndpoint,
     IResourceBuilder<FoundryDeploymentResource> chatDeployment,
     string blobContainerName,
     string dataProtectionContainerName)
@@ -188,13 +193,17 @@ IResourceBuilder<ProjectResource> AddApi(
         .WithEnvironment("Resend__ApiKey", resendApiKey)
         .WithEnvironment("Email__FromAddress", emailFromAddress)
         .WithEnvironment("Email__FrontendBaseUrl", frontendBaseUrl)
+        .WithEnvironment("DocumentIntelligence__Endpoint", ocrEndpoint)
         .WithEnvironment("Jwt__SigningKey", jwtSigningKey)
         .WithEnvironment("Search__IndexPrefix", searchIndexPrefix)
+        // Keep the local Aspire HTTPS address stable for the API consumers and match the API launch profile.
+        .WithHttpsEndpoint(port: 5005, name: "https")
         .WithEnvironment("BlobStorage__ContainerName", blobContainerName)
         .WithEnvironment("BlobStorage__DataProtectionContainerName", dataProtectionContainerName)
         // Public ingress (issue #246): without this the Container App is provisioned with internal-only
         // ingress and nothing outside the ACA environment - including the SPA clients - can reach it.
         .WithExternalHttpEndpoints()
+
         // Aspire's own health check probing (used by the dashboard/`aspire wait`), reusing the API's
         // existing unconditional `/alive` mapping (see Program.cs). Distinct from the ACA-level probes
         // configured below, which the platform itself polls.
@@ -282,11 +291,11 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
 // avoiding a second full API deployment and additional Foundry TPM usage.
 if (builder.ExecutionContext.IsPublishMode)
 {
-    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, chat, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
+    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chat, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
     AddMigrationJob("sheetmusic-api-migrate", db, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
 }
 
-var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, chatTest, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
+var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", minReplicas: 0, maxReplicas: 3, frontendBaseUrl: testEmailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chatTest, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
 AddMigrationJob("sheetmusic-api-test-migrate", testDb, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
 
 builder.Build().Run();

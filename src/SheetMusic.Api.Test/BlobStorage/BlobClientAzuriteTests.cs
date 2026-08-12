@@ -55,6 +55,54 @@ public class BlobClientAzuriteTests(AzuriteFixture azurite)
     }
 
     [Fact]
+    public async Task AddMusicPartContentAsync_CreatesContainer_WhenItDoesNotExist()
+    {
+        var serviceClient = azurite.CreateClientFromConnectionString();
+        var container = serviceClient.GetBlobContainerClient("sheet-music");
+        await container.DeleteIfExistsAsync();
+        var blobClient = CreateBlobClient(serviceClient);
+        var identifier = new PartRelatedToSet(Guid.NewGuid(), Guid.NewGuid());
+
+        await blobClient.AddMusicPartContentAsync(identifier, new MemoryStream(Encoding.UTF8.GetBytes("content")), CancellationToken.None);
+
+        (await container.ExistsAsync()).Value.Should().BeTrue();
+        (await blobClient.HasPdfFileAsync(identifier)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AddMusicPartContentAsync_RecreatesContainer_WhenItWasDeletedAfterInitialization()
+    {
+        var serviceClient = azurite.CreateClientFromConnectionString();
+        var container = serviceClient.GetBlobContainerClient("sheet-music");
+        var blobClient = CreateBlobClient(serviceClient);
+        await blobClient.EnsureContainerExistsAsync();
+        await container.DeleteIfExistsAsync();
+        var identifier = new PartRelatedToSet(Guid.NewGuid(), Guid.NewGuid());
+
+        await blobClient.AddMusicPartContentAsync(identifier, new MemoryStream(Encoding.UTF8.GetBytes("content")), CancellationToken.None);
+
+        (await container.ExistsAsync()).Value.Should().BeTrue();
+        (await blobClient.HasPdfFileAsync(identifier)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AddMusicPartContentAsync_RecreatesContainer_WhenContentStreamIsNotSeekable()
+    {
+        var serviceClient = azurite.CreateClientFromConnectionString();
+        var container = serviceClient.GetBlobContainerClient("sheet-music");
+        var blobClient = CreateBlobClient(serviceClient);
+        await blobClient.EnsureContainerExistsAsync();
+        await container.DeleteIfExistsAsync();
+        var identifier = new PartRelatedToSet(Guid.NewGuid(), Guid.NewGuid());
+        await using var content = new NonSeekableStream(new MemoryStream(Encoding.UTF8.GetBytes("content")));
+
+        await blobClient.AddMusicPartContentAsync(identifier, content, CancellationToken.None);
+
+        (await container.ExistsAsync()).Value.Should().BeTrue();
+        (await blobClient.HasPdfFileAsync(identifier)).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task HasPdfFileAsync_ReturnsFalse_WhenContentIsInAnotherConfiguredContainer()
     {
         var blobServiceClient = azurite.CreateClientFromConnectionString();
@@ -85,6 +133,28 @@ public class BlobClientAzuriteTests(AzuriteFixture azurite)
         await blobClient.DeletePartContentAsync(identifier);
 
         (await blobClient.HasPdfFileAsync(identifier)).Should().BeFalse();
+    }
+
+    private sealed class NonSeekableStream(Stream innerStream) : Stream
+    {
+        public override bool CanRead => innerStream.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() => innerStream.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => innerStream.FlushAsync(cancellationToken);
+        public override int Read(byte[] buffer, int offset, int count) => innerStream.Read(buffer, offset, count);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => innerStream.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                innerStream.Dispose();
+            base.Dispose(disposing);
+        }
     }
 
     private static BlobClient CreateBlobClient(Azure.Storage.Blobs.BlobServiceClient blobServiceClient, string? containerName = null)

@@ -19,12 +19,12 @@
     },
     "SheetMusic": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "scalar",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:5000;https://localhost:5001"
+      "applicationUrl": "http://localhost:5000;https://localhost:5005"
     },
     "Docker": {
       "commandName": "Docker",
