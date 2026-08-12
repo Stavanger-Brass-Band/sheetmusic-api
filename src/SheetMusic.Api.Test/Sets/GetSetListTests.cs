@@ -684,8 +684,8 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var items = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=parts,projects&api-version=2.0");
 
         items.Should().ContainSingle();
-        items[0].Parts.Should().ContainSingle();
-        items[0].Parts![0].PdfDownloadUrl.Should().EndWith($"/sheetmusic/sets/{set.Id}/parts/{items[0].Parts[0].MusicPartId}/pdf");
+        var setPart = items[0].Parts.Should().ContainSingle().Which;
+        setPart.PdfDownloadUrl.Should().EndWith($"/sheetmusic/sets/{set.Id}/parts/{setPart.MusicPartId}/pdf");
         items[0].Projects.Should().ContainSingle(summary => summary.Id == project.Id && summary.Name == project.Name);
     }
 
