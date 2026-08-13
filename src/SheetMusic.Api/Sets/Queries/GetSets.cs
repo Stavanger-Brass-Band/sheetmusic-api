@@ -52,9 +52,17 @@ public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null, bool
             if (request.CategoryId.HasValue)
                 baseQuery = baseQuery.Where(set => set.Categories.Any(c => c.CategoryId == request.CategoryId.Value));
 
-            baseQuery = request.QueryParams.OrderBy.Any()
-                ? baseQuery.ApplyODataOrderBy(request.QueryParams, FieldMapping)
-                : baseQuery.OrderBy(s => s.ArchiveNumber);
+            if (request.QueryParams.OrderBy.Any())
+            {
+                if (string.Equals(request.QueryParams.OrderBy[0].Field, "title", StringComparison.OrdinalIgnoreCase))
+                    baseQuery = baseQuery.OrderBy(s => s.Title == "").ApplyODataOrderBy(request.QueryParams, FieldMapping, preserveExistingOrder: true);
+                else
+                    baseQuery = baseQuery.ApplyODataOrderBy(request.QueryParams, FieldMapping);
+            }
+            else
+            {
+                baseQuery = baseQuery.OrderBy(s => s.ArchiveNumber);
+            }
 
             if (request.QueryParams.Skip.HasValue)
                 baseQuery = baseQuery.Skip(request.QueryParams.Skip.Value);
