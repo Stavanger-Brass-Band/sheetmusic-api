@@ -1,9 +1,16 @@
 using FluentAssertions;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using PdfSharp.Pdf;
+using SheetMusic.Api.BlobStorage;
+using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Parts.ViewModels;
 using SheetMusic.Api.Sets;
+using SheetMusic.Api.Sets.Commands;
 using SheetMusic.Api.Sets.Errors;
+using SheetMusic.Api.Sets.Queries;
 using SheetMusic.Api.Sets.Services;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -18,6 +25,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -537,6 +545,150 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
     }
 
     [Fact]
+    public async Task ChangePart_ShouldReplaceAssignmentAndPreserveRelationship_WhenReplacementPartIsSelected()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var parts = await new PartDataBuilder(adminClient).WithParts(2).ProvisionAsync();
+        var originalPartOnSet = await AddPartToSetAsync(testSet, parts[0]);
+        var originalPdf = Encoding.UTF8.GetBytes("original PDF content");
+        byte[]? replacementPdf = null;
+        factory.BlobMock.Setup(blob => blob.GetMusicPartContentStreamAsync(
+                It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[0].Id)))
+            .ReturnsAsync(new MemoryStream(originalPdf));
+        factory.BlobMock.Setup(blob => blob.AddMusicPartContentAsync(
+                It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[1].Id),
+                It.IsAny<Stream>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PartRelatedToSet, Stream, CancellationToken>((_, content, _) => replacementPdf = ReadContent(content))
+            .Returns(Task.CompletedTask);
+        factory.BlobMock.Invocations.Clear();
+
+        var response = await ChangePartAsync(adminClient, testSet.Id, parts[0].Id, parts[1].Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var changedPart = await response.Content.ReadFromJsonAsync<ApiSetPart>(JsonDefaults.Options);
+        changedPart!.RelationshipId.Should().Be(originalPartOnSet!.RelationshipId);
+        changedPart.MusicPartId.Should().Be(parts[1].Id);
+        (await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/parts/{parts[0].Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        replacementPdf.Should().Equal(originalPdf);
+        factory.BlobMock.Verify(blob => blob.DeletePartContentAsync(
+            It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[0].Id)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldReturnBadRequest_WhenReplacementPartIdentifierIsMissing()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var originalPartOnSet = await AddPartToSetAsync(testSet, part);
+
+        var response = await adminClient.PutAsJsonAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}?api-version=2.0", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var partOnSet = await adminClient.GetFromJsonAsync<ApiSetPart>($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
+        partOnSet!.RelationshipId.Should().Be(originalPartOnSet!.RelationshipId);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldReturnUnauthorized_WhenUnauthenticated()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var parts = await new PartDataBuilder(adminClient).WithParts(2).ProvisionAsync();
+        await AddPartToSetAsync(testSet, parts[0]);
+
+        var response = await ChangePartAsync(factory.CreateClient(), testSet.Id, parts[0].Id, parts[1].Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldReturnForbidden_WhenUserCannotManageMusic()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var parts = await new PartDataBuilder(adminClient).WithParts(2).ProvisionAsync();
+        await AddPartToSetAsync(testSet, parts[0]);
+
+        var response = await ChangePartAsync(factory.CreateClientWithTestToken(TestUser.Testesen), testSet.Id, parts[0].Id, parts[1].Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldReturnConflict_WhenReplacementPartIsAlreadyAssigned()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var parts = await new PartDataBuilder(adminClient).WithParts(2).ProvisionAsync();
+        var originalPartOnSet = await AddPartToSetAsync(testSet, parts[0]);
+        await AddPartToSetAsync(testSet, parts[1]);
+
+        var response = await ChangePartAsync(adminClient, testSet.Id, parts[0].Id, parts[1].Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var partOnSet = await adminClient.GetFromJsonAsync<ApiSetPart>($"sheetmusic/sets/{testSet.Id}/parts/{parts[0].Id}");
+        partOnSet!.RelationshipId.Should().Be(originalPartOnSet!.RelationshipId);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldReturnNotFound_WhenReplacementPartDoesNotExist()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var testSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var part = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        var originalPartOnSet = await AddPartToSetAsync(testSet, part);
+
+        var response = await adminClient.PutAsJsonAsync($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}?api-version=2.0", new { PartIdentifier = Guid.NewGuid() });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var partOnSet = await adminClient.GetFromJsonAsync<ApiSetPart>($"sheetmusic/sets/{testSet.Id}/parts/{part.Id}");
+        partOnSet!.RelationshipId.Should().Be(originalPartOnSet!.RelationshipId);
+    }
+
+    [Fact]
+    public async Task ChangePart_ShouldDeleteStagedReplacementPdf_WhenDatabaseSaveFails()
+    {
+        var options = new DbContextOptionsBuilder<SheetMusicContext>()
+            .UseInMemoryDatabase($"ChangePartSaveFailure-{Guid.NewGuid()}")
+            .Options;
+        var set = new SheetMusicSet(1, "Test set");
+        var currentPart = new MusicPart { Id = Guid.NewGuid(), Name = "Current", Indexable = true };
+        var replacementPart = new MusicPart { Id = Guid.NewGuid(), Name = "Replacement", Indexable = true };
+        var assignment = new SheetMusicPart { Id = Guid.NewGuid(), SetId = set.Id, MusicPartId = currentPart.Id };
+
+        await using var db = new FailingSaveChangesContext(options);
+        await db.AddRangeAsync(set, currentPart, replacementPart, assignment);
+        await db.SaveChangesAsync();
+        db.FailSaves = true;
+
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(instance => instance.Send(It.IsAny<GetPartOnSet>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assignment);
+        mediator.Setup(instance => instance.Send(It.IsAny<SheetMusic.Api.Parts.Queries.GetMusicPart>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(replacementPart);
+        var blobClient = new Mock<IBlobClient>();
+        blobClient.Setup(instance => instance.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>()))
+            .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("original PDF content")));
+        blobClient.Setup(instance => instance.AddMusicPartContentAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var handler = new ChangePartOnSet.Handler(db, mediator.Object, blobClient.Object);
+
+        var action = () => handler.Handle(new ChangePartOnSet(set.Id.ToString(), currentPart.Id.ToString(), replacementPart.Id.ToString()), CancellationToken.None);
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        blobClient.Verify(instance => instance.DeletePartContentAsync(
+            It.Is<PartRelatedToSet>(relation => relation.SetId == set.Id && relation.PartId == replacementPart.Id)), Times.Once);
+        assignment.MusicPartId.Should().Be(replacementPart.Id);
+
+        await using var verificationDb = new SheetMusicContext(options);
+        var persistedAssignment = await verificationDb.SheetMusicParts.SingleAsync();
+        persistedAssignment.MusicPartId.Should().Be(currentPart.Id);
+    }
+
+    [Fact]
     public async Task UploadPartsForSet_ShouldMarkUnknownZipEntryAsMissingPart_AndNotCreatePart()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
@@ -666,6 +818,31 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var setPart = await response.Content.ReadFromJsonAsync<ApiSetPart>(JsonDefaults.Options);
 
         return setPart;
+    }
+
+    private static Task<HttpResponseMessage> ChangePartAsync(HttpClient client, Guid setId, Guid currentPartId, Guid replacementPartId)
+    {
+        return client.PutAsJsonAsync($"sheetmusic/sets/{setId}/parts/{currentPartId}?api-version=2.0", new { PartIdentifier = replacementPartId });
+    }
+
+    private static byte[] ReadContent(Stream content)
+    {
+        using var copy = new MemoryStream();
+        content.CopyTo(copy);
+        return copy.ToArray();
+    }
+
+    private sealed class FailingSaveChangesContext(DbContextOptions<SheetMusicContext> options) : SheetMusicContext(options)
+    {
+        public bool FailSaves { get; set; }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            if (FailSaves)
+                throw new InvalidOperationException("Database save failed");
+
+            return base.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task<string> GetDownloadTokenAsync(ApiSet set)

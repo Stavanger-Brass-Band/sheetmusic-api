@@ -531,6 +531,34 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         }
     }
 
+    /// <summary>
+    /// Changes an existing part assignment on a set to the selected replacement part.
+    /// </summary>
+    /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title.</param>
+    /// <param name="partIdentifier">A value uniquely identifying the currently assigned part. Either guid or part name.</param>
+    /// <param name="request">The selected replacement part.</param>
+    /// <returns>The updated set-part assignment.</returns>
+    /// <response code="200">The part assignment was changed successfully.</response>
+    /// <response code="400">The replacement part identifier is missing or invalid.</response>
+    /// <response code="404">Set, current part, replacement part, or the relationship between them was not found.</response>
+    /// <response code="409">The replacement part is already assigned to the set.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator).</response>
+    [Authorize(AuthPolicy.ManageMusic)]
+    [Produces("application/json", Type = typeof(ApiSheetMusicPart))]
+    [HttpPut("sets/{setIdentifier}/parts/{partIdentifier}")]
+    [MapToApiVersion("2.0")]
+    public async Task<ActionResult<ApiSheetMusicPart>> ChangePart(string setIdentifier, string partIdentifier, ChangePartRequest request)
+    {
+        await mediator.Send(new ChangePartOnSet(setIdentifier, partIdentifier, request.PartIdentifier));
+        var changedPart = await mediator.Send(new GetPartOnSet(setIdentifier, request.PartIdentifier));
+
+        if (changedPart is null)
+            throw new NotFoundError($"{setIdentifier}/{request.PartIdentifier}", "Changed part assignment was not found");
+
+        return new ApiSheetMusicPart(changedPart);
+    }
+
     /// <summary>Creates a new set and imports recognized parts from a combined score PDF.</summary>
     /// <param name="cancellationToken">Cancellation token for the split operation.</param>
     /// <returns>The created set.</returns>
