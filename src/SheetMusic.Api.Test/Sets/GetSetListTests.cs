@@ -1,4 +1,7 @@
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
 using SheetMusic.Api.Test.Infrastructure.TestCollections;
@@ -455,6 +458,35 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var items = await GetSetsAsync(client, $"{Search(Marker)}&$orderby=title");
 
         items.Select(i => i.Title).Should().BeInAscendingOrder(StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetSetList_WithTitleOrderBy_ShouldPlaceUntitledLegacySetsAfterTitledSets()
+    {
+        using var isolatedFactory = new SheetMusicWebAppFactory();
+        var client = isolatedFactory.CreateClientWithTestToken(TestUser.Testesen);
+        var legacySet = new SheetMusicSet(999999, "");
+
+        using (var scope = isolatedFactory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            db.SheetMusicSets.AddRange(
+                new SheetMusicSet(999997, "Issue326 Alfa"),
+                new SheetMusicSet(999998, "Issue326 Bravo"));
+            db.SheetMusicSets.Add(legacySet);
+            await db.SaveChangesAsync();
+        }
+
+        var items = await GetSetsAsync(client, "?$orderby=title asc");
+
+        items.Last().Id.Should().Be(legacySet.Id);
+        items.Take(items.Count - 1).Should().OnlyContain(item => !string.IsNullOrEmpty(item.Title));
+
+        var pagedItems = await GetSetsAsync(client, "?$orderby=title asc&$skip=2&$top=1");
+        pagedItems.Should().ContainSingle(item => item.Id == legacySet.Id);
+
+        var descendingItems = await GetSetsAsync(client, "?$orderby=title desc");
+        descendingItems.Last().Id.Should().Be(legacySet.Id);
     }
 
     [Fact]

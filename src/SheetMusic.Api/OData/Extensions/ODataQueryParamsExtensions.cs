@@ -40,7 +40,7 @@ public static class ODataQueryParamsExtensions
     /// convention as <see cref="ApplyODataFilters{T}"/>. Multiple order-by fields are applied in the
     /// order they were supplied.
     /// </summary>
-    public static IQueryable<T> ApplyODataOrderBy<T>(this IQueryable<T> items, ODataQueryParams queryParams, Action<ODataFieldMapping<T>> mapFields)
+    public static IQueryable<T> ApplyODataOrderBy<T>(this IQueryable<T> items, ODataQueryParams queryParams, Action<ODataFieldMapping<T>> mapFields, bool preserveExistingOrder = false)
     {
         if (!queryParams.OrderBy.Any())
             return items;
@@ -48,7 +48,7 @@ public static class ODataQueryParamsExtensions
         var fieldMapping = new ODataFieldMapping<T>();
         mapFields(fieldMapping);
 
-        IOrderedQueryable<T>? ordered = null;
+        IOrderedQueryable<T>? ordered = preserveExistingOrder ? items as IOrderedQueryable<T> : null;
         foreach (var option in queryParams.OrderBy)
         {
             LambdaExpression keySelector;
