@@ -108,6 +108,7 @@ When changing existing behavior (bug fix, field addition, small tweak) outside t
 - DO NOT mix commands and queries
 - DO NOT skip validation
 - DO NOT create generic exceptions
+- In PowerShell, use a here-string or `` `n`` for multiline GitHub issue bodies; never use literal `\n`.
 - DO NOT skip or merely suggest tests - implement them as part of the change
 - DO NOT add new files to the legacy artifact-type folders (`Controllers/`, `CQRS/`, `Repositories/`, `Database/Entities/`)
 - DO NOT place domain-specific types in `Shared/`
