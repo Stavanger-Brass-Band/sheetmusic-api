@@ -16,6 +16,8 @@ public class ApiProjectSummary
     {
         Id = project.Id;
         Name = project.Name;
+        StartDate = project.StartDate;
+        EndDate = project.EndDate;
     }
 
     /// <summary>
@@ -27,4 +29,14 @@ public class ApiProjectSummary
     /// Project name.
     /// </summary>
     public string Name { get; set; } = null!;
+
+    /// <summary>
+    /// Project start date.
+    /// </summary>
+    public DateTime StartDate { get; set; }
+
+    /// <summary>
+    /// Project end date.
+    /// </summary>
+    public DateTime EndDate { get; set; }
 }

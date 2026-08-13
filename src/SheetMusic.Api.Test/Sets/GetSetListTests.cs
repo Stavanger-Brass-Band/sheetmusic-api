@@ -644,6 +644,9 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         musikantItems.Should().ContainSingle();
         var musikantProjects = musikantItems[0].Projects ?? throw new InvalidOperationException("Expanded projects should be included in the response.");
         musikantProjects.Should().ContainSingle(summary => summary.Id == activeProject.Id && summary.Name == activeProject.Name);
+        var musikantProject = musikantProjects.Single();
+        musikantProject.StartDate.Should().Be(activeProject.StartDate);
+        musikantProject.EndDate.Should().Be(activeProject.EndDate);
 
         var adminItems = await GetSetsAsync(adminClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
         adminItems.Should().ContainSingle();
