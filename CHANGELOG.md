@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.2...v0.3.3) (2026-08-17)
+
+
+### Features
+
+* expand set projects in v2 ([#356](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/356)) ([#357](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/357)) ([0da6a01](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0da6a015b48bbe0d4b12d42d763276a57d570109))
+* host sheet music agent in API ([#333](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/333)) ([f98b439](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/f98b439ae3770293af1ae646c69af8d80d5c52c9))
+* import sheet music sets from PDF ([#343](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/343)) ([54a63f8](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/54a63f86595eee7ef8f2faa16ac5d37f1de5e7e4))
+* **sets:** change part assignment ([#368](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/368)) ([75afe24](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/75afe24a57c0a342623cf5e8dd1ad64cf9a5eaf3))
+
+
+### Bug Fixes
+
+* keep untitled sets last when sorting by title ([#367](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/367)) ([0d0a972](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/0d0a972ed0414397f33f223bbeb6f4690d04caed))
+* make ACA liveness probe available in production ([#341](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/341)) ([32adf06](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/32adf06adf0ad343b22e5e4f9e1bb7aac02c4670))
+* pass document intelligence parameter to deploy ([#355](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/355)) ([522e55d](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/522e55da9caef2731829514482e2c90c537a8c1d))
+* propagate upload cancellation to blob storage ([#334](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/334)) ([e6967f7](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/e6967f7e7f31104de7b81d74e95030b6f6e339b3))
+* **storage:** isolate test blob containers ([#345](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/345)) ([5721b89](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/5721b896f23af9a69d49e0730fe3a6e9e3fc507f))
+
 ## [0.3.1](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.0...v0.3.1) (2026-08-06)
 
 
