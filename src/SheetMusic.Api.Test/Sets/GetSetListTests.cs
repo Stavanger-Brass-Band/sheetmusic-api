@@ -669,6 +669,19 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
         var inactiveProject = await CreateProjectAsync(adminClient, "Inactive", DateTime.UtcNow.AddDays(-3), DateTime.UtcNow.AddDays(-2));
         await AssignSetToProjectAsync(adminClient, activeProject.Name, set.Id);
         await AssignSetToProjectAsync(adminClient, inactiveProject.Name, set.Id);
+        var assignedPart = await new PartDataBuilder(adminClient).ProvisionSinglePartAsync();
+        await AddPartToSetAsync(adminClient, set, assignedPart.Name);
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            db.Set<MusicianMusicPart>().Add(new MusicianMusicPart
+            {
+                Id = Guid.NewGuid(),
+                MusicianId = TestUser.Musikant.Identifier,
+                MusicPartId = assignedPart.Id
+            });
+            await db.SaveChangesAsync();
+        }
 
         var musikantClient = factory.CreateClientWithTestToken(TestUser.Musikant);
         var musikantItems = await GetSetsAsync(musikantClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");

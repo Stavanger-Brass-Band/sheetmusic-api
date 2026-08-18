@@ -6,6 +6,7 @@ using SheetMusic.Api.OData;
 using SheetMusic.Api.OData.Expression;
 using SheetMusic.Api.OData.Extensions;
 using SheetMusic.Api.OData.MVC;
+using SheetMusic.Api.Users.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +21,7 @@ public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null, bool
     public Guid? CategoryId { get; } = categoryId;
     public bool IncludeProjects { get; } = includeProjects;
 
-    public class Handler(SheetMusicContext db) : IRequestHandler<GetSets, List<SheetMusicSet>>
+    public class Handler(SheetMusicContext db, CatalogAccessService catalogAccess) : IRequestHandler<GetSets, List<SheetMusicSet>>
     {
         private static readonly Action<ODataFieldMapping<SheetMusicSet>> FieldMapping = m =>
         {
@@ -33,7 +34,7 @@ public class GetSets(ODataQueryParams queryParams, Guid? categoryId = null, bool
 
         public async Task<List<SheetMusicSet>> Handle(GetSets request, CancellationToken cancellationToken)
         {
-            var baseQuery = db.SheetMusicSets.AsQueryable();
+            var baseQuery = catalogAccess.FilterAccessibleSets(db.SheetMusicSets);
 
             if (request.QueryParams.HasFilter)
                 baseQuery = baseQuery.ApplyODataFilters(request.QueryParams, FieldMapping);

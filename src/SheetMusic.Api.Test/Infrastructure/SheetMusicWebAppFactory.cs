@@ -73,8 +73,8 @@ public class SheetMusicWebAppFactory : WebApplicationFactory<Program>
             BlobMock = new Mock<IBlobClient>();
             BlobMock.Setup(b => b.GetMusicPartContentAsync(It.IsAny<PartRelatedToSet>()))
                 .ReturnsAsync(Array.Empty<byte>());
-            BlobMock.Setup(b => b.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>()))
-                .ReturnsAsync(new MemoryStream());
+            BlobMock.Setup(b => b.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MemoryStream());
             BlobMock.Setup(b => b.HasPdfFileAsync(It.IsAny<PartRelatedToSet>()))
                 .ReturnsAsync(true);
             services.TryRemoveService<IBlobClient>();
