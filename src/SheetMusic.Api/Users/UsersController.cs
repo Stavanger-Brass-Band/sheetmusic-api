@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Net.Http.Headers;
 using Microsoft.Extensions.Options;
 using SheetMusic.Api.Configuration;
 using SheetMusic.Api.Database.Entities;
@@ -13,6 +14,7 @@ using SheetMusic.Api.Users.Commands;
 using SheetMusic.Api.Users.Errors;
 using SheetMusic.Api.Users.Queries;
 using SheetMusic.Api.Users.RequestModels;
+using SheetMusic.Api.Users.Services;
 using SheetMusic.Api.Users.ViewModels;
 using System;
 using System.Linq;
@@ -101,6 +103,73 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
     {
         await mediator.Send(new UpdateUser(identifier, User, request));
         return Ok();
+    }
+
+    /// <summary>
+    /// Upload or replace a user's profile picture. Users may update their own picture; Administrators may update any user's picture.
+    /// </summary>
+    /// <param name="identifier">The guid of the user whose profile picture will be changed.</param>
+    /// <param name="request">The source image and square crop in post-orientation source image pixels.</param>
+    /// <param name="cancellationToken">The cancellation token for the upload operation.</param>
+    /// <response code="200">The new profile-picture version.</response>
+    /// <response code="400">The file is malformed, unsupported, too large, animated, or has an invalid crop.</response>
+    /// <response code="409">Another request changed this profile picture; retry the operation.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">The caller is neither the user nor an Administrator.</response>
+    /// <response code="409">Another request changed this profile picture; retry the operation.</response>
+    /// <response code="404">User not found.</response>
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(ProfilePictureProcessor.MaxFileSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ProfilePictureProcessor.MaxFileSize)]
+    [HttpPut("users/{identifier:guid}/profile-picture")]
+    public async Task<ActionResult<ApiProfilePicture>> UploadProfilePictureAsync(Guid identifier, [FromForm] ProfilePictureUploadRequest request, CancellationToken cancellationToken)
+    {
+        if (request.File is null || request.File.Length == 0)
+            throw new InvalidProfilePictureError("A non-empty profile picture file is required");
+
+        await using var content = request.File.OpenReadStream();
+        var version = await mediator.Send(new UploadProfilePicture(identifier, User, content, request), cancellationToken);
+        return Ok(new ApiProfilePicture(version));
+    }
+
+    /// <summary>
+    /// Retrieve a user's profile picture. Any authenticated user may retrieve a current profile picture.
+    /// </summary>
+    /// <param name="identifier">The guid of the user whose profile picture will be returned.</param>
+    /// <param name="cancellationToken">The cancellation token for the download operation.</param>
+    /// <response code="200">The processed WebP profile picture.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="404">User or profile picture not found.</response>
+    [HttpGet("users/{identifier:guid}/profile-picture")]
+    public async Task<IActionResult> GetProfilePictureAsync(Guid identifier, CancellationToken cancellationToken)
+    {
+        var picture = await mediator.Send(new GetProfilePicture(identifier), cancellationToken);
+        var entityTag = new EntityTagHeaderValue($"\"{picture.Version:N}\"");
+        if (Request.GetTypedHeaders().IfNoneMatch?.Any(tag => tag.Compare(entityTag, useStrongComparison: true)) == true)
+        {
+            await picture.Content.DisposeAsync();
+            return StatusCode((int)HttpStatusCode.NotModified);
+        }
+
+        Response.GetTypedHeaders().ETag = entityTag;
+        Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+        return File(picture.Content, "image/webp");
+    }
+
+    /// <summary>
+    /// Remove a user's profile picture. Users may remove their own picture; Administrators may remove any user's picture.
+    /// </summary>
+    /// <param name="identifier">The guid of the user whose profile picture will be removed.</param>
+    /// <param name="cancellationToken">The cancellation token for the deletion operation.</param>
+    /// <response code="204">The profile picture was removed.</response>
+    /// <response code="401">Authorization header is invalid or missing.</response>
+    /// <response code="403">The caller is neither the user nor an Administrator.</response>
+    /// <response code="404">User or profile picture not found.</response>
+    [HttpDelete("users/{identifier:guid}/profile-picture")]
+    public async Task<IActionResult> RemoveProfilePictureAsync(Guid identifier, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new RemoveProfilePicture(identifier, User), cancellationToken);
+        return NoContent();
     }
 
     /// <summary>

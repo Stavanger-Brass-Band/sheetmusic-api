@@ -5,6 +5,8 @@ namespace SheetMusic.Api.Database.Entities;
 public class ApplicationUser : IdentityUser<Guid>
 {
     public string? DisplayName { get; set; }
+    public string? ProfilePictureBlobName { get; set; }
+    public Guid? ProfilePictureVersion { get; set; }
     public bool Inactive { get; set; } = true;
     public Musician? Musician { get; set; }
 }

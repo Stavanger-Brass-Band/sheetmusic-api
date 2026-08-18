@@ -11,8 +11,11 @@ using SheetMusic.Api.Test.Utility;
 using SheetMusic.Api.Users.Authorization;
 using SheetMusic.Api.Users.Errors;
 using SheetMusic.Api.Users.ViewModels;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -20,7 +23,9 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using Moq;
 using Xunit;
 
 namespace SheetMusic.Api.Test.Users;
@@ -417,6 +422,190 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_GetProfilePicture_ShouldReturnUnauthorized_WhenAnonymous()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.GetAsync($"users/{TestUser.Testesen.Identifier}/profile-picture");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldReturnForbidden_WhenUserUpdatesAnotherUser()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Musikant);
+
+        var response = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldReturnBadRequest_WhenImageIsMalformed()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        using var content = new MultipartFormDataContent
+        {
+            { new ByteArrayContent(Encoding.UTF8.GetBytes("not an image")), "file", "picture.png" },
+            { new StringContent("0"), "x" },
+            { new StringContent("0"), "y" },
+            { new StringContent("1"), "size" }
+        };
+
+        var response = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldReturnBadRequest_WhenFileIsMissing()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("0"), "x" },
+            { new StringContent("0"), "y" },
+            { new StringContent("1"), "size" }
+        };
+
+        var response = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldExposeNewVersionAndReturnWebp_WhenUserUpdatesOwnPicture()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var blobs = ConfigureProfilePictureBlobs();
+
+        var upload = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+        upload.StatusCode.Should().Be(HttpStatusCode.OK, await upload.Content.ReadAsStringAsync());
+        var uploaded = await upload.Content.ReadFromJsonAsync<ApiProfilePicture>(JsonDefaults.Options);
+
+        using var userDocument = JsonDocument.Parse(await client.GetStringAsync($"users/{TestUser.Testesen.Identifier}"));
+        userDocument.RootElement.GetProperty("profilePicture").GetProperty("version").GetGuid().Should().Be(uploaded!.Version);
+
+        var get = await client.GetAsync($"users/{TestUser.Testesen.Identifier}/profile-picture");
+        get.StatusCode.Should().Be(HttpStatusCode.OK);
+        get.Content.Headers.ContentType!.MediaType.Should().Be("image/webp");
+        get.Headers.ETag!.Tag.Should().Be($"\"{uploaded.Version:N}\"");
+        blobs.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldReplaceVersionAndDeleteSupersededBlob_WhenPictureAlreadyExists()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var blobs = ConfigureProfilePictureBlobs();
+
+        var first = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+        var firstPicture = await first.Content.ReadFromJsonAsync<ApiProfilePicture>(JsonDefaults.Options);
+        var second = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+        var secondPicture = await second.Content.ReadFromJsonAsync<ApiProfilePicture>(JsonDefaults.Options);
+
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondPicture!.Version.Should().NotBe(firstPicture!.Version);
+        blobs.Should().ContainSingle();
+        blobs.Keys.Single().Should().Contain(secondPicture.Version.ToString("N"));
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldPersistReplacement_WhenSupersededBlobCleanupFails()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        ConfigureProfilePictureBlobs();
+        var first = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+        var firstPicture = await first.Content.ReadFromJsonAsync<ApiProfilePicture>(JsonDefaults.Options);
+        factory.BlobMock.Setup(blobClient => blobClient.DeleteProfilePictureAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Blob storage is unavailable"));
+
+        var second = await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+        var secondPicture = await second.Content.ReadFromJsonAsync<ApiProfilePicture>(JsonDefaults.Options);
+
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondPicture!.Version.Should().NotBe(firstPicture!.Version);
+    }
+
+    [Fact]
+    public async Task V2_UploadProfilePicture_ShouldKeepOnlyCurrentBlob_WhenUploadsAreConcurrent()
+    {
+        var firstClient = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var secondClient = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var blobs = ConfigureProfilePictureBlobs();
+
+        var uploads = await Task.WhenAll(
+            firstClient.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent()),
+            secondClient.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent()));
+        var responses = await Task.WhenAll(uploads.Select(response => response.Content.ReadAsStringAsync()));
+
+        uploads.Select(response => response.StatusCode).Should().BeEquivalentTo([HttpStatusCode.OK, HttpStatusCode.Conflict], string.Join("; ", responses));
+        blobs.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task V2_GetProfilePicture_ShouldReturnNotFound_WhenUserPictureBlobIsMissing()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        ConfigureProfilePictureBlobs();
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByIdAsync(TestUser.Testesen.Identifier.ToString());
+            user!.ProfilePictureBlobName = "profile-pictures/missing.webp";
+            user.ProfilePictureVersion = Guid.NewGuid();
+            (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        }
+
+        var response = await client.GetAsync($"users/{TestUser.Testesen.Identifier}/profile-picture");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task V2_RemoveProfilePicture_ShouldDeletePictureAndClearUserState_WhenUserRemovesOwnPicture()
+    {
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var blobs = ConfigureProfilePictureBlobs();
+        await client.PutAsync($"users/{TestUser.Testesen.Identifier}/profile-picture", CreateProfilePictureContent());
+
+        var remove = await client.DeleteAsync($"users/{TestUser.Testesen.Identifier}/profile-picture");
+        using var userDocument = JsonDocument.Parse(await client.GetStringAsync($"users/{TestUser.Testesen.Identifier}"));
+        var get = await client.GetAsync($"users/{TestUser.Testesen.Identifier}/profile-picture");
+
+        remove.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        userDocument.RootElement.GetProperty("profilePicture").ValueKind.Should().Be(JsonValueKind.Null);
+        get.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        blobs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task V2_DeleteUser_ShouldDeleteProfilePictureBlob_WhenHardDeletingUser()
+    {
+        var anonymousClient = CreateV2Client();
+        var blobs = ConfigureProfilePictureBlobs();
+        const string blobName = "profile-pictures/hard-delete/picture.webp";
+        blobs[blobName] = [1, 2, 3];
+        var (userId, _) = await RegisterInactiveUserAsync(anonymousClient, "hard-delete-profile-picture");
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            user!.ProfilePictureBlobName = blobName;
+            user.ProfilePictureVersion = Guid.NewGuid();
+            (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        }
+
+        var client = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var response = await client.DeleteAsync($"users/{userId}?hardDelete=true");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        blobs.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task V2_AssignParts_ShouldBeForbidden_WhenNonAdmin()
     {
         var client = CreateV2ClientWithTestToken(TestUser.Musikant);
@@ -677,6 +866,43 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     private record ApiUserDetailModel(IReadOnlyList<ApiPartModel> Parts);
+
+    private Dictionary<string, byte[]> ConfigureProfilePictureBlobs()
+    {
+        var blobs = new Dictionary<string, byte[]>();
+        factory.BlobMock.Setup(client => client.AddProfilePictureAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns<string, Stream, CancellationToken>(async (blobName, content, cancellationToken) =>
+            {
+                using var copy = new MemoryStream();
+                await content.CopyToAsync(copy, cancellationToken);
+                blobs.Add(blobName, copy.ToArray());
+            });
+        factory.BlobMock.Setup(client => client.GetProfilePictureAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((blobName, _) => blobs.TryGetValue(blobName, out var content)
+                ? Task.FromResult<Stream>(new MemoryStream(content))
+                : Task.FromException<Stream>(new FileNotFoundException("Profile picture blob was not found", blobName)));
+        factory.BlobMock.Setup(client => client.DeleteProfilePictureAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((blobName, _) =>
+            {
+                blobs.Remove(blobName);
+                return Task.CompletedTask;
+            });
+        return blobs;
+    }
+
+    private static MultipartFormDataContent CreateProfilePictureContent()
+    {
+        using var image = new Image<Rgba32>(1, 1, new Rgba32(255, 0, 0));
+        using var imageContent = new MemoryStream();
+        image.SaveAsPng(imageContent);
+
+        var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent(imageContent.ToArray()), "file", "picture.png");
+        content.Add(new StringContent("0"), "x");
+        content.Add(new StringContent("0"), "y");
+        content.Add(new StringContent("1"), "size");
+        return content;
+    }
 
     private record ApiPartModel(Guid Id);
 

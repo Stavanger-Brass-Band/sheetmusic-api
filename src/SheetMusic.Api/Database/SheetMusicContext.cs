@@ -37,6 +37,10 @@ public class SheetMusicContext(DbContextOptions<SheetMusicContext> options) : Id
             .WithOne(m => m.ApplicationUser)
             .HasForeignKey<Musician>(m => m.ApplicationUserId);
 
+        modelBuilder.Entity<ApplicationUser>()
+            .Property(user => user.ProfilePictureVersion)
+            .IsConcurrencyToken();
+
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(rt => rt.Token)
             .IsUnique();

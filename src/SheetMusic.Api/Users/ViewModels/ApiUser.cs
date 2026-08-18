@@ -13,10 +13,12 @@ public class ApiUser
         Name = user.DisplayName ?? user.UserName ?? null!;
         Email = user.Email ?? null!;
         Inactive = user.Inactive;
+        ProfilePicture = user.ProfilePictureVersion is { } version ? new ApiProfilePicture(version) : null;
     }
 
     public Guid Id { get; set; }
     public string Name { get; set; }
     public string Email { get; set; }
     public bool Inactive { get; set; }
+    public ApiProfilePicture? ProfilePicture { get; set; }
 }
