@@ -17,6 +17,7 @@ using SheetMusic.Api.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Sets;
@@ -46,6 +47,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="queryParams">Optional. OData support for $filter and $expand=parts,projects</param>
     /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>Sets matching criteria</returns>
     /// <response code="200">A list of sets matching filter, or all sets. Empty list if no matching results</response>
     /// <response code="400">If an unsupported $expand value is provided</response>
@@ -53,10 +55,10 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json", Type = typeof(List<ApiSet>))]
     [HttpGet("sets")]
-    public Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category) =>
-        GetSetListInternal(queryParams, category);
+    public Task<IActionResult> GetSetList(ODataQueryParams queryParams, string? category, CancellationToken cancellationToken) =>
+        GetSetListInternal(queryParams, category, cancellationToken);
 
-    private async Task<IActionResult> GetSetListInternal(ODataQueryParams queryParams, string? category)
+    private async Task<IActionResult> GetSetListInternal(ODataQueryParams queryParams, string? category, CancellationToken cancellationToken)
     {
         var unsupportedExpands = queryParams.Expand
             .Where(e => !SupportedSetExpand.Split(", ").Contains(e, StringComparer.OrdinalIgnoreCase))
@@ -72,7 +74,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
         if (!string.IsNullOrWhiteSpace(category))
         {
-            var matchedCategory = await mediator.Send(new GetCategory(category));
+            var matchedCategory = await mediator.Send(new GetCategory(category), cancellationToken);
 
             if (matchedCategory is null)
                 return NotFound(new ProblemDetails { Detail = $"Category '{category}' was not found" });
@@ -80,15 +82,17 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             categoryId = matchedCategory.Id;
         }
 
-        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId, expandProjects));
-        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id));
+        var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId, expandProjects), cancellationToken);
+        var accessiblePartIds = expandParts
+            ? await catalogAccess.GetAccessiblePartIdsAsync(matchingSets.Select(set => set.Id), cancellationToken)
+            : [];
 
-        var transformed = matchingSets.Where(set => accessibleSetIds.Contains(set.Id)).Select(s => new ApiSet(s)
+        var transformed = matchingSets.Select(s => new ApiSet(s)
             {
                 ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
                 PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
                 Parts = expandParts ?
-                    s.Parts.Select(p => new ApiSheetMusicPart(p)
+                    s.Parts.Where(part => accessiblePartIds.Contains(part.Id)).Select(p => new ApiSheetMusicPart(p)
                     {
                         PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
                         DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"
@@ -110,24 +114,26 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Lists parts for set with <paramref name="identifier"/> 
     /// </summary>
     /// <param name="identifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>List of parts for set</returns>
     /// <response code="200">Set information including its parts</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested set</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [HttpGet("sets/{identifier}/parts")]
-    public async Task<ActionResult<ApiSet>> GetPartsForSet(string identifier)
+    public async Task<ActionResult<ApiSet>> GetPartsForSet(string identifier, CancellationToken cancellationToken)
     {
-        var set = await mediator.Send(new GetSet(identifier));
+        var set = await mediator.Send(new GetSet(identifier), cancellationToken);
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{identifier}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id, cancellationToken))
             return Forbid();
 
         var query = new GetPartsForSet(set.Id);
-        var parts = await mediator.Send(query);
+        var parts = await mediator.Send(query, cancellationToken);
 
         var apiSet = new ApiSet(set)
         {
@@ -147,20 +153,22 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>The part that matches, 404 if not found</returns>
     /// <response code="200">The part matching the identifiers</response>
     /// <response code="404">Set, part, or the relationship between them was not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested part</response>
     [Produces("application/json", Type = typeof(ApiSheetMusicPart))]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}")]
-    public async Task<IActionResult> GetSinglePart(string setIdentifier, string partIdentifier)
+    public async Task<IActionResult> GetSinglePart(string setIdentifier, string partIdentifier, CancellationToken cancellationToken)
     {
-        var partOnSet = await mediator.Send(new GetPartOnSet(setIdentifier, partIdentifier));
+        var partOnSet = await mediator.Send(new GetPartOnSet(setIdentifier, partIdentifier), cancellationToken);
 
         if (partOnSet == null)
             return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(partOnSet.SetId))
+        if (!await catalogAccess.CanAccessPartAsync(partOnSet.SetId, partOnSet.MusicPartId, cancellationToken))
             return Forbid();
 
         return new OkObjectResult(new ApiSheetMusicPart(partOnSet));
@@ -172,6 +180,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="partIdentifier">A value uniquely identifying part. Either guid or part name</param>
     /// <param name="downloadToken">A token to prove you are authorized for download</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>The PDF file, if it exists. 404 otherwise.</returns>
     /// <response code="200">The PDF file content</response>
     /// <response code="400">If the download token is missing or invalid</response>
@@ -179,16 +188,19 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     [AllowAnonymous]
     [Produces("application/pdf")]
     [HttpGet("sets/{setIdentifier}/parts/{partIdentifier}/pdf")]
-    public async Task<IActionResult> GetSinglePartFile(string setIdentifier, string partIdentifier, string downloadToken)
+    public async Task<IActionResult> GetSinglePartFile(string setIdentifier, string partIdentifier, string downloadToken, CancellationToken cancellationToken)
     {
-        var partOnSet = await mediator.Send(new GetPartOnSet(setIdentifier, partIdentifier));
+        var partOnSet = await mediator.Send(new GetPartOnSet(setIdentifier, partIdentifier), cancellationToken);
 
         if (partOnSet == null)
             return NotFound(new ProblemDetails { Detail = $"Relationship between '{setIdentifier}' and '{partIdentifier}' was not found" });
 
-        if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(partOnSet.SetId, downloadToken))
+        if (string.IsNullOrEmpty(downloadToken) ||
+            !TryGetDownloadAuthorization(partOnSet.SetId, downloadToken, out var authorization) ||
+            !await catalogAccess.CanUserAccessPartAsync(authorization.UserId, partOnSet.SetId, partOnSet.MusicPartId, cancellationToken) ||
+            !TryConsumeDownloadToken(partOnSet.SetId, downloadToken))
         {
-            return new BadRequestObjectResult("Download token must be provided and valid");
+            return BadRequest();
         }
 
         var pdf = await blobClient.GetMusicPartContentAsync(new PartRelatedToSet(partOnSet.SetId, partOnSet.MusicPartId));
@@ -200,20 +212,22 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Gets information about a single set, either by guid, number or title.
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>Set matching <paramref name="setIdentifier"/></returns>
     /// <response code="200">The set matching the identifier</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested set</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [HttpGet("sets/{setIdentifier}")]
-    public async Task<IActionResult> GetSetinformationByIdentifier(string setIdentifier)
+    public async Task<IActionResult> GetSetinformationByIdentifier(string setIdentifier, CancellationToken cancellationToken)
     {
-        var set = await mediator.Send(new GetSet(setIdentifier));
+        var set = await mediator.Send(new GetSet(setIdentifier), cancellationToken);
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id, cancellationToken))
             return Forbid();
 
         return new OkObjectResult(new ApiSet(set)
@@ -241,7 +255,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{request.SetName}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id, cancellationToken))
             return Forbid();
 
         return new ApiSetAgentResponse(await agent.AnswerSetQuestionAsync(set, request.Question, cancellationToken));
@@ -257,6 +271,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// <response code="400">If provided input is invalid. Should include a body with ProblemDetails-formatted errors.</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested set</response>
     /// <response code="403">Forbidden. User does not have required privileges (Noteansvarlig or Administrator)</response>
     [Produces("application/json", Type = typeof(ApiSet))]
     [Authorize(AuthPolicy.ManageMusic)]
@@ -282,20 +297,22 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Gets the categories assigned to set with <paramref name="setIdentifier"/>
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>List of categories assigned to the set</returns>
     /// <response code="200">List of categories assigned to the set</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested set</response>
     [Produces("application/json", Type = typeof(List<ApiCategory>))]
     [HttpGet("sets/{setIdentifier}/categories")]
-    public async Task<IActionResult> GetCategoriesForSet(string setIdentifier)
+    public async Task<IActionResult> GetCategoriesForSet(string setIdentifier, CancellationToken cancellationToken)
     {
-        var set = await mediator.Send(new GetSet(setIdentifier));
+        var set = await mediator.Send(new GetSet(setIdentifier), cancellationToken);
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id, cancellationToken))
             return Forbid();
 
         var categories = set.Categories.Where(c => c.Category != null).Select(c => new ApiCategory(c.Category)).ToList();
@@ -354,24 +371,30 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Authorized a set for download, allowing a single download for the one with the token.
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>A one-time download token</returns>
     /// <response code="200">The generated download token</response>
     /// <response code="404">Set not found</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
+    /// <response code="403">The caller cannot access the requested set</response>
     [HttpGet("sets/{setIdentifier}/zip/token")]
-    public async Task<IActionResult> GetDownloadToken(string setIdentifier)
+    public async Task<IActionResult> GetDownloadToken(string setIdentifier, CancellationToken cancellationToken)
     {
-        var set = await mediator.Send(new GetSet(setIdentifier));
+        var set = await mediator.Send(new GetSet(setIdentifier), cancellationToken);
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
-        if (!await catalogAccess.CanAccessSetAsync(set.Id))
+        if (!await catalogAccess.CanAccessSetAsync(set.Id, cancellationToken))
+            return Forbid();
+
+        var userId = catalogAccess.CurrentUserId;
+        if (userId is null)
             return Forbid();
 
         //generated token using cryptographic library, save to memory cache and verify on download
         var token = KeyGenerator.GetUniqueKey(64);
-        memoryCache.Set(DownloadTokenCacheKey(token), set.Id, TimeSpan.FromMinutes(60));
+        memoryCache.Set(DownloadTokenCacheKey(token), new DownloadAuthorization(set.Id, userId.Value), TimeSpan.FromMinutes(60));
 
         return new OkObjectResult(token);
     }
@@ -382,6 +405,7 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// </summary>
     /// <param name="setIdentifier">A value uniquely identifying set. Either guid, archive number or title</param>
     /// <param name="downloadToken">A token for proving that user is allowed to download this set</param>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>Zipped collection of parts</returns>
     /// <response code="200">The zipped collection of parts</response>
     /// <response code="400">If the download token is missing or invalid</response>
@@ -389,9 +413,9 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     [AllowAnonymous]
     [Produces("application/zip")]
     [HttpGet("sets/{setIdentifier}/zip")]
-    public async Task<IActionResult> GetPartsForSetAzZip(string setIdentifier, string downloadToken)
+    public async Task<IActionResult> GetPartsForSetAzZip(string setIdentifier, string downloadToken, CancellationToken cancellationToken)
     {
-        var set = await mediator.Send(new GetSet(setIdentifier));
+        var set = await mediator.Send(new GetSet(setIdentifier), cancellationToken);
 
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
@@ -401,8 +425,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
             return new BadRequestObjectResult("Download token must be provided and valid");
         }
 
-        var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier));
-        await zipStream.FlushAsync();
+        var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier), cancellationToken);
+        await zipStream.FlushAsync(cancellationToken);
         zipStream.Position = 0;
 
         return File(zipStream, "application/zip", $"{set.Title}.zip");
@@ -412,25 +436,26 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     /// Analyzes the assigned parts and compares them with the blob storage content. 
     /// If a non-empty file does not exists, the set is listed in results
     /// </summary>
+    /// <param name="cancellationToken">The request cancellation token</param>
     /// <returns>The sets with parts that are assigned, but a file is not present</returns>
     /// <response code="200">The sets with parts that are assigned, but a file is not present</response>
     /// <response code="401">Authorization header (bearer token) is invalid</response>
     [Produces("application/json")]
     [HttpGet("sets/withoutFiles")]
-    public async Task<IActionResult> GetSetsThatHasPartsButNoFiles()
+    public async Task<IActionResult> GetSetsThatHasPartsButNoFiles(CancellationToken cancellationToken)
     {
         var queryParams = new ODataQueryParams();
         queryParams.Expand.Add("parts");
 
-        var setsWithParts = await mediator.Send(new GetSets(queryParams));
-        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(setsWithParts.Select(set => set.Id));
+        var setsWithParts = await mediator.Send(new GetSets(queryParams), cancellationToken);
+        var accessiblePartIds = await catalogAccess.GetAccessiblePartIdsAsync(setsWithParts.Select(set => set.Id), cancellationToken);
         var results = new List<ApiSet>();
 
-        foreach (var setWithParts in setsWithParts.Where(set => accessibleSetIds.Contains(set.Id)))
+        foreach (var setWithParts in setsWithParts)
         {
             var apiSet = new ApiSet(setWithParts);
 
-            foreach (var part in setWithParts.Parts)
+            foreach (var part in setWithParts.Parts.Where(part => accessiblePartIds.Contains(part.Id)))
             {
                 if (await blobClient.HasPdfFileAsync(new PartRelatedToSet(setWithParts.Id, part.MusicPartId)) == false)
                 {
@@ -690,11 +715,26 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
 
     private static string DownloadTokenCacheKey(string token) => $"Download_{token}";
 
+    private sealed record DownloadAuthorization(Guid SetId, Guid UserId);
+
+    private bool TryGetDownloadAuthorization(Guid setId, string providedToken, out DownloadAuthorization authorization)
+    {
+        if (memoryCache.TryGetValue(DownloadTokenCacheKey(providedToken), out DownloadAuthorization? cachedAuthorization) &&
+            cachedAuthorization?.SetId == setId)
+        {
+            authorization = cachedAuthorization;
+            return true;
+        }
+
+        authorization = null!;
+        return false;
+    }
+
     private bool TryConsumeDownloadToken(Guid setId, string providedToken)
     {
         lock (DownloadTokenLock)
         {
-            if (memoryCache.TryGetValue(DownloadTokenCacheKey(providedToken), out Guid tokenSetId) && tokenSetId == setId)
+            if (memoryCache.TryGetValue(DownloadTokenCacheKey(providedToken), out DownloadAuthorization? authorization) && authorization?.SetId == setId)
             {
                 memoryCache.Remove(DownloadTokenCacheKey(providedToken));
                 return true;
