@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SheetMusic.Api.Database;
 
@@ -11,9 +12,11 @@ using SheetMusic.Api.Database;
 namespace SheetMusic.Api.Migrations
 {
     [DbContext(typeof(SheetMusicContext))]
-    partial class SheetMusicContextModelSnapshot : ModelSnapshot
+    [Migration("20260818142048_AddUserProfilePicture")]
+    partial class AddUserProfilePicture
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -179,9 +182,6 @@ namespace SheetMusic.Api.Migrations
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
-                    b.Property<DateTimeOffset?>("LastLoginAt")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
@@ -209,7 +209,6 @@ namespace SheetMusic.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("ProfilePictureVersion")
-                        .IsConcurrencyToken()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SecurityStamp")

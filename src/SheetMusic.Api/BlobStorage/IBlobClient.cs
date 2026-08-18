@@ -15,4 +15,7 @@ public interface IBlobClient
     Task DeleteSetContentAsync(Guid id);
     Task<bool> HasPdfFileAsync(PartRelatedToSet identifier);
     Task DeletePartContentAsync(PartRelatedToSet identifier);
+    Task AddProfilePictureAsync(string blobName, Stream contentStream, CancellationToken cancellationToken);
+    Task<Stream> GetProfilePictureAsync(string blobName, CancellationToken cancellationToken);
+    Task DeleteProfilePictureAsync(string blobName, CancellationToken cancellationToken);
 }

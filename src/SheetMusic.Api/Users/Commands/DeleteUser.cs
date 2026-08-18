@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using SheetMusic.Api.BlobStorage;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
 using SheetMusic.Api.Errors;
@@ -17,7 +18,7 @@ public class DeleteUser(Guid userId, bool hardDelete = false) : IRequest
     public Guid UserId { get; } = userId;
     public bool HardDelete { get; } = hardDelete;
 
-    public class Handler(UserManager<ApplicationUser> userManager, SheetMusicContext db) : IRequestHandler<DeleteUser>
+    public class Handler(UserManager<ApplicationUser> userManager, SheetMusicContext db, IBlobClient blobClient, ILogger<Handler> logger) : IRequestHandler<DeleteUser>
     {
         public async Task Handle(DeleteUser request, CancellationToken cancellationToken)
         {
@@ -33,6 +34,22 @@ public class DeleteUser(Guid userId, bool hardDelete = false) : IRequest
 
             if (!result.Succeeded)
                 throw new IdentityOperationError(result.Errors.Select(e => e.Description));
+
+            if (request.HardDelete && user.ProfilePictureBlobName is not null)
+            {
+                try
+                {
+                    await blobClient.DeleteProfilePictureAsync(user.ProfilePictureBlobName, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not delete profile picture blob {BlobName} for deleted user {UserId}", user.ProfilePictureBlobName, user.Id);
+                }
+            }
 
             async Task<IdentityResult> DeactivateAsync(ApplicationUser userToDeactivate)
             {

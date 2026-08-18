@@ -147,5 +147,58 @@ public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration conf
         var blob = GetBlob(identifier);
         await blob.DeleteIfExistsAsync();
     }
+
+    public async Task AddProfilePictureAsync(string blobName, Stream contentStream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await EnsureContainerExistsAsync(cancellationToken);
+            await GetContainer().GetBlobClient(blobName).UploadAsync(contentStream, overwrite: false, cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BlobInteractionError("Error occurred when uploading profile picture", ex);
+        }
+    }
+
+    public async Task<Stream> GetProfilePictureAsync(string blobName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await GetContainer().GetBlobClient(blobName).OpenReadAsync(cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            throw new FileNotFoundException("Profile picture blob was not found", blobName, ex);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BlobInteractionError("Error occurred when reading profile picture", ex);
+        }
+    }
+
+    public async Task DeleteProfilePictureAsync(string blobName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await GetContainer().GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BlobInteractionError("Error occurred when deleting profile picture", ex);
+        }
+    }
 }
 
