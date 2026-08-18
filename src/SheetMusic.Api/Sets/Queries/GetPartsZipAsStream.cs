@@ -30,8 +30,8 @@ public class GetPartsZipAsStream(string setIdentifier) : IRequest<Stream>
                 var entry = zip.CreateEntry($"{partRelation.Part.Name}.pdf");
                 using var entryStream = entry.Open();
                 var id = new PartRelatedToSet(set.Id, partRelation.MusicPartId);
-                var contents = await blobClient.GetMusicPartContentStreamAsync(id);
-                contents.CopyTo(entryStream);
+                await using var contents = await blobClient.GetMusicPartContentStreamAsync(id, cancellationToken);
+                await contents.CopyToAsync(entryStream, cancellationToken);
 
                 await entryStream.FlushAsync(cancellationToken);
             }

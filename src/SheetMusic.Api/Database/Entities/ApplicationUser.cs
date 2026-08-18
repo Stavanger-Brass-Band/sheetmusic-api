@@ -8,5 +8,6 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? ProfilePictureBlobName { get; set; }
     public Guid? ProfilePictureVersion { get; set; }
     public bool Inactive { get; set; } = true;
+    public DateTimeOffset? LastLoginAt { get; set; }
     public Musician? Musician { get; set; }
 }

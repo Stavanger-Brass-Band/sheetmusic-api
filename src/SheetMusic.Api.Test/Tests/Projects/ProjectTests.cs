@@ -1,4 +1,8 @@
 ﻿using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using SheetMusic.Api.Database;
+using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Parts;
 using SheetMusic.Api.Projects.ViewModels;
 using SheetMusic.Api.Test.Infrastructure;
 using SheetMusic.Api.Test.Infrastructure.Authentication;
@@ -154,6 +158,29 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var inactiveSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
         await adminClient.PostAsJsonAsync($"projects/{activeProject.Name}/sets", new { SetIdentifiers = new[] { activeSet.Id.ToString() } });
         await adminClient.PostAsJsonAsync($"projects/{inactiveProject.Name}/sets", new { SetIdentifiers = new[] { inactiveSet.Id.ToString() } });
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            var assignedPart = new MusicPart
+            {
+                Id = Guid.NewGuid(),
+                Name = $"Project scope cornet {Guid.NewGuid():N}",
+                Indexable = false,
+                InstrumentGroup = InstrumentGroup.Kornett
+            };
+            db.MusicParts.Add(assignedPart);
+            db.SheetMusicParts.AddRange(
+                new SheetMusicPart { Id = Guid.NewGuid(), SetId = activeSet.Id, MusicPartId = assignedPart.Id },
+                new SheetMusicPart { Id = Guid.NewGuid(), SetId = inactiveSet.Id, MusicPartId = assignedPart.Id });
+            db.Set<MusicianMusicPart>().Add(new MusicianMusicPart
+            {
+                Id = Guid.NewGuid(),
+                MusicianId = TestUser.Musikant.Identifier,
+                MusicPartId = assignedPart.Id
+            });
+            await db.SaveChangesAsync();
+        }
 
         var musikantClient = factory.CreateClientWithTestToken(TestUser.Musikant);
         var musikantProjects = await musikantClient.GetFromJsonAsync<List<ApiProject>>("projects", JsonDefaults.Options);

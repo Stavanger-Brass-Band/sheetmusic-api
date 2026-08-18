@@ -554,7 +554,8 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         var originalPdf = Encoding.UTF8.GetBytes("original PDF content");
         byte[]? replacementPdf = null;
         factory.BlobMock.Setup(blob => blob.GetMusicPartContentStreamAsync(
-                It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[0].Id)))
+            It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[0].Id),
+            It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MemoryStream(originalPdf));
         factory.BlobMock.Setup(blob => blob.AddMusicPartContentAsync(
                 It.Is<PartRelatedToSet>(relation => relation.SetId == testSet.Id && relation.PartId == parts[1].Id),
@@ -670,7 +671,7 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
         mediator.Setup(instance => instance.Send(It.IsAny<SheetMusic.Api.Parts.Queries.GetMusicPart>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(replacementPart);
         var blobClient = new Mock<IBlobClient>();
-        blobClient.Setup(instance => instance.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>()))
+        blobClient.Setup(instance => instance.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("original PDF content")));
         blobClient.Setup(instance => instance.AddMusicPartContentAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -772,7 +773,8 @@ public class SetTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMusi
             .ProvisionAsync();
 
         await UploadPartsAsync(parts, testSet);
-        factory.BlobMock.Setup(bm => bm.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>())).ReturnsAsync(new MemoryStream());
+        factory.BlobMock.Setup(bm => bm.GetMusicPartContentStreamAsync(It.IsAny<PartRelatedToSet>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new MemoryStream());
 
         var token = await GetDownloadTokenAsync(testSet);
         var zipResponse = await adminClient.GetAsync($"sheetmusic/sets/{testSet.Id}/zip?downloadToken={token}");

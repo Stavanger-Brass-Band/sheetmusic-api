@@ -37,18 +37,17 @@ public class BlobClient(BlobServiceClient blobServiceClient, IConfiguration conf
     public async Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier)
     {
         var blob = GetBlob(identifier);
-
         using var memoryStream = new MemoryStream();
         await blob.DownloadToAsync(memoryStream);
         await memoryStream.FlushAsync();
         return memoryStream.ToArray();
     }
 
-    public async Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier)
+    public async Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier, CancellationToken cancellationToken = default)
     {
         var blob = GetBlob(identifier);
 
-        return await blob.OpenReadAsync();
+        return await blob.OpenReadAsync(cancellationToken: cancellationToken);
     }
 
     public async Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken)

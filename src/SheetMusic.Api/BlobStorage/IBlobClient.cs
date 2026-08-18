@@ -11,7 +11,7 @@ public interface IBlobClient
     Task AddMusicPartContentAsync(PartRelatedToSet identifier, Stream contentStream, CancellationToken cancellationToken);
     Task EnsureContainerExistsAsync();
     Task<byte[]> GetMusicPartContentAsync(PartRelatedToSet identifier);
-    Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier);
+    Task<Stream> GetMusicPartContentStreamAsync(PartRelatedToSet identifier, CancellationToken cancellationToken = default);
     Task DeleteSetContentAsync(Guid id);
     Task<bool> HasPdfFileAsync(PartRelatedToSet identifier);
     Task DeletePartContentAsync(PartRelatedToSet identifier);

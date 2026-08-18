@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SheetMusic.Api.Database;
 using SheetMusic.Api.Database.Entities;
+using SheetMusic.Api.Users.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ public class GetPartsForSet(Guid setId) : IRequest<List<SheetMusicPart>>
 {
     public Guid SetId { get; } = setId;
 
-    public class Handler(SheetMusicContext db) : IRequestHandler<GetPartsForSet, List<SheetMusicPart>>
+    public class Handler(SheetMusicContext db, CatalogAccessService catalogAccess) : IRequestHandler<GetPartsForSet, List<SheetMusicPart>>
     {
         public async Task<List<SheetMusicPart>> Handle(GetPartsForSet request, CancellationToken cancellationToken)
         {
@@ -23,7 +24,7 @@ public class GetPartsForSet(Guid setId) : IRequest<List<SheetMusicPart>>
                         where set.Id == request.SetId
                         select setPart;
 
-            var items = await query
+            var items = await catalogAccess.FilterAccessibleParts(query)
                 .Include(sp => sp.Set)
                 .Include(sp => sp.Part)
                 .OrderBy(sp => sp.Part.SortOrder)

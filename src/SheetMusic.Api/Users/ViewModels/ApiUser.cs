@@ -14,6 +14,7 @@ public class ApiUser
         Email = user.Email ?? null!;
         Inactive = user.Inactive;
         ProfilePicture = user.ProfilePictureVersion is { } version ? new ApiProfilePicture(version) : null;
+        LastLoginAt = user.LastLoginAt?.UtcDateTime;
     }
 
     public Guid Id { get; set; }
@@ -21,4 +22,5 @@ public class ApiUser
     public string Email { get; set; }
     public bool Inactive { get; set; }
     public ApiProfilePicture? ProfilePicture { get; set; }
+    public DateTime? LastLoginAt { get; set; }
 }
