@@ -40,6 +40,7 @@ public class RefreshAccessToken(string refreshToken) : IRequest<ApiAccessTokens>
                 throw new InvalidRefreshTokenError();
 
             existingToken.RevokedAt = DateTime.UtcNow;
+            user.LastLoginAt = DateTimeOffset.UtcNow;
 
             var (newRefreshToken, rawRefreshToken) = AccessTokenFactory.CreateRefreshToken(existingToken.UserId, configuration);
             db.RefreshTokens.Add(newRefreshToken);
