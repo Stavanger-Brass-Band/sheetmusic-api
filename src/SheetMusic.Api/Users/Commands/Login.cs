@@ -39,6 +39,7 @@ public class Login(string username, string password) : IRequest<ApiAccessTokens>
                 throw new InvalidCredentialsError();
 
             var (refreshToken, rawRefreshToken) = AccessTokenFactory.CreateRefreshToken(user.Id, configuration);
+            user.LastLoginAt = DateTimeOffset.UtcNow;
             db.RefreshTokens.Add(refreshToken);
             await db.SaveChangesAsync(cancellationToken);
 

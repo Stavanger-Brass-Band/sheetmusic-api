@@ -6,5 +6,6 @@ public class ApplicationUser : IdentityUser<Guid>
 {
     public string? DisplayName { get; set; }
     public bool Inactive { get; set; } = true;
+    public DateTimeOffset? LastLoginAt { get; set; }
     public Musician? Musician { get; set; }
 }

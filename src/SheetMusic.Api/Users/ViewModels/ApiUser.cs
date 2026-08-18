@@ -13,10 +13,12 @@ public class ApiUser
         Name = user.DisplayName ?? user.UserName ?? null!;
         Email = user.Email ?? null!;
         Inactive = user.Inactive;
+        LastLoginAt = user.LastLoginAt?.UtcDateTime;
     }
 
     public Guid Id { get; set; }
     public string Name { get; set; }
     public string Email { get; set; }
     public bool Inactive { get; set; }
+    public DateTime? LastLoginAt { get; set; }
 }

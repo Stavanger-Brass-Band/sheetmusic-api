@@ -222,6 +222,9 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Password = "SecurePassword123!"
         });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        document.RootElement.GetProperty("lastLoginAt").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]
@@ -313,6 +316,35 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var roles = testesen.GetProperty("roles").EnumerateArray().Select(role => role.GetString());
         roles.Should().BeEquivalentTo([Roles.Musikant, Roles.Arkivleser]);
         testesen.GetProperty("parts").EnumerateArray().Select(part => part.GetProperty("id").GetGuid()).Should().Equal(part.Id);
+    }
+
+    [Fact]
+    public async Task V2_GetUsers_ShouldIncludeLastLoginAt_InCollectionDetailAndMeResponses()
+    {
+        var expectedLastLoginAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByIdAsync(TestUser.Testesen.Identifier.ToString());
+            user!.LastLoginAt = expectedLastLoginAt;
+            (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        }
+
+        var adminClient = CreateV2ClientWithTestToken(TestUser.Administrator);
+        var collectionResponse = await adminClient.GetAsync("users");
+        var detailResponse = await adminClient.GetAsync($"users/{TestUser.Testesen.Identifier}");
+        var meClient = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var meResponse = await meClient.GetAsync("users/me");
+
+        var collection = JsonDocument.Parse(await collectionResponse.Content.ReadAsStringAsync());
+        var collectionUser = collection.RootElement.EnumerateArray().Single(user => user.GetProperty("id").GetGuid() == TestUser.Testesen.Identifier);
+        var detail = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
+        var me = JsonDocument.Parse(await meResponse.Content.ReadAsStringAsync());
+
+        collectionUser.GetProperty("lastLoginAt").GetDateTimeOffset().Should().Be(expectedLastLoginAt);
+        detail.RootElement.GetProperty("lastLoginAt").GetDateTimeOffset().Should().Be(expectedLastLoginAt);
+        me.RootElement.GetProperty("lastLoginAt").GetDateTimeOffset().Should().Be(expectedLastLoginAt);
     }
 
     [Fact]
@@ -1256,6 +1288,30 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_GetToken_ShouldSetLastLoginAt_OnSuccessfulPasswordLogin()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        await client.PostAsync("token", BuildLoginForm(email, password));
+
+        Guid userId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            user!.LastLoginAt.Should().NotBeNull();
+            user.LastLoginAt!.Value.Offset.Should().Be(TimeSpan.Zero);
+            userId = user.Id;
+        }
+
+        var userResponse = await CreateV2ClientWithTestToken(TestUser.Administrator).GetAsync($"users/{userId}");
+        using var userDocument = JsonDocument.Parse(await userResponse.Content.ReadAsStringAsync());
+        userDocument.RootElement.GetProperty("lastLoginAt").GetString().Should().EndWith("Z");
+    }
+
+    [Fact]
     public async Task V2_RefreshToken_ShouldIssueNewTokenPair_WhenRefreshTokenIsValid()
     {
         var client = CreateV2Client();
@@ -1273,6 +1329,40 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         refreshedTokens!.access_token.Should().NotBeNullOrWhiteSpace();
         refreshedTokens.refresh_token.Should().NotBeNullOrWhiteSpace();
         refreshedTokens.refresh_token.Should().NotBe(loginTokens.refresh_token);
+    }
+
+    [Fact]
+    public async Task V2_RefreshToken_ShouldAdvanceLastLoginAt_WhenRefreshTokenIsValid()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+
+        var loginResponse = await client.PostAsync("token", BuildLoginForm(email, password));
+        var loginTokens = await loginResponse.Content.ReadFromJsonAsync<ApiAccessTokens>(JsonDefaults.Options);
+
+        DateTimeOffset loginLastLoginAt;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            loginLastLoginAt = user!.LastLoginAt!.Value;
+            user.LastLoginAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        }
+
+        var refreshResponse = await client.PostAsync("token", BuildRefreshForm(loginTokens!.refresh_token));
+
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationUserManager = verificationScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var refreshedUser = await verificationUserManager.FindByEmailAsync(email);
+        refreshedUser!.LastLoginAt.Should().BeAfter(loginLastLoginAt);
+        refreshedUser.LastLoginAt!.Value.Offset.Should().Be(TimeSpan.Zero);
+
+        var userResponse = await CreateV2ClientWithTestToken(TestUser.Administrator).GetAsync($"users/{refreshedUser.Id}");
+        using var userDocument = JsonDocument.Parse(await userResponse.Content.ReadAsStringAsync());
+        userDocument.RootElement.GetProperty("lastLoginAt").GetString().Should().EndWith("Z");
     }
 
     [Fact]
@@ -1305,6 +1395,31 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_GetToken_ShouldNotChangeLastLoginAt_WhenPasswordIsInvalid()
+    {
+        var client = CreateV2Client();
+        const string password = "SecurePassword123!";
+        var email = await RegisterAndActivateUserAsync(client, password);
+        var expectedLastLoginAt = DateTimeOffset.UtcNow.AddDays(-1);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            user!.LastLoginAt = expectedLastLoginAt;
+            (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
+        }
+
+        var response = await client.PostAsync("token", BuildLoginForm(email, "wrong-password"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationUserManager = verificationScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var userAfterFailure = await verificationUserManager.FindByEmailAsync(email);
+        userAfterFailure!.LastLoginAt.Should().Be(expectedLastLoginAt);
+    }
+
+    [Fact]
     public async Task V2_RefreshToken_ShouldReturnBadRequest_WhenRefreshTokenIsMissing()
     {
         var client = CreateV2Client();
@@ -1327,6 +1442,9 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         using var scope = factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var user = await userManager.FindByEmailAsync(email);
+        var expectedLastLoginAt = DateTimeOffset.UtcNow.AddDays(-1);
+        user!.LastLoginAt = expectedLastLoginAt;
+        (await userManager.UpdateAsync(user)).Succeeded.Should().BeTrue();
 
         // Insert an already-expired refresh token directly, matching how AccessTokenFactory hashes
         // the raw value before persisting it, so the endpoint can look it up by its stored digest.
@@ -1345,6 +1463,8 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var response = await client.PostAsync("token", BuildRefreshForm(rawToken));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var userAfterFailure = await userManager.FindByEmailAsync(email);
+        userAfterFailure!.LastLoginAt.Should().Be(expectedLastLoginAt);
     }
 
     [Fact]
