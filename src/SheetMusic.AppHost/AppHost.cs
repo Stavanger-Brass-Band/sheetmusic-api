@@ -6,22 +6,11 @@ using Azure.Provisioning.CognitiveServices;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
 using Azure.Provisioning.Sql;
-using Azure.Provisioning.Primitives;
 using Azure.Provisioning.Resources;
 using Aspire.Hosting.Foundry;
 using Aspire.Hosting.Azure;
-using Microsoft.Extensions.DependencyInjection;
-using System.Text.RegularExpressions;
 
 var builder = DistributedApplication.CreateBuilder(args);
-
-// Azure PowerShell 14 imports a MemoryCache assembly incompatible with the SqlServer module's
-// Always Encrypted provider. Patch only the generated Azure SQL role scripts to use the in-box
-// SqlClient provider until the upstream Aspire fix is available in a released package.
-builder.Services.Configure<AzureProvisioningOptions>(options =>
-{
-    options.ProvisioningBuildOptions.InfrastructureResolvers.Add(new SqlRoleScriptCompatibilityResolver());
-});
 
 // Azure SQL once published; a local SQL Server container - with the same persistent lifetime, data
 // volume and host port as before - for `aspire run`. Publishing `AddSqlServer` as-is would deploy a SQL
@@ -299,124 +288,3 @@ var apiTest = AddApi("sheetmusic-api-test", testDb, searchIndexPrefix: "test", m
 AddMigrationJob("sheetmusic-api-test-migrate", testDb, blobContainerName: "sheet-music-test", dataProtectionContainerName: "data-protection-keys-test");
 
 builder.Build().Run();
-
-internal sealed class SqlRoleScriptCompatibilityResolver : InfrastructureResolver
-{
-    private static readonly Regex SqlServerModule = new(
-        @"(?m)^\s*Install-Module -Name SqlServer.*\r?\n\s*Import-Module SqlServer\s*\r?\n?",
-        RegexOptions.CultureInvariant);
-
-    private static readonly Regex LegacySqlBatch = new(
-        @"(?s)DECLARE @name SYSNAME = '\$principalName';.*?EXEC \(@role1\);",
-        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
-    private static readonly Regex CreateUser = new(
-        @"\bCREATE\s+USER\b",
-        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
-    private static readonly Regex SqlComments = new(
-        @"(?m:--[^\r\n]*)|(?s:/\*.*?\*/)",
-        RegexOptions.CultureInvariant);
-
-    private const string SqlConnectionString = """
-        $connectionString = "Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;"
-        """;
-
-    private const string SqlClientConnectionString = """
-        $connectionString = "Server=tcp:${sqlServerFqdn},1433;Initial Catalog=${sqlDatabaseName};Encrypt=True;TrustServerCertificate=False;"
-        """;
-
-    private const string InvokeSqlCommand = "Invoke-Sqlcmd -ConnectionString $connectionString -Query $sqlCmd";
-
-    private const string IdempotentSqlBatch = """
-        DECLARE @name SYSNAME = '$principalName';
-        DECLARE @id UNIQUEIDENTIFIER = '$id';
-        DECLARE @sid VARBINARY(16) = CONVERT(VARBINARY(16), @id);
-        DECLARE @castId NVARCHAR(MAX) = CONVERT(VARCHAR(MAX), @sid, 1);
-        DECLARE @existingPrincipalType CHAR(1) = (
-            SELECT type FROM sys.database_principals WHERE name = @name);
-        DECLARE @existingSid VARBINARY(85) = (
-            SELECT sid FROM sys.database_principals WHERE name = @name AND type = 'E');
-
-        IF @existingPrincipalType IS NOT NULL AND @existingPrincipalType <> 'E'
-            THROW 50000, 'A non-external-user database principal already uses the managed identity name.', 1;
-
-        IF @existingSid IS NOT NULL AND @existingSid <> @sid
-        BEGIN
-            DECLARE @dropCmd NVARCHAR(MAX) = N'DROP USER ' + QUOTENAME(@name);
-            EXEC (@dropCmd);
-            SET @existingSid = NULL;
-        END
-
-        IF @existingSid IS NULL
-        BEGIN
-            DECLARE @createCmd NVARCHAR(MAX) = N'CREATE USER ' + QUOTENAME(@name) + N' WITH SID = ' + @castId + N', TYPE = E;';
-            EXEC (@createCmd);
-        END
-
-        IF NOT EXISTS (
-            SELECT 1
-            FROM sys.database_role_members AS members
-            INNER JOIN sys.database_principals AS roles ON roles.principal_id = members.role_principal_id
-            INNER JOIN sys.database_principals AS principals ON principals.principal_id = members.member_principal_id
-            WHERE roles.name = N'db_owner' AND principals.name = @name)
-        BEGIN
-            DECLARE @roleCmd NVARCHAR(MAX) = N'ALTER ROLE db_owner ADD MEMBER ' + QUOTENAME(@name);
-            EXEC (@roleCmd);
-        END
-        """;
-
-    private const string ExecuteSqlCommand = """
-        $tokenResponse = Get-AzAccessToken -ResourceUrl "https://database.windows.net/"
-        $accessToken = if ($tokenResponse.Token -is [System.Security.SecureString]) {
-            [System.Net.NetworkCredential]::new("", $tokenResponse.Token).Password
-        } else {
-            $tokenResponse.Token
-        }
-
-        $connection = New-Object System.Data.SqlClient.SqlConnection
-        $connection.ConnectionString = $connectionString
-        $connection.AccessToken = $accessToken
-        $connection.Open()
-
-        $command = $connection.CreateCommand()
-        $command.CommandText = $sqlCmd
-        [void]$command.ExecuteNonQuery()
-        $command.Dispose()
-        $connection.Dispose()
-        """;
-
-    public override IEnumerable<Provisionable> ResolveResources(
-        IEnumerable<Provisionable> resources,
-        ProvisioningBuildOptions options)
-    {
-        foreach (var resource in resources.OfType<AzurePowerShellScript>())
-        {
-            var scriptContent = resource.ScriptContent.Value;
-            if (scriptContent is null || !scriptContent.Contains(InvokeSqlCommand, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            resource.ScriptContent.Assign(new BicepValue<string>(RewriteScriptContent(scriptContent)));
-        }
-
-        return base.ResolveResources(resources, options);
-    }
-
-    internal static string RewriteScriptContent(string scriptContent)
-    {
-        var rewritten = scriptContent.Replace(SqlConnectionString, SqlClientConnectionString, StringComparison.Ordinal);
-        rewritten = SqlServerModule.Replace(rewritten, string.Empty);
-
-        var executableSql = SqlComments.Replace(rewritten, " ");
-        if (CreateUser.Matches(executableSql).Count != LegacySqlBatch.Matches(rewritten).Count)
-        {
-            throw new InvalidOperationException("The generated Azure SQL role script has an unsupported CREATE USER batch.");
-        }
-
-        rewritten = LegacySqlBatch.Replace(rewritten, IdempotentSqlBatch);
-
-        return rewritten.Replace(InvokeSqlCommand, ExecuteSqlCommand, StringComparison.Ordinal);
-    }
-}
