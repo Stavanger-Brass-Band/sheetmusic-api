@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.4](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.3...v0.3.4) (2026-08-19)
+
+
+### Features
+
+* **users:** add profile picture API ([#380](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/380)) ([03093da](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/03093da8306f7291161deccc561c4237e3237f5e))
+* **users:** track last login time ([#379](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/379)) ([6970651](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/6970651fba8b0d101419ed5895336d7432faf1e4))
+
+
+### Bug Fixes
+
+* **sets:** always show Partitur ([#392](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/392)) ([fc34a19](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/fc34a19f529934c8f69aaa8169bce64264f9c3cf))
+
 ## [0.3.3](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.2...v0.3.3) (2026-08-17)
 
 
