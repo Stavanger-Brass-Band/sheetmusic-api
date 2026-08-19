@@ -420,14 +420,12 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         if (set is null)
             return NotFound(new ProblemDetails { Detail = $"Set '{setIdentifier}' was not found" });
 
-        if (string.IsNullOrEmpty(downloadToken) ||
-            !TryGetDownloadAuthorization(set.Id, downloadToken, out var authorization) ||
-            !TryConsumeDownloadToken(set.Id, downloadToken))
+        if (string.IsNullOrEmpty(downloadToken) || !TryConsumeDownloadToken(set.Id, downloadToken))
         {
             return new BadRequestObjectResult("Download token must be provided and valid");
         }
 
-        var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier, authorization.UserId), cancellationToken);
+        var zipStream = await mediator.Send(new GetPartsZipAsStream(setIdentifier), cancellationToken);
         await zipStream.FlushAsync(cancellationToken);
         zipStream.Position = 0;
 

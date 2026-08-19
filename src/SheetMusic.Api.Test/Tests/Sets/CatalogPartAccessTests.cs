@@ -143,7 +143,7 @@ public class CatalogPartAccessTests
         await using var zipContent = new MemoryStream(await zipResponse.Content.ReadAsByteArrayAsync());
         using var archive = new ZipArchive(zipContent, ZipArchiveMode.Read);
         archive.Entries.Select(entry => entry.Name).Should().BeEquivalentTo(
-            corpus.GroupSetVisiblePartNames.Select(name => $"{name}.pdf"));
+            corpus.GroupSetPartNames.Select(name => $"{name}.pdf"));
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class CatalogPartAccessTests
         zipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         await using var zipContent = new MemoryStream(await zipResponse.Content.ReadAsByteArrayAsync());
         using var archive = new ZipArchive(zipContent, ZipArchiveMode.Read);
-        archive.Entries.Select(entry => entry.Name).Should().Equal("Partitur.pdf");
+        archive.Entries.Select(entry => entry.Name).Should().BeEquivalentTo("Partitur.pdf", $"{corpus.OutOfGroupPartName}.pdf");
 
         using (var scope = factory.TestServices.CreateScope())
         {
@@ -273,7 +273,8 @@ public class CatalogPartAccessTests
             directPart.Id,
             partiturSet.Id,
             partitur.Id,
-            [groupPart.Name, secondGroupPart.Name, directPart.Name]);
+            outOfGroupPart.Name,
+            [groupPart.Name, secondGroupPart.Name, outOfGroupPart.Name, directPart.Name, nonIndexableDirectPart.Name, unassignedNullPart.Name]);
     }
 
     private static MusicPart Part(string name, InstrumentGroup? group, bool indexable) => new()
@@ -329,5 +330,6 @@ public class CatalogPartAccessTests
         Guid DirectPartId,
         Guid PartiturSetId,
         Guid PartiturPartId,
-        IReadOnlyList<string> GroupSetVisiblePartNames);
+        string OutOfGroupPartName,
+        IReadOnlyList<string> GroupSetPartNames);
 }
