@@ -16,6 +16,8 @@ namespace SheetMusic.Api.Users.Authorization;
 /// </summary>
 public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor httpContextAccessor)
 {
+    private const string PartiturName = "Partitur";
+
     /// <summary>Gets the current catalogue user's identifier.</summary>
     public Guid? CurrentUserId => GetUserId();
 
@@ -26,13 +28,16 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
             return sets;
 
         var userId = GetUserId();
-        if (!IsMusikant() || userId is null)
+        if (userId is null)
             return sets.Where(_ => false);
 
         var now = DateTime.UtcNow;
-        var permittedParts = FilterPartsForMusikant(db.SheetMusicParts, userId.Value);
+        var permittedParts = IsMusikant()
+            ? FilterPartsForMusikant(db.SheetMusicParts, userId.Value)
+            : db.SheetMusicParts.Where(_ => false);
 
         return sets.Where(set =>
+            set.Parts.Any(part => part.Part.Name == PartiturName) ||
             set.ProjectConnections.Any(connection =>
                 connection.Project.StartDate <= now && connection.Project.EndDate >= now) &&
             permittedParts.Any(part => part.SetId == set.Id));
@@ -45,10 +50,13 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
             return parts;
 
         var userId = GetUserId();
-        if (!IsMusikant() || userId is null)
+        if (userId is null)
             return parts.Where(_ => false);
 
-        return FilterPartsForMusikant(parts, userId.Value);
+        if (!IsMusikant())
+            return parts.Where(part => part.Part.Name == PartiturName);
+
+        return parts.Where(part => part.Part.Name == PartiturName).Union(FilterPartsForMusikant(parts, userId.Value));
     }
 
     /// <summary>Gets whether the current user can access the specified set.</summary>
@@ -65,6 +73,13 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
     /// <summary>Gets whether a user can currently access the specified part on a set.</summary>
     public async Task<bool> CanUserAccessPartAsync(Guid userId, Guid setId, Guid musicPartId, CancellationToken cancellationToken = default)
     {
+        if (await db.SheetMusicParts.AnyAsync(part =>
+            part.SetId == setId && part.MusicPartId == musicPartId && part.Part.Name == PartiturName,
+            cancellationToken))
+        {
+            return true;
+        }
+
         var roles = db.UserRoles
             .Where(userRole => userRole.UserId == userId)
             .Join(db.Roles, userRole => userRole.RoleId, role => role.Id, (_, role) => role.Name);
