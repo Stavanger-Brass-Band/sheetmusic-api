@@ -170,14 +170,23 @@ public class CatalogPartAccessTests
         var sets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
         var set = sets!.Single(item => item.Id == corpus.PartiturSetId);
         set.Parts!.Select(part => part.MusicPartId).Should().Equal(corpus.PartiturPartId);
+        var alwaysDisplaySet = sets!.Single(item => item.Id == corpus.AlwaysDisplaySetId);
+        alwaysDisplaySet.Parts!.Select(part => part.MusicPartId).Should().Equal(corpus.AlwaysDisplayPartId);
 
         (await client.GetAsync($"sheetmusic/sets/{corpus.PartiturSetId}/parts/{corpus.PartiturPartId}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.GetAsync($"sheetmusic/sets/{corpus.AlwaysDisplaySetId}/parts/{corpus.AlwaysDisplayPartId}")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await client.GetAsync($"sheetmusic/sets/{corpus.PartiturSetId}/parts/{corpus.OutOfGroupPartId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var alwaysDisplayTokenResponse = await client.GetAsync($"sheetmusic/sets/{corpus.AlwaysDisplaySetId}/zip/token");
+        alwaysDisplayTokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var alwaysDisplayToken = (await alwaysDisplayTokenResponse.Content.ReadAsStringAsync()).Trim('"');
+        var anonymousClient = factory.CreateClient();
+        (await anonymousClient.GetAsync($"sheetmusic/sets/{corpus.AlwaysDisplaySetId}/parts/{corpus.AlwaysDisplayPartId}/pdf?downloadToken={alwaysDisplayToken}"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
 
         var tokenResponse = await client.GetAsync($"sheetmusic/sets/{corpus.PartiturSetId}/zip/token");
         tokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var token = (await tokenResponse.Content.ReadAsStringAsync()).Trim('"');
-        var anonymousClient = factory.CreateClient();
         var zipResponse = await anonymousClient.GetAsync($"sheetmusic/sets/{corpus.PartiturSetId}/zip?downloadToken={token}");
         zipResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         await using var zipContent = new MemoryStream(await zipResponse.Content.ReadAsByteArrayAsync());
@@ -209,6 +218,7 @@ public class CatalogPartAccessTests
         var nonIndexableDirectPart = Part("Non-indexable direct", null, indexable: false);
         var unassignedNullPart = Part("Unassigned null group", null, indexable: true);
         var partitur = new MusicPart { Id = Guid.NewGuid(), Name = "Partitur", SortOrder = 1, Indexable = false };
+        var alwaysDisplayPart = new MusicPart { Id = Guid.NewGuid(), Name = "Alle stemmer", SortOrder = 1, Indexable = false, AlwaysDisplay = true };
 
         var groupSet = Set(1001, "Visible grouped set");
         var hiddenSet = Set(1002, "Hidden set");
@@ -216,6 +226,7 @@ public class CatalogPartAccessTests
         var inactiveSet = Set(1004, "Inactive grouped set");
         var directSet = Set(1005, "Visible direct set");
         var partiturSet = Set(1006, "Always visible Partitur set");
+        var alwaysDisplaySet = Set(1007, "Always visible Alle stemmer set");
         var activeProject = Project("Active", DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
         var inactiveProject = Project("Inactive", DateTime.UtcNow.AddDays(-3), DateTime.UtcNow.AddDays(-2));
 
@@ -230,8 +241,9 @@ public class CatalogPartAccessTests
             directPart,
             nonIndexableDirectPart,
             unassignedNullPart,
-            partitur);
-        await db.SheetMusicSets.AddRangeAsync(groupSet, hiddenSet, secondGroupSet, inactiveSet, directSet, partiturSet);
+            partitur,
+            alwaysDisplayPart);
+        await db.SheetMusicSets.AddRangeAsync(groupSet, hiddenSet, secondGroupSet, inactiveSet, directSet, partiturSet, alwaysDisplaySet);
         await db.Projects.AddRangeAsync(activeProject, inactiveProject);
         await db.SheetMusicParts.AddRangeAsync(
             SetPart(groupSet, groupPart),
@@ -245,7 +257,8 @@ public class CatalogPartAccessTests
             SetPart(inactiveSet, groupPart),
             SetPart(directSet, directPart),
             SetPart(partiturSet, partitur),
-            SetPart(partiturSet, outOfGroupPart));
+            SetPart(partiturSet, outOfGroupPart),
+            SetPart(alwaysDisplaySet, alwaysDisplayPart));
         await db.ProjectSheetMusicSets.AddRangeAsync(
             Connection(activeProject, groupSet),
             Connection(activeProject, hiddenSet),
@@ -273,6 +286,8 @@ public class CatalogPartAccessTests
             directPart.Id,
             partiturSet.Id,
             partitur.Id,
+            alwaysDisplaySet.Id,
+            alwaysDisplayPart.Id,
             outOfGroupPart.Name,
             [groupPart.Name, secondGroupPart.Name, outOfGroupPart.Name, directPart.Name, nonIndexableDirectPart.Name, unassignedNullPart.Name]);
     }
@@ -330,6 +345,8 @@ public class CatalogPartAccessTests
         Guid DirectPartId,
         Guid PartiturSetId,
         Guid PartiturPartId,
+        Guid AlwaysDisplaySetId,
+        Guid AlwaysDisplayPartId,
         string OutOfGroupPartName,
         IReadOnlyList<string> GroupSetPartNames);
 }

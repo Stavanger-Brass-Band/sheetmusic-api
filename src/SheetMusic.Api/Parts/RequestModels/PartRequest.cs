@@ -10,6 +10,8 @@ public class PartRequest
 
     public bool? Indexable { get; set; }
 
+    public bool? AlwaysDisplay { get; set; }
+
     public InstrumentGroup? InstrumentGroup { get; set; }
 
     public class Validator : AbstractValidator<PartRequest>

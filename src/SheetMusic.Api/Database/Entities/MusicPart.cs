@@ -11,6 +11,7 @@ public class MusicPart
     public string Name { get; set; } = null!;
     public int SortOrder { get; set; }
     public bool Indexable { get; set; }
+    public bool AlwaysDisplay { get; set; }
     [Column(TypeName = "varchar(50)")]
     public InstrumentGroup? InstrumentGroup { get; set; }
 

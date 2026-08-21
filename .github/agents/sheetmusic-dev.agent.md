@@ -122,11 +122,13 @@ After implementing any code changes:
 
 ## Issue Completion
 
+After completing an implementation:
+1. Commit the changes, push the feature branch, and create a pull request against `main` after all implementation, tests, and review requirements are complete.
+
 When implementing a GitHub issue:
 1. Check the issue body for todo items or acceptance criteria after implementation and validation.
 2. Mark completed todo items in the issue, leaving incomplete items unchecked with a short explanation.
-3. After all implementation, tests, and review requirements are complete, commit the changes, push the feature branch, and create a pull request against `main`.
-4. Include a closing reference such as `Closes #123` in every pull request body so GitHub links and closes the implemented issue when the pull request merges.
+3. Include a closing reference such as `Closes #123` in the pull request body so GitHub links and closes the issue when the pull request merges.
 
 ## Output
 

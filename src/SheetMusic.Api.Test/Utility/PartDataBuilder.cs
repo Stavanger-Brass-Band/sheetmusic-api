@@ -55,6 +55,7 @@ public class PartDataBuilder(HttpClient httpClient)
         apiPart?.Name.Should().Be(item.Name);
         apiPart?.SortOrder.Should().Be(item.SortOrder);
         apiPart?.Indexable.Should().Be(item.Indexable ?? false);
+        apiPart?.AlwaysDisplay.Should().Be(item.AlwaysDisplay ?? false);
         apiPart?.InstrumentGroup.Should().Be(item.InstrumentGroup);
     }
 }

@@ -29,6 +29,7 @@ internal static class FakerFactory
             .RuleFor(p => p.Name, f => $"{f.Lorem.Word()}-{f.UniqueIndex}")
             .RuleFor(p => p.SortOrder, f => f.Random.Int(1, 99))
             .RuleFor(p => p.Indexable, f => f.Random.Bool())
+            .RuleFor(p => p.AlwaysDisplay, f => f.Random.Bool())
             .RuleFor(p => p.InstrumentGroup, f => f.PickRandom<InstrumentGroup>());
 
         return faker;
