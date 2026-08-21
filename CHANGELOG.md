@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.5...v0.3.6) (2026-08-21)
+
+
+### Features
+
+* **users:** add authenticated musician roster ([#409](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/409)) ([ee56bf6](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/ee56bf63f89b251f7566216728fb03703afd9b99))
+
 ## [0.3.5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.4...v0.3.5) (2026-08-21)
 
 
