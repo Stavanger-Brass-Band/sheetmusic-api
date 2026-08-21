@@ -114,7 +114,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
-    public async Task Part_ShouldRoundTripInstrumentGroup_WhenCreatedAndUpdated()
+    public async Task Part_ShouldRoundTripInstrumentGroupAndAlwaysDisplay_WhenCreatedAndUpdated()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var createResponse = await adminClient.PostAsJsonAsync("parts", new
@@ -122,6 +122,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
             Name = $"instrument-group-{Guid.NewGuid():N}",
             SortOrder = 1,
             Indexable = true,
+            AlwaysDisplay = true,
             InstrumentGroup = "Horn og flygelhorn"
         });
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -131,12 +132,14 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var created = JsonSerializer.Deserialize<ApiPart>(responseBody, JsonDefaults.Options);
         created.Should().NotBeNull();
         created!.InstrumentGroup.Should().Be(InstrumentGroup.HornOgFlygelhorn);
+        created.AlwaysDisplay.Should().BeTrue();
 
         var updateResponse = await adminClient.PutAsJsonAsync($"parts/{created.Id}", new
         {
             created.Name,
             created.SortOrder,
             created.Indexable,
+            AlwaysDisplay = false,
             InstrumentGroup = "Euphonium og baryton"
         });
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -146,6 +149,7 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var getResponse = await adminClient.GetAsync($"parts/{created.Id}");
         var updated = await getResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
         updated!.InstrumentGroup.Should().Be(InstrumentGroup.EuphoniumOgBaryton);
+        updated.AlwaysDisplay.Should().BeFalse();
     }
 
     [Fact]
@@ -163,6 +167,32 @@ public class PartTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
         var part = await response.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
         part.Should().NotBeNull();
         part!.InstrumentGroup.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdatePart_ShouldPreserveAlwaysDisplay_WhenFieldIsOmitted()
+    {
+        var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
+        var createResponse = await adminClient.PostAsJsonAsync("parts", new
+        {
+            Name = $"always-display-{Guid.NewGuid():N}",
+            SortOrder = 1,
+            Indexable = true,
+            AlwaysDisplay = true
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+
+        var updateResponse = await adminClient.PutAsJsonAsync($"parts/{created!.Id}", new
+        {
+            created.Name,
+            created.SortOrder,
+            created.Indexable,
+            created.InstrumentGroup
+        });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ApiPart>(JsonDefaults.Options);
+        updated!.AlwaysDisplay.Should().BeTrue();
     }
 
     [Fact]

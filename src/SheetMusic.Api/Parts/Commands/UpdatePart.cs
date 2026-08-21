@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Parts.Commands;
 
-public class UpdatePart(Guid partId, string name, int sortOrder, bool indexable, InstrumentGroup? instrumentGroup) : IRequest
+public class UpdatePart(Guid partId, string name, int sortOrder, bool indexable, bool alwaysDisplay, InstrumentGroup? instrumentGroup) : IRequest
 {
     public Guid PartId { get; } = partId;
 
@@ -16,6 +16,7 @@ public class UpdatePart(Guid partId, string name, int sortOrder, bool indexable,
     public int SortOrder { get; } = sortOrder;
 
     public bool Indexable { get; } = indexable;
+    public bool AlwaysDisplay { get; } = alwaysDisplay;
     public InstrumentGroup? InstrumentGroup { get; } = instrumentGroup;
 
     public class Handler(SheetMusicContext db, IMediator mediator) : IRequestHandler<UpdatePart>
@@ -31,6 +32,7 @@ public class UpdatePart(Guid partId, string name, int sortOrder, bool indexable,
             existingPart.Name = request.Name;
             existingPart.SortOrder = request.SortOrder;
             existingPart.Indexable = request.Indexable;
+            existingPart.AlwaysDisplay = request.AlwaysDisplay;
             existingPart.InstrumentGroup = request.InstrumentGroup;
 
             if (db.ChangeTracker.HasChanges())

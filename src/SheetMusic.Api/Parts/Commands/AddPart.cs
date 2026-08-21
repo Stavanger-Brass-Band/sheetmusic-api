@@ -10,11 +10,12 @@ using System.Threading.Tasks;
 
 namespace SheetMusic.Api.Parts.Commands;
 
-public class AddPart(string name, int sortOrder, bool indexable, InstrumentGroup? instrumentGroup) : IRequest<MusicPart>
+public class AddPart(string name, int sortOrder, bool indexable, bool alwaysDisplay, InstrumentGroup? instrumentGroup) : IRequest<MusicPart>
 {
     public string Name { get; } = name;
     public int SortOrder { get; } = sortOrder;
     public bool Indexable { get; } = indexable;
+    public bool AlwaysDisplay { get; } = alwaysDisplay;
     public InstrumentGroup? InstrumentGroup { get; } = instrumentGroup;
 
     public class Handler(SheetMusicContext db) : IRequestHandler<AddPart, MusicPart>
@@ -29,6 +30,7 @@ public class AddPart(string name, int sortOrder, bool indexable, InstrumentGroup
                 Id = Guid.NewGuid(),
                 Name = request.Name,
                 Indexable = request.Indexable,
+                AlwaysDisplay = request.AlwaysDisplay,
                 SortOrder = request.SortOrder,
                 InstrumentGroup = request.InstrumentGroup
             };

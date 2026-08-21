@@ -104,7 +104,7 @@ public class PartsController(IMediator mediator) : ControllerBase
     [HttpPost("parts")]
     public async Task<ActionResult<ApiPart>> AddNewPart(PartRequest request)
     {
-        var command = new AddPart(request.Name, request.SortOrder, request.Indexable ?? true, request.InstrumentGroup);
+        var command = new AddPart(request.Name, request.SortOrder, request.Indexable ?? false, request.AlwaysDisplay ?? false, request.InstrumentGroup);
         var part = await mediator.Send(command);
 
         if (part is null)
@@ -151,7 +151,7 @@ public class PartsController(IMediator mediator) : ControllerBase
         if (part is null)
             return NotFound(new ProblemDetails { Detail = $"Part '{partIdentifier}' not found" });
 
-        var command = new UpdatePart(part.Id, request.Name, request.SortOrder, request.Indexable.GetValueOrDefault(false), request.InstrumentGroup);
+        var command = new UpdatePart(part.Id, request.Name, request.SortOrder, request.Indexable.GetValueOrDefault(false), request.AlwaysDisplay ?? part.AlwaysDisplay, request.InstrumentGroup);
         await mediator.Send(command);
 
         part = await mediator.Send(new GetMusicPart(partIdentifier));

@@ -37,7 +37,7 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
             : db.SheetMusicParts.Where(_ => false);
 
         return sets.Where(set =>
-            set.Parts.Any(part => part.Part.Name == PartiturName) ||
+            set.Parts.Any(part => part.Part.AlwaysDisplay || part.Part.Name == PartiturName) ||
             set.ProjectConnections.Any(connection =>
                 connection.Project.StartDate <= now && connection.Project.EndDate >= now) &&
             permittedParts.Any(part => part.SetId == set.Id));
@@ -54,9 +54,9 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
             return parts.Where(_ => false);
 
         if (!IsMusikant())
-            return parts.Where(part => part.Part.Name == PartiturName);
+            return parts.Where(part => part.Part.AlwaysDisplay || part.Part.Name == PartiturName);
 
-        return parts.Where(part => part.Part.Name == PartiturName).Union(FilterPartsForMusikant(parts, userId.Value));
+        return parts.Where(part => part.Part.AlwaysDisplay || part.Part.Name == PartiturName).Union(FilterPartsForMusikant(parts, userId.Value));
     }
 
     /// <summary>Gets whether the current user can access the specified set.</summary>
@@ -74,7 +74,7 @@ public class CatalogAccessService(SheetMusicContext db, IHttpContextAccessor htt
     public async Task<bool> CanUserAccessPartAsync(Guid userId, Guid setId, Guid musicPartId, CancellationToken cancellationToken = default)
     {
         if (await db.SheetMusicParts.AnyAsync(part =>
-            part.SetId == setId && part.MusicPartId == musicPartId && part.Part.Name == PartiturName,
+            part.SetId == setId && part.MusicPartId == musicPartId && (part.Part.AlwaysDisplay || part.Part.Name == PartiturName),
             cancellationToken))
         {
             return true;
