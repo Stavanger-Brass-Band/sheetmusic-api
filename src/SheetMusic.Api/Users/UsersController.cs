@@ -30,6 +30,7 @@ namespace SheetMusic.Api.Users;
 [ApiVersion("2.0")]
 [Authorize]
 [ApiController]
+[Produces("application/json")]
 public class UsersController(UserManager<ApplicationUser> userManager, IMediator mediator, IOptions<IdentityOptions> identityOptions) : ControllerBase
 {
     /// <summary>
@@ -185,6 +186,19 @@ public class UsersController(UserManager<ApplicationUser> userManager, IMediator
         var requirements = await mediator.Send(new GetPasswordRequirements());
 
         return Ok(requirements);
+    }
+
+    /// <summary>
+    /// Get the active musician roster with assigned roles, available to authenticated members.
+    /// </summary>
+    /// <param name="cancellationToken">The token used to cancel the request.</param>
+    /// <response code="200">A privacy-reduced list of active musicians with assigned parts and roles</response>
+    /// <response code="401">Authorization header is invalid or missing</response>
+    [HttpGet("musicians")]
+    public async Task<ActionResult<IReadOnlyList<ApiMusician>>> GetMusiciansAsync(CancellationToken cancellationToken)
+    {
+        var musicians = await mediator.Send(new GetMusicianCollection(), cancellationToken);
+        return Ok(musicians.Select(musician => new ApiMusician(musician.Musician, musician.Roles)).ToList());
     }
 
     /// <summary>
