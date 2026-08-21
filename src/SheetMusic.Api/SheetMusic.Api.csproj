@@ -16,8 +16,8 @@
 		<PackageReference Include="Asp.Versioning.Abstractions" Version="10.2.1" />
 		<PackageReference Include="Asp.Versioning.Mvc" Version="10.2.1" />
 		<PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
-		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.5.0" />
-		<PackageReference Include="Aspire.Azure.AI.Inference" Version="13.5.0-preview.1.26417.10" />
+		<PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.5.1" />
+		<PackageReference Include="Aspire.Azure.AI.Inference" Version="13.5.1-preview.1.26420.4" />
 		<PackageReference Include="Azure.AI.DocumentIntelligence" Version="1.0.0" />
 		<PackageReference Include="Aspire.Azure.Search.Documents" Version="13.5.1" />
 		<!-- Microsoft.Data.SqlClient's transitive Azure.Identity is too old to understand Aspire's
