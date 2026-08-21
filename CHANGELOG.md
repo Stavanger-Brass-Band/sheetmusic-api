@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.5](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.4...v0.3.5) (2026-08-21)
+
+
+### Features
+
+* **parts:** add always-display visibility ([#408](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/408)) ([efb60fa](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/efb60fa4f7c19e2b5b3274088521d267070d7e2d))
+
+
+### Bug Fixes
+
+* **apphost:** remove SQL role provisioning workaround ([#395](https://github.com/Stavanger-Brass-Band/sheetmusic-api/issues/395)) ([3f84442](https://github.com/Stavanger-Brass-Band/sheetmusic-api/commit/3f84442c5bd5b329d6fb1660fddc980a9fae57c5))
+
 ## [0.3.4](https://github.com/Stavanger-Brass-Band/sheetmusic-api/compare/v0.3.3...v0.3.4) (2026-08-19)
 
 
