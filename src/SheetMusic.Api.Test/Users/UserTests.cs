@@ -324,6 +324,89 @@ public class UserTests(SheetMusicWebAppFactory factory) : IClassFixture<SheetMus
     }
 
     [Fact]
+    public async Task V2_GetMusicians_ShouldReturnReducedActiveRoster_WhenAuthenticated()
+    {
+        var activeUserId = Guid.NewGuid();
+        var legacyUserId = Guid.NewGuid();
+        var inactiveUserId = Guid.NewGuid();
+        var unassignedUserId = Guid.NewGuid();
+        var firstPart = new MusicPart { Id = Guid.NewGuid(), Name = "Roster first part", Indexable = true, SortOrder = 1 };
+        var secondPart = new MusicPart { Id = Guid.NewGuid(), Name = "Roster second part", Indexable = true, SortOrder = 2 };
+
+        using (var scope = factory.TestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SheetMusicContext>();
+            await db.MusicParts.AddRangeAsync(firstPart, secondPart);
+
+            var activeUser = new ApplicationUser
+            {
+                Id = activeUserId,
+                DisplayName = "Active roster musician",
+                UserName = "active-roster@example.com",
+                Email = "active-roster@example.com",
+                Inactive = false,
+                LastLoginAt = DateTimeOffset.UtcNow,
+                ProfilePictureVersion = Guid.NewGuid()
+            };
+            var inactiveUser = new ApplicationUser { Id = inactiveUserId, DisplayName = "Inactive roster musician", UserName = "inactive-roster@example.com", Inactive = true };
+            var unassignedUser = new ApplicationUser { Id = unassignedUserId, DisplayName = "Unassigned roster musician", UserName = "unassigned-roster@example.com", Inactive = false };
+            var legacyUser = new ApplicationUser { Id = legacyUserId, UserName = "legacy-roster@example.com", Inactive = false };
+            var activeMusician = new Musician { Id = Guid.NewGuid(), ApplicationUserId = activeUserId, ApplicationUser = activeUser };
+            var inactiveMusician = new Musician { Id = Guid.NewGuid(), ApplicationUserId = inactiveUserId, ApplicationUser = inactiveUser };
+            var legacyMusician = new Musician { Id = Guid.NewGuid(), Name = "Legacy roster musician", ApplicationUserId = legacyUserId, ApplicationUser = legacyUser };
+
+            await db.Users.AddRangeAsync(activeUser, legacyUser, inactiveUser, unassignedUser);
+            await db.UserRoles.AddAsync(new IdentityUserRole<Guid>
+            {
+                UserId = activeUserId,
+                RoleId = db.Roles.Single(role => role.Name == Roles.Musikant).Id
+            });
+            await db.UserRoles.AddAsync(new IdentityUserRole<Guid>
+            {
+                UserId = activeUserId,
+                RoleId = db.Roles.Single(role => role.Name == Roles.Arkivleser).Id
+            });
+            await db.Musicians.AddRangeAsync(activeMusician, legacyMusician, inactiveMusician, new Musician { Id = Guid.NewGuid(), ApplicationUserId = unassignedUserId, ApplicationUser = unassignedUser });
+            await db.Set<MusicianMusicPart>().AddRangeAsync(
+                new MusicianMusicPart { Id = Guid.NewGuid(), Musician = activeMusician, MusicPart = firstPart },
+                new MusicianMusicPart { Id = Guid.NewGuid(), Musician = activeMusician, MusicPart = secondPart },
+                new MusicianMusicPart { Id = Guid.NewGuid(), Musician = legacyMusician, MusicPart = firstPart },
+                new MusicianMusicPart { Id = Guid.NewGuid(), Musician = inactiveMusician, MusicPart = firstPart });
+            await db.SaveChangesAsync();
+        }
+
+        var client = CreateV2ClientWithTestToken(TestUser.Testesen);
+        var response = await client.GetAsync("musicians");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var roster = document.RootElement.EnumerateArray().ToList();
+        var activeRosterEntry = roster.Single(musician => musician.GetProperty("id").GetGuid() == activeUserId);
+        activeRosterEntry.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(["id", "name", "profilePicture", "parts", "roles"]);
+        activeRosterEntry.TryGetProperty("email", out _).Should().BeFalse();
+        activeRosterEntry.TryGetProperty("lastLoginAt", out _).Should().BeFalse();
+        activeRosterEntry.TryGetProperty("inactive", out _).Should().BeFalse();
+        activeRosterEntry.GetProperty("name").GetString().Should().Be("Active roster musician");
+        activeRosterEntry.GetProperty("profilePicture").GetProperty("version").ValueKind.Should().Be(JsonValueKind.String);
+        activeRosterEntry.GetProperty("parts").EnumerateArray().Select(part => part.GetProperty("id").GetGuid()).Should().Equal(firstPart.Id, secondPart.Id);
+        activeRosterEntry.GetProperty("roles").EnumerateArray().Select(role => role.GetString()).Should().BeEquivalentTo([Roles.Musikant, Roles.Arkivleser]);
+        var legacyRosterEntry = roster.Single(musician => musician.GetProperty("id").GetGuid() == legacyUserId);
+        legacyRosterEntry.GetProperty("name").GetString().Should().Be("Legacy roster musician");
+        legacyRosterEntry.GetProperty("roles").EnumerateArray().Should().BeEmpty();
+        roster.Should().NotContain(musician => musician.GetProperty("id").GetGuid() == inactiveUserId || musician.GetProperty("id").GetGuid() == unassignedUserId);
+    }
+
+    [Fact]
+    public async Task V2_GetMusicians_ShouldReturnUnauthorized_WhenAnonymous()
+    {
+        var client = CreateV2Client();
+
+        var response = await client.GetAsync("musicians");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task V2_GetUsers_ShouldIncludeLastLoginAt_InCollectionDetailAndMeResponses()
     {
         var expectedLastLoginAt = DateTimeOffset.UtcNow.AddMinutes(-1);
