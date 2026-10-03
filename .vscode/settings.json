@@ -22,5 +22,6 @@
         "git merge-base": true,
         "az": true,
         "aspire": true
-    }
+    },
+    "chat.newSession.defaultMode": "Squad"
 }
