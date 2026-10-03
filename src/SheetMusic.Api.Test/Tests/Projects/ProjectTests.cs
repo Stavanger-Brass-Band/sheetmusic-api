@@ -136,7 +136,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
     }
 
     [Fact]
-    public async Task GetCatalogResources_ShouldRespectActiveProjectScope_ForMusikantArkivleserAndProsjektleder()
+    public async Task GetCatalogResources_ShouldListAllSetsAndRestrictContent_ForMusikantArkivleserAndProsjektleder()
     {
         var adminClient = factory.CreateClientWithTestToken(TestUser.Administrator);
         var activeProject = new
@@ -156,6 +156,7 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
 
         var activeSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
         var inactiveSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
+        var unassignedSet = await new SetDataBuilder(adminClient).ProvisionSingleSetAsync();
         await adminClient.PostAsJsonAsync($"projects/{activeProject.Name}/sets", new { SetIdentifiers = new[] { activeSet.Id.ToString() } });
         await adminClient.PostAsJsonAsync($"projects/{inactiveProject.Name}/sets", new { SetIdentifiers = new[] { inactiveSet.Id.ToString() } });
 
@@ -172,7 +173,8 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
             db.MusicParts.Add(assignedPart);
             db.SheetMusicParts.AddRange(
                 new SheetMusicPart { Id = Guid.NewGuid(), SetId = activeSet.Id, MusicPartId = assignedPart.Id },
-                new SheetMusicPart { Id = Guid.NewGuid(), SetId = inactiveSet.Id, MusicPartId = assignedPart.Id });
+                new SheetMusicPart { Id = Guid.NewGuid(), SetId = inactiveSet.Id, MusicPartId = assignedPart.Id },
+                new SheetMusicPart { Id = Guid.NewGuid(), SetId = unassignedSet.Id, MusicPartId = assignedPart.Id });
             db.Set<MusicianMusicPart>().Add(new MusicianMusicPart
             {
                 Id = Guid.NewGuid(),
@@ -188,8 +190,31 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         musikantProjects.Should().NotContain(project => project.Name == inactiveProject.Name);
         var musikantSets = await musikantClient.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
         musikantSets!.Should().Contain(set => set.Id == activeSet.Id);
-        musikantSets.Should().NotContain(set => set.Id == inactiveSet.Id);
+        musikantSets.Should().Contain(set => set.Id == inactiveSet.Id);
+        musikantSets.Should().Contain(set => set.Id == unassignedSet.Id);
+        var administratorSets = await adminClient.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
+        musikantSets.Select(set => set.Id).Should().BeEquivalentTo(administratorSets!.Select(set => set.Id));
+        var expandedSets = await musikantClient.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts,projects", JsonDefaults.Options);
+        foreach (var restrictedSetId in new[] { inactiveSet.Id, unassignedSet.Id })
+        {
+            var listedSet = musikantSets.Single(set => set.Id == restrictedSetId);
+            listedSet.ZipDownloadUrl.Should().BeEmpty();
+            listedSet.PartsUrl.Should().BeEmpty();
+            var expandedSet = expandedSets!.Single(set => set.Id == restrictedSetId);
+            expandedSet.Parts.Should().BeEmpty();
+            expandedSet.Projects.Should().BeEmpty();
+            (await musikantClient.GetAsync($"sheetmusic/sets/{restrictedSetId}/parts")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            (await musikantClient.GetAsync($"sheetmusic/sets/{restrictedSetId}/zip/token")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        var activeListedSet = expandedSets!.Single(set => set.Id == activeSet.Id);
+        activeListedSet.ZipDownloadUrl.Should().NotBeNullOrEmpty();
+        activeListedSet.PartsUrl.Should().NotBeNullOrEmpty();
+        activeListedSet.Parts.Should().ContainSingle();
+        var assignedPartId = activeListedSet.Parts!.Single().MusicPartId;
+        (await musikantClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}/parts/{assignedPartId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await musikantClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}/parts/{assignedPartId}/pdf?downloadToken=invalid")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await musikantClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await musikantClient.GetAsync($"sheetmusic/sets/{unassignedSet.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await musikantClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}/zip/token")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         var activeTokenResponse = await musikantClient.GetAsync($"sheetmusic/sets/{activeSet.Id}/zip/token");
         activeTokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -211,7 +236,6 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         (await arkivleserClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await arkivleserClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}/zip/token")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var administratorSets = await adminClient.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
         administratorSets!.Should().Contain(set => set.Id == inactiveSet.Id);
         var dualRoleClient = factory.CreateClientWithTestToken(TestUser.Testesen);
         (await dualRoleClient.GetAsync($"sheetmusic/sets/{inactiveSet.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -220,6 +244,9 @@ public class ProjectTests(SheetMusicWebAppFactory factory) : IClassFixture<Sheet
         var prosjektlederProjects = await noCatalogAccessClient.GetFromJsonAsync<List<ApiProject>>("projects", JsonDefaults.Options);
         prosjektlederProjects!.Should().Contain(project => project.Name == activeProject.Name);
         prosjektlederProjects.Should().Contain(project => project.Name == inactiveProject.Name);
+        var prosjektlederSets = await noCatalogAccessClient.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
+        prosjektlederSets!.Select(set => set.Id).Should().BeEquivalentTo(administratorSets.Select(set => set.Id));
+        (await factory.CreateClient().GetAsync("sheetmusic/sets")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await noCatalogAccessClient.GetAsync($"sheetmusic/sets/{activeSet.Id}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
