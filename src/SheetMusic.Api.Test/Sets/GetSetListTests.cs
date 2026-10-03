@@ -712,7 +712,11 @@ public class GetSetListTests(SheetMusicWebAppFactory factory) : IClassFixture<Sh
 
         var prosjektlederClient = factory.CreateClientWithTestToken(TestUser.Prosjektleder);
         var prosjektlederItems = await GetSetsAsync(prosjektlederClient, $"{Search(set.Title!)}&$expand=projects&api-version={apiVersion}");
-        prosjektlederItems.Should().BeEmpty();
+        prosjektlederItems.Should().ContainSingle();
+        prosjektlederItems[0].Id.Should().Be(set.Id);
+        prosjektlederItems[0].ZipDownloadUrl.Should().BeEmpty();
+        prosjektlederItems[0].PartsUrl.Should().BeEmpty();
+        prosjektlederItems[0].Projects.Should().BeEquivalentTo(adminProjects);
     }
 
     [Fact]
