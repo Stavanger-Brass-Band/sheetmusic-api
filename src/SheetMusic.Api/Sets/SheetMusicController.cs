@@ -42,8 +42,8 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
     private static readonly object DownloadTokenLock = new();
 
     /// <summary>
-    /// Gets complete list of sheet music sets, optionally expanding parts or projects, or the ones matching <paramref name="queryParams.Search"/> if provided.
-    /// Use ZipDownloadUrl for complete parts download and PartsUrl to list parts.
+    /// Gets the archive list for every authenticated role, optionally expanding authorized parts or projects, or matching <paramref name="queryParams.Search"/> if provided.
+    /// Content access remains restricted; ZipDownloadUrl and PartsUrl are empty for sets the caller cannot access.
     /// </summary>
     /// <param name="queryParams">Optional. OData support for $filter and $expand=parts,projects</param>
     /// <param name="category">Optional. Filter sets by category, identified by guid or name</param>
@@ -83,16 +83,17 @@ public class SheetMusicController(IBlobClient blobClient, IMemoryCache memoryCac
         }
 
         var matchingSets = await mediator.Send(new GetSets(queryParams, categoryId, expandProjects), cancellationToken);
+        var accessibleSetIds = await catalogAccess.GetAccessibleSetIdsAsync(matchingSets.Select(set => set.Id), cancellationToken);
         var accessiblePartIds = expandParts
             ? await catalogAccess.GetAccessiblePartIdsAsync(matchingSets.Select(set => set.Id), cancellationToken)
             : [];
 
         var transformed = matchingSets.Select(s => new ApiSet(s)
             {
-                ZipDownloadUrl = $"{BaseUrl}/sets/{s.Id}/zip",
-                PartsUrl = $"{BaseUrl}/sets/{s.Id}/parts",
+                ZipDownloadUrl = accessibleSetIds.Contains(s.Id) ? $"{BaseUrl}/sets/{s.Id}/zip" : string.Empty,
+                PartsUrl = accessibleSetIds.Contains(s.Id) ? $"{BaseUrl}/sets/{s.Id}/parts" : string.Empty,
                 Parts = expandParts ?
-                    s.Parts.Where(part => accessiblePartIds.Contains(part.Id)).Select(p => new ApiSheetMusicPart(p)
+                    s.Parts.Where(part => accessibleSetIds.Contains(s.Id) && accessiblePartIds.Contains(part.Id)).Select(p => new ApiSheetMusicPart(p)
                     {
                         PdfDownloadUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}/pdf",
                         DeletePartUrl = $"{BaseUrl}/sets/{p.SetId}/parts/{p.MusicPartId}"

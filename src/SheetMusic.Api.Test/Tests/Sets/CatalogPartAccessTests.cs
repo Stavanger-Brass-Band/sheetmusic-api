@@ -23,25 +23,43 @@ namespace SheetMusic.Api.Test.Tests.Sets;
 public class CatalogPartAccessTests
 {
     [Fact]
-    public async Task GetCatalogue_ShouldFilterSetsAndParts_WhenUserIsMusikantOnly()
+    public async Task GetCatalogue_ShouldListAllSetsAndFilterParts_WhenUserIsMusikantOnly()
     {
         using var factory = new SheetMusicWebAppFactory();
         var corpus = await SeedCatalogueAsync(factory);
         var client = factory.CreateClientWithTestToken(TestUser.Musikant);
 
         var pagedSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$top=2", JsonDefaults.Options);
-        pagedSets!.Select(set => set.Id).Should().Equal(corpus.GroupSetId, corpus.SecondGroupSetId);
+        pagedSets!.Select(set => set.Id).Should().Equal(corpus.GroupSetId, corpus.HiddenSetId);
         var skippedSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$skip=1&$top=1", JsonDefaults.Options);
-        skippedSets!.Select(set => set.Id).Should().Equal(corpus.SecondGroupSetId);
+        skippedSets!.Select(set => set.Id).Should().Equal(corpus.HiddenSetId);
 
         var expandedSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
         expandedSets!.Select(set => set.Id).Should().BeEquivalentTo([
             corpus.GroupSetId,
+            corpus.HiddenSetId,
             corpus.SecondGroupSetId,
+            corpus.InactiveSetId,
             corpus.DirectSetId,
             corpus.PartiturSetId,
             corpus.AlwaysDisplaySetId
         ]);
+        foreach (var restrictedSet in expandedSets!.Where(set => set.Id == corpus.HiddenSetId || set.Id == corpus.InactiveSetId))
+        {
+            restrictedSet.ZipDownloadUrl.Should().BeEmpty();
+            restrictedSet.PartsUrl.Should().BeEmpty();
+            restrictedSet.Parts.Should().NotBeNull().And.BeEmpty();
+        }
+        foreach (var accessibleSet in expandedSets!.Where(set => set.Id != corpus.HiddenSetId && set.Id != corpus.InactiveSetId))
+        {
+            accessibleSet.ZipDownloadUrl.Should().EndWith($"/sheetmusic/sets/{accessibleSet.Id}/zip");
+            accessibleSet.PartsUrl.Should().EndWith($"/sheetmusic/sets/{accessibleSet.Id}/parts");
+            accessibleSet.Parts.Should().NotBeNull().And.NotBeEmpty();
+        }
+        expandedSets!.Single(set => set.Id == corpus.PartiturSetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.PartiturPartId);
+        expandedSets!.Single(set => set.Id == corpus.AlwaysDisplaySetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.AlwaysDisplayPartId);
         var expandedGroupSet = expandedSets!.Single(set => set.Id == corpus.GroupSetId);
         expandedGroupSet.Parts!.Select(part => part.MusicPartId).Should().BeEquivalentTo([
             corpus.GroupPartId,
@@ -70,8 +88,24 @@ public class CatalogPartAccessTests
         var corpus = await SeedCatalogueAsync(factory);
         var client = factory.CreateClientWithTestToken(TestUser.Musikant);
 
-        var initialSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
-        initialSets!.Select(set => set.Id).Should().Contain(corpus.DirectSetId).And.NotContain(corpus.HiddenSetId);
+        var initialSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
+        initialSets!.Select(set => set.Id).Should().BeEquivalentTo([
+            corpus.GroupSetId,
+            corpus.HiddenSetId,
+            corpus.SecondGroupSetId,
+            corpus.InactiveSetId,
+            corpus.DirectSetId,
+            corpus.PartiturSetId,
+            corpus.AlwaysDisplaySetId
+        ]);
+        var initialDirectSet = initialSets!.Single(set => set.Id == corpus.DirectSetId);
+        initialDirectSet.Parts!.Select(part => part.MusicPartId).Should().Equal(corpus.DirectPartId);
+        initialDirectSet.ZipDownloadUrl.Should().EndWith($"/sheetmusic/sets/{corpus.DirectSetId}/zip");
+        initialDirectSet.PartsUrl.Should().EndWith($"/sheetmusic/sets/{corpus.DirectSetId}/parts");
+        var initialHiddenSet = initialSets!.Single(set => set.Id == corpus.HiddenSetId);
+        initialHiddenSet.Parts.Should().NotBeNull().And.BeEmpty();
+        initialHiddenSet.ZipDownloadUrl.Should().BeEmpty();
+        initialHiddenSet.PartsUrl.Should().BeEmpty();
 
         using (var scope = factory.TestServices.CreateScope())
         {
@@ -83,8 +117,16 @@ public class CatalogPartAccessTests
             await db.SaveChangesAsync();
         }
 
-        var changedSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
-        changedSets!.Select(set => set.Id).Should().Contain(corpus.HiddenSetId).And.NotContain(corpus.DirectSetId);
+        var changedSets = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
+        changedSets!.Select(set => set.Id).Should().BeEquivalentTo(initialSets!.Select(set => set.Id));
+        var changedHiddenSet = changedSets!.Single(set => set.Id == corpus.HiddenSetId);
+        changedHiddenSet.Parts!.Select(part => part.MusicPartId).Should().Equal(corpus.OutOfGroupPartId);
+        changedHiddenSet.ZipDownloadUrl.Should().EndWith($"/sheetmusic/sets/{corpus.HiddenSetId}/zip");
+        changedHiddenSet.PartsUrl.Should().EndWith($"/sheetmusic/sets/{corpus.HiddenSetId}/parts");
+        var changedDirectSet = changedSets!.Single(set => set.Id == corpus.DirectSetId);
+        changedDirectSet.Parts.Should().NotBeNull().And.BeEmpty();
+        changedDirectSet.ZipDownloadUrl.Should().BeEmpty();
+        changedDirectSet.PartsUrl.Should().BeEmpty();
 
         using (var scope = factory.TestServices.CreateScope())
         {
@@ -96,20 +138,39 @@ public class CatalogPartAccessTests
             await db.SaveChangesAsync();
         }
 
-        var setsWithoutAssignments = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
-        setsWithoutAssignments!.Select(set => set.Id).Should().BeEquivalentTo([corpus.PartiturSetId, corpus.AlwaysDisplaySetId]);
+        var setsWithoutAssignments = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
+        setsWithoutAssignments!.Select(set => set.Id).Should().BeEquivalentTo(initialSets!.Select(set => set.Id));
+        foreach (var restrictedSet in setsWithoutAssignments!.Where(set => set.Id != corpus.PartiturSetId && set.Id != corpus.AlwaysDisplaySetId))
+        {
+            restrictedSet.ZipDownloadUrl.Should().BeEmpty();
+            restrictedSet.PartsUrl.Should().BeEmpty();
+            restrictedSet.Parts.Should().NotBeNull().And.BeEmpty();
+        }
+        setsWithoutAssignments!.Single(set => set.Id == corpus.PartiturSetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.PartiturPartId);
+        setsWithoutAssignments!.Single(set => set.Id == corpus.AlwaysDisplaySetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.AlwaysDisplayPartId);
         (await client.GetAsync($"sheetmusic/sets/{corpus.HiddenSetId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
-    public async Task GetCatalogue_ShouldReturnNoAccess_WhenLinkedMusicianIsMissing()
+    public async Task GetCatalogue_ShouldListMetadataWithoutRestrictedContent_WhenLinkedMusicianIsMissing()
     {
         using var factory = new SheetMusicWebAppFactory();
         var corpus = await SeedCatalogueAsync(factory);
         var client = factory.CreateClientWithTestToken(TestUser.Musikant);
 
-        var setsWithMusician = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
-        setsWithMusician!.Select(set => set.Id).Should().Contain(corpus.GroupSetId);
+        var setsWithMusician = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
+        setsWithMusician!.Select(set => set.Id).Should().BeEquivalentTo([
+            corpus.GroupSetId,
+            corpus.HiddenSetId,
+            corpus.SecondGroupSetId,
+            corpus.InactiveSetId,
+            corpus.DirectSetId,
+            corpus.PartiturSetId,
+            corpus.AlwaysDisplaySetId
+        ]);
+        setsWithMusician!.Single(set => set.Id == corpus.GroupSetId).Parts.Should().NotBeNull().And.NotBeEmpty();
 
         using (var scope = factory.TestServices.CreateScope())
         {
@@ -120,8 +181,18 @@ public class CatalogPartAccessTests
             (await db.Musicians.AnyAsync(item => item.ApplicationUserId == TestUser.Musikant.Identifier)).Should().BeFalse();
         }
 
-        var setsWithoutMusician = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets", JsonDefaults.Options);
-    setsWithoutMusician!.Select(set => set.Id).Should().BeEquivalentTo([corpus.PartiturSetId, corpus.AlwaysDisplaySetId]);
+        var setsWithoutMusician = await client.GetFromJsonAsync<List<ApiSet>>("sheetmusic/sets?$expand=parts", JsonDefaults.Options);
+        setsWithoutMusician!.Select(set => set.Id).Should().BeEquivalentTo(setsWithMusician!.Select(set => set.Id));
+        foreach (var restrictedSet in setsWithoutMusician!.Where(set => set.Id != corpus.PartiturSetId && set.Id != corpus.AlwaysDisplaySetId))
+        {
+            restrictedSet.ZipDownloadUrl.Should().BeEmpty();
+            restrictedSet.PartsUrl.Should().BeEmpty();
+            restrictedSet.Parts.Should().NotBeNull().And.BeEmpty();
+        }
+        setsWithoutMusician!.Single(set => set.Id == corpus.PartiturSetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.PartiturPartId);
+        setsWithoutMusician!.Single(set => set.Id == corpus.AlwaysDisplaySetId).Parts!.Select(part => part.MusicPartId)
+            .Should().Equal(corpus.AlwaysDisplayPartId);
         (await client.GetAsync($"sheetmusic/sets/{corpus.GroupSetId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
