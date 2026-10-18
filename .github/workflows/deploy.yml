@@ -18,8 +18,9 @@ permissions:
 jobs:
   # Test and production now share one Azure environment/resource group and one Aspire deployment state
   # (issue #246) instead of two independent `aspire deploy --environment` invocations - that's what lets
-  # Search, the SQL server, the ACR, the ACA environment, and Log Analytics each be provisioned exactly
-  # once rather than duplicated (or needing hand-created "existing" references) per environment.
+  # Search, the SQL server, the ACA environment, and Log Analytics each be provisioned exactly once
+  # rather than duplicated per environment. The container registry is the existing shared
+  # leifssharedacr in rg-common (referenced, not provisioned).
   # `aspire do <step>` targets only the named resource's provisioning step; its dependencies (shared
   # infra) run automatically, but the *other* app's container app/job is never touched.
   deploy-test:

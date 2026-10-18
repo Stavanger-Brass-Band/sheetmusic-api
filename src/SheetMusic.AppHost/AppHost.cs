@@ -1,7 +1,6 @@
 using Azure.Provisioning;
 using Azure.Core;
 using Azure.Provisioning.AppContainers;
-using Azure.Provisioning.ContainerRegistry;
 using Azure.Provisioning.CognitiveServices;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
@@ -119,14 +118,10 @@ var chatTest = foundryProject.AddModelDeployment("chat-test", FoundryModel.OpenA
 // workflow's "scale to zero for this deploy only" step (see deploy.yml) can still override it
 // temporarily via `Parameters__<name>`.
 
-// Single shared ACR (Basic SKU, issue #246): genuinely one registry now, since test and prod are one
-// deploy/resource group instead of two independent ones - no hand-created "existing" reference needed.
+// Uses the existing shared registry (leifssharedacr in rg-common) on publish instead of provisioning a
+// dedicated one. The deploying identity needs permission to assign AcrPull on that registry.
 var acr = builder.AddAzureContainerRegistry("acr")
-    .ConfigureInfrastructure(infrastructure =>
-    {
-        var registry = infrastructure.GetProvisionableResources().OfType<ContainerRegistryService>().Single();
-        registry.Sku = new ContainerRegistrySku { Name = ContainerRegistrySkuName.Basic };
-    });
+    .PublishAsExisting("leifssharedacr", "rg-common");
 
 // Log Analytics daily cap (issue #246): ingestion, not compute, is the line item most likely to quietly
 // exceed the cost of running the app itself. The default log level is already Warning (keep it) - this
