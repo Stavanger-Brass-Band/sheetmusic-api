@@ -68,8 +68,11 @@ jobs:
             aspire-deployments-
 
       # OIDC (issue #246): replaces the old publish-profile deploy, which Azure Container Apps does not
-      # support. Requires an app registration + federated credential trusting this repo - there is no
-      # code-only way to create that; see the deployment walkthrough.
+      # support. Authenticates as the user-assigned managed identity id-github-sheetmusic-api in rg-common
+      # (vars.AZURE_CLIENT_ID), via federated credentials for the test and prod environments. Its roles:
+      # Contributor + RBAC Administrator (cannot grant Owner/UAA/RBAC Admin) on sheet-music-aspire,
+      # Resource Group Deployment Operator on rg-common, and AcrPush + RBAC Administrator (AcrPull to
+      # service principals only) on leifssharedacr.
       - name: Azure login
         uses: azure/login@v3
         with:
@@ -156,7 +159,7 @@ jobs:
     # repo-level vars/secrets, not duplicated per environment), just its own frontend URL via this
     # environment's own `vars.EMAIL_FRONTEND_BASE_URL` and a different container app/job.
     # Name must be "prod", not "production" - it must match the Subject configured on the Azure AD
-    # app registration's federated identity credential exactly (repo:<owner>/<repo>:environment:prod).
+    # managed identity's federated credential exactly (repo:<owner>/<repo>:environment:prod).
     environment: prod
 
     steps:
