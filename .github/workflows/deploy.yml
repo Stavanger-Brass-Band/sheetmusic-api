@@ -35,7 +35,7 @@ jobs:
     environment: test
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET 10.0
         uses: actions/setup-dotnet@v6
@@ -159,7 +159,7 @@ jobs:
     environment: prod
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup .NET 10.0
         uses: actions/setup-dotnet@v6
