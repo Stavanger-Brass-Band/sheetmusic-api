@@ -1,13 +1,12 @@
-using Azure.Provisioning;
+using Aspire.Hosting.Dotnet;
+using Aspire.Hosting.Foundry;
 using Azure.Core;
+using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.CognitiveServices;
 using Azure.Provisioning.OperationalInsights;
 using Azure.Provisioning.Search;
 using Azure.Provisioning.Sql;
-using Azure.Provisioning.Resources;
-using Aspire.Hosting.Foundry;
-using Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -38,13 +37,20 @@ var testDb = sql.AddDatabase("SheetMusicContextTest");
 // ConfigureInfrastructure (it isn't an AzureProvisioningResource) - only the parent server resource does
 // - so the prod database's generated SqlDatabase is picked out of the shared server's bicep resources by
 // its BicepIdentifier, the same normalized name Aspire itself assigns each database from its resource key.
-// Test keeps the default free-limit SKU and its auto-pause so it can idle down when unused.
+// Test keeps the default free-limit SKU so it can idle down when unused, but uses BillOverUsage to match
+// the deployed database: Azure rejects changing FreeLimitExhaustionBehavior from BillOverUsage to AutoPause.
 sql.ConfigureInfrastructure(infrastructure =>
 {
-    var prodDatabase = infrastructure.GetProvisionableResources().OfType<SqlDatabase>()
+    var databases = infrastructure.GetProvisionableResources().OfType<SqlDatabase>().ToList();
+
+    var prodDatabase = databases
         .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContext"));
     prodDatabase.Sku = new SqlSku { Name = "Basic", Tier = "Basic" };
     prodDatabase.UseFreeLimit = false;
+
+    var testDatabase = databases
+        .Single(database => database.BicepIdentifier == Infrastructure.NormalizeBicepIdentifier("SheetMusicContextTest"));
+    testDatabase.FreeLimitExhaustionBehavior = FreeLimitExhaustionBehavior.BillOverUsage;
 });
 
 var storage = builder.AddAzureStorage("storage")
@@ -145,7 +151,7 @@ var computeEnvironment = builder.AddAzureContainerAppEnvironment("sheetmusic-aca
 // from clobbering each other (issue #236) on the one shared Search service above. `minReplicas`/
 // `maxReplicas` are this app's real steady-state scale (see "Scale rules" above). `frontendBaseUrl` is
 // this app's own frontend deployment (test and prod are different URLs - see the parameters above).
-IResourceBuilder<ProjectResource> AddApi(
+IResourceBuilder<DotnetProjectResource> AddApi(
     string name,
     IResourceBuilder<IResourceWithConnectionString> database,
     string searchIndexPrefix,
@@ -160,7 +166,7 @@ IResourceBuilder<ProjectResource> AddApi(
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
 
-    var project = builder.AddProject<Projects.SheetMusic_Api>(name)
+    var project = builder.AddDotnetProject(name, "./SheetMusic.Api")
         // connectionName fixed to "SheetMusicContext" (not the database resource's own name): Program.cs
         // always reads ConnectionStrings:SheetMusicContext, but the test database resource is named
         // "SheetMusicContextTest" - without this override the test app/job would get an env var named
@@ -251,7 +257,7 @@ IResourceBuilder<ProjectResource> AddApi(
 //   instead of a second long-running service.
 void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString> database, string blobContainerName, string dataProtectionContainerName)
 {
-    builder.AddProject<Projects.SheetMusic_Api>(name)
+    builder.AddDotnetProject(name, "./SheetMusic.Api")
         // Same fixed connectionName override as AddApi above, for the same reason.
         .WithReference(database, connectionName: "SheetMusicContext")
         .WaitFor(database)

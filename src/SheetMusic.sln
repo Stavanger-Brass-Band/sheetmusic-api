@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29020.237
+# Visual Studio Version 18
+VisualStudioVersion = 18.12.12405.243 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SheetMusic.Api", "SheetMusic.Api\SheetMusic.Api.csproj", "{92BEC895-B284-42E8-A15D-82694CC9645C}"
 EndProject
@@ -69,7 +69,7 @@ Global
 		{8C99CC28-EFD3-4EB1-8239-99B058FE4756}.Release|x64.Build.0 = Release|Any CPU
 		{8C99CC28-EFD3-4EB1-8239-99B058FE4756}.Release|x86.ActiveCfg = Release|Any CPU
 		{8C99CC28-EFD3-4EB1-8239-99B058FE4756}.Release|x86.Build.0 = Release|Any CPU
-		{BD9AE978-8FC9-4F26-B650-E98F18B8E757}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
