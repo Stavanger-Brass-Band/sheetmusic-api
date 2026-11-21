@@ -166,7 +166,7 @@ IResourceBuilder<DotnetProjectResource> AddApi(
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
 
-    var project = builder.AddDotnetProject(name, "./SheetMusic.Api")
+    var project = builder.AddDotnetProject(name, "../SheetMusic.Api/SheetMusic.Api.csproj")
         // connectionName fixed to "SheetMusicContext" (not the database resource's own name): Program.cs
         // always reads ConnectionStrings:SheetMusicContext, but the test database resource is named
         // "SheetMusicContextTest" - without this override the test app/job would get an env var named
@@ -257,7 +257,7 @@ IResourceBuilder<DotnetProjectResource> AddApi(
 //   instead of a second long-running service.
 void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString> database, string blobContainerName, string dataProtectionContainerName)
 {
-    builder.AddDotnetProject(name, "./SheetMusic.Api")
+    builder.AddDotnetProject(name, "../SheetMusic.Api/SheetMusic.Api.csproj")
         // Same fixed connectionName override as AddApi above, for the same reason.
         .WithReference(database, connectionName: "SheetMusicContext")
         .WaitFor(database)
