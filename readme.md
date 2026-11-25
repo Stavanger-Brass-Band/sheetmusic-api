@@ -37,7 +37,7 @@ Each domain owns its own controller, `Commands/`, `Queries/`, `RequestModels/`, 
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [.NET 11 SDK](https://dotnet.microsoft.com/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or another Aspire-compatible container runtime) — used to run SQL Server and the Azurite storage emulator locally
 - The [Aspire CLI](https://learn.microsoft.com/dotnet/aspire/cli/overview) (`dotnet tool install -g Aspire.Cli` or `dotnet workload install aspire`), optional but recommended
 

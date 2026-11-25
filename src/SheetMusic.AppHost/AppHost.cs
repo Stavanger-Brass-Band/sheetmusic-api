@@ -161,7 +161,8 @@ IResourceBuilder<DotnetProjectResource> AddApi(
     IResourceBuilder<ParameterResource> ocrEndpoint,
     IResourceBuilder<FoundryDeploymentResource> chatDeployment,
     string blobContainerName,
-    string dataProtectionContainerName)
+    string dataProtectionContainerName,
+    (double Cpu, string Memory)? containerResources = null)
 {
     var minReplicasParameter = builder.AddParameter($"{name}-min-replicas", minReplicas.ToString());
     var maxReplicasParameter = builder.AddParameter($"{name}-max-replicas", maxReplicas.ToString());
@@ -226,6 +227,15 @@ IResourceBuilder<DotnetProjectResource> AddApi(
                 },
             });
 
+            if (containerResources is { } resources)
+            {
+                container.Resources = new AppContainerResources
+                {
+                    Cpu = resources.Cpu,
+                    Memory = resources.Memory,
+                };
+            }
+
             app.Template.Scale.MinReplicas = minReplicasParameter.AsProvisioningParameter(infrastructure);
             app.Template.Scale.MaxReplicas = maxReplicasParameter.AsProvisioningParameter(infrastructure);
         });
@@ -281,7 +291,9 @@ void AddMigrationJob(string name, IResourceBuilder<IResourceWithConnectionString
 // avoiding a second full API deployment and additional Foundry TPM usage.
 if (builder.ExecutionContext.IsPublishMode)
 {
-    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chat, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
+    // 0.25 vCPU / 0.5 GiB instead of Aspire's 0.5 / 1Gi default: the always-on replica is billed on
+    // allocated size even when idle, and observed peaks (~0.18 vCPU, ~415 MB working set) fit this tier.
+    var api = AddApi("sheetmusic-api", db, searchIndexPrefix: "", minReplicas: 1, maxReplicas: 3, frontendBaseUrl: emailFrontendBaseUrl, ocrEndpoint: documentIntelligenceEndpoint, chatDeployment: chat, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys", containerResources: (0.25, "0.5Gi"));
     AddMigrationJob("sheetmusic-api-migrate", db, blobContainerName: "sheet-music", dataProtectionContainerName: "data-protection-keys");
 }
 
