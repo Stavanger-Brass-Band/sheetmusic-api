@@ -1,3 +1,8 @@
 {
-  "agents": {}
+  "schema": "squad-agent-provenance/v1",
+  "schema_version": 1,
+  "revision": 1,
+  "generated_at": "2026-11-25T10:59:14.940Z",
+  "agents": {},
+  "transaction_id": "1c7bb344-298c-4236-b082-e7f45e466b37"
 }
